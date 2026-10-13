@@ -2,13 +2,15 @@
 
 One living list of flow-level cases. Walk all of it before every release. When you add or fix behaviour, add or change its case in the same pull request. There are no per-release QA files.
 
-**Last walk:** 2026-10-14, 0.1.0.
+**Last walk:** 2026-10-14, 0.1.0. Card QA on the lab (isolated Chromium; Playwright MCP still locked). Screenshots in `/tmp/roadmap-card-qa`.
 
-Walked in a browser on `emdash-lab-roadmap` (Playwright MCP was locked, so an isolated Chromium walk): G-1, G-2, G-3, M-1, M-2, M-3, M-8, Ideas, Settings, dashboard card, board at 1440 and 390, board in dark (kit tokens flip). Guest vote shows a sign-in link because guest voting is not built yet.
+Walked in a browser: G-1, G-2, G-3 (also after setting members), G-5 (site 404), M-1, M-2, M-3, M-8, A-8 (rename), A-9 (add hidden Declined and move Setup guide off the board), A-11 (who + email survive reload), Ideas empty queue, dashboard widget, board at 1440 / 1024 / 390, light and dark.
 
-Checked at route level only: G-7 (`vote` and `votes` 401), M-4 (missing item and a forged member id), tally equals `storage.count`, hourly vote limit.
+Checked at route level only: G-7, M-4, tally equals count, hourly vote limit.
 
-Not walked: G-4 to G-6, G-8 to G-12, M-5 to M-7, M-9, M-10, A-1 to A-7, A-8 to A-12 as actions (the Settings and Ideas screens were opened), P-3, P-4, P-5, 768 width.
+Not walked: G-4, G-6, G-8 to G-12, M-5 to M-7, M-9, M-10, A-1 to A-7, A-10 (remove-with-items after rename is unsafe to trust), A-12, P-5 keyboard, second same-role member.
+
+**Bounce:** renaming Under review to QA Review empties that column. Three live items disappear from the board. See the new Bugs card.
 
 When you walk it, replace that line with the date, the version, and three lists: cases walked in the browser, cases checked at route level only, cases not walked. Do not claim a case you did not run.
 
@@ -88,4 +90,6 @@ Three roles, in this order: guest (private window), member (subscriber), admin. 
 
 ## Known gaps
 
-None recorded yet. List anything a release ships without, here, in plain words.
+- Item page, changelog page, suggest, guest voting, and the ideas queue are not built yet. The seed menu Changelog link 404s.
+- Renaming a stage drops items that still store the old stage name. Filed as a bug after the 2026-10-14 Card QA walk.
+- This plugin has no `OWNER_INVENTORY.md`, `CORE_PATHS.md`, or `ROLE_MATRIX.md`. The contract is this checklist. Only one lab login exists, so two same-role members cannot be walked.

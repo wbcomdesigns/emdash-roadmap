@@ -35,8 +35,9 @@ npm test
 6. Board page and vote button
 7. Item page, suggest page, changelog page
 8. My votes and erase
-9. Lab, prove script, owner docs
-10. Registry branding and release gate
+9. Guest participation
+10. Lab, prove script, owner docs
+11. Registry branding and release gate
 
 Each card lists what to build, when it is UX ready, when it is function ready, and the QA cases that prove it. A card is done when all three hold and you have commented on it with what you verified and how. Take them in order: later cards assume earlier ones.
 
@@ -56,6 +57,7 @@ Each card lists what to build, when it is UX ready, when it is function ready, a
 - Status is a field on the entry, changed in the content admin. The plugin only reads it
 - Board pages are cached. Own-vote marks load in the browser from `votes`
 - Kit pages must not import starter-only files
+- Guest routes are public writes. Per-visitor limit, honeypot, length caps, and refuse when the host gives no IP. Never trust a visitor id from the request: derive it from the request's IP on the server
 
 ## When you stop
 

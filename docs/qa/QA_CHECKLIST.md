@@ -23,12 +23,15 @@ Three roles, in this order: guest (private window), member (subscriber), admin. 
 | --- | --- | --- |
 | G-1 | Open the roadmap | Four columns with items and vote counts |
 | G-2 | Filter by a product label | Only that product's items |
-| G-3 | Click a vote button signed out | Sign-in link. Count unchanged |
+| G-3 | Setting members: click a vote button signed out | Sign-in link. Count unchanged |
 | G-4 | Open an item page | Description, status, vote button |
 | G-5 | Open an item url that does not exist | 404 page with a 404 status |
 | G-6 | Open the changelog | Entries newest first, grouped by month |
 | G-7 | Request `vote`, `suggest`, `mine`, `votes` directly | 401 |
-| G-8 | Open the suggest page signed out | Sign-in prompt |
+| G-8 | Setting members: open the suggest page signed out | Sign-in prompt |
+| G-9 | Setting anyone: vote signed out, then click again | Count goes up by one, then back |
+| G-10 | Setting anyone: suggest an idea signed out with a name | Thanks message. It waits in the admin queue |
+| G-11 | Setting members: call `vote_guest` and `suggest_guest` directly | Refused |
 
 ## Member (subscriber role)
 
@@ -55,6 +58,7 @@ Three roles, in this order: guest (private window), member (subscriber), admin. 
 | A-4 | Load the page, member edits the idea, click Approve | Refused: changed after this page loaded |
 | A-5 | Move an item to Done in the content admin | It moves column on the board |
 | A-6 | Turn ideas off | The suggest page says ideas are closed. The route refuses |
+| A-7 | Open the queue with a guest idea waiting | It shows the guest's name and is marked as from a guest |
 
 ## Presentation, every screen
 

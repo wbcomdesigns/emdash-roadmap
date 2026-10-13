@@ -25,7 +25,7 @@ This plugin must work for any site owner, not one niche. Judge every screen and 
 | Docs or SaaS | The classic product roadmap and changelog |
 | Portfolio or agency | A client-facing project plan with status |
 
-**Member accounts:** Reading needs no account. Voting and suggesting need member sign-in today: see the open decision below.
+**Member accounts:** Works with or without member accounts. The owner chooses who can take part.
 
 How it stays general:
 
@@ -33,7 +33,7 @@ How it stays general:
 - "Product" is an optional free label. A site with one product or none ignores it
 - Page titles (Roadmap, Ideas, What's next) are set by the owner
 
-**Open decision for the owner: who can take part.** Most EmDash sites have no member sign-up. If this plugin only works for signed-in members, it does not work for those sites. The proposal is one setting, "Who can take part": signed-in members only, or anyone. "Anyone" means one entry per visitor (a salted hash of the IP, never the IP itself), an hourly limit per visitor, and for written content, always held for approval. Until the owner decides, build members-only exactly as written here, and keep the identity check in one place so the guest path can be added without touching the routes.
+**Decided by the owner on 2026-10-13: the site owner chooses who can take part.** One setting: signed-in members only, or anyone. For a guest: one entry per visitor, identified by a salted hash of the IP (never the IP itself, never a cookie the visitor can clear to vote again within the hour limit), an hourly limit per visitor, a honeypot field on every guest form, and written content always held for approval. Guests have no account, so they have no "My ..." list and cannot erase their entries themselves; the owner removes them in admin. If the host supplies no IP, every guest shares one bucket: refuse guest writes in that case and say why in the admin page. Member routes stay private routes using `routeCtx.user`. Guest routes are separate public routes: never merge the two paths.
 
 ## In scope for 0.1.0
 
@@ -46,6 +46,7 @@ How it stays general:
 - Admin: ideas queue (approve publishes it as Under review, reject), settings
 - Changelog: a second collection (`changelog`) with a kit page. No plugin logic
 - Drop-in `<MyVotes>` for an account page, with delete-my-votes
+- Setting "Who can take part": signed-in members only, or anyone. A guest gets one vote per visitor per item, and can suggest an idea with a display name. Ideas always wait for approval
 
 ## Out of scope
 
@@ -55,7 +56,6 @@ Do not build these. If a card seems to need one, stop and ask the owner.
 - Custom statuses
 - Merging duplicate ideas
 - Notifying voters when status changes
-- Guest voting
 - Private boards
 - Multiple boards
 - Importing from other tools
@@ -82,13 +82,14 @@ Ask for nothing more without the owner's agreement: every capability is shown to
 
 ### `votes`
 
-Row id: `<itemId>:<memberId>`. Indexes: `item`, `member_id`.
+Row id: `<itemId>:<memberId>`. A guest's vote id is `<itemId>:v-<visitorHash>`. Indexes: `item`, `member_id`.
 
 | Field | Type | Notes |
 | --- | --- | --- |
 | `item` | string | Roadmap entry id |
 | `member_id` | string | From `routeCtx.user.id` |
 | `createdAt` | string | ISO time |
+| `visitor` | string | Guests only: SHA-256 of the IP plus a per-site salt. Empty for members |
 
 ### `tallies`
 
@@ -109,6 +110,8 @@ Row id: `<itemId>`. Indexes: `status`, `member_id`, `createdAt`.
 | `status` | string | `pending`, `approved` or `rejected` |
 | `rev` | string | Random token. Moderation clicks must match it |
 | `createdAt` | string | ISO time |
+| `visitor` | string | Guests only, same hash |
+| `name` | string | Guest's display name, up to 60 characters |
 
 ## Settings
 
@@ -118,6 +121,7 @@ Row id: `<itemId>`. Indexes: `status`, `member_id`, `createdAt`.
 | `title` | string | `Roadmap` | Heading on the board page. The owner's own word for it |
 | `status_labels` | string | `Under review, Planned, In progress, Done` | Display names for the four statuses, in order. The statuses themselves are fixed |
 | `collection` | string | `roadmap` | Collection that holds the items |
+| `who` | string | `anyone` | `members` or `anyone` |
 
 ## Routes
 
@@ -131,6 +135,8 @@ Base: `/_emdash/api/plugins/roadmap/<name>`.
 | `vote` | member | POST, DELETE | `id` | New vote count for the item |
 | `suggest` | member | POST | `title`, `description` | Creates a draft item and a pending idea. Rate limited |
 | `mine` | member | GET, DELETE | - | GET: own votes and ideas with status. DELETE: erase own votes |
+| `vote_guest` | public | POST, DELETE | `id`, honeypot field | New vote count. Refused when the setting is members |
+| `suggest_guest` | public | POST | `title`, `description`, `name`, honeypot field | Creates a draft item and a pending idea. Refused when the setting is members |
 | `admin` | admin | POST | Block Kit | Ideas queue and settings |
 
 `member` means a private route with `permission: MEMBER`. `admin` means a private route with no permission set. A `public` route never receives a user.
@@ -182,3 +188,4 @@ A screen is done when every state listed here has been seen in a browser at 1440
 - Status is a field on the entry, changed in the content admin. The plugin only reads it
 - Board pages are cached. Own-vote marks load in the browser from `votes`
 - Kit pages must not import starter-only files
+- Guest routes are public writes. Per-visitor limit, honeypot, length caps, and refuse when the host gives no IP. Never trust a visitor id from the request: derive it from the request's IP on the server

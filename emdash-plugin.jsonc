@@ -1,0 +1,60 @@
+{
+	"$schema": "./node_modules/@emdash-cms/plugin-cli/schemas/emdash-plugin.schema.json",
+	"slug": "roadmap",
+	"name": "Roadmap and Feature Voting",
+	"keywords": [
+		"roadmap",
+		"feature requests",
+		"voting",
+		"changelog",
+		"feedback"
+	],
+	"publisher": "did:plc:2o6axbe264shvyedyhycyhya",
+	"license": "MIT",
+	"repo": "https://github.com/wbcomdesigns/emdash-roadmap",
+	"author": {
+		"name": "Wbcom Designs",
+		"url": "https://wbcomdesigns.com",
+		"email": "security@wbcomdesigns.com"
+	},
+	"security": {
+		"email": "security@wbcomdesigns.com"
+	},
+	"description": "A public roadmap where members vote on ideas and suggest their own, with a changelog for what shipped.",
+	"capabilities": [
+		"content:read",
+		"content:write",
+		"content:publish",
+		"schema:read"
+	],
+	"allowedHosts": [],
+	"storage": {
+		"votes": {
+			"indexes": [
+				"item",
+				"member_id"
+			]
+		},
+		"tallies": {
+			"indexes": [
+				"votes"
+			]
+		},
+		"ideas": {
+			"indexes": [
+				"status",
+				"member_id",
+				"createdAt"
+			]
+		}
+	},
+	"admin": {
+		"pages": [
+			{
+				"path": "/ideas",
+				"label": "Roadmap and Feature Voting",
+				"icon": "sparkle"
+			}
+		]
+	}
+}

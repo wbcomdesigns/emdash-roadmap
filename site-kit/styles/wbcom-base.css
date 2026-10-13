@@ -1,0 +1,168 @@
+/*
+ * Wbcom EmDash kit base. Shared by every Wbcom plugin kit: keep this file identical across
+ * plugins and change it in emdash-plugin-starter first.
+ * Wrap plugin markup in class="wb". Colours follow the site theme through light-dark().
+ */
+.wb {
+	--wb-fg: var(--color-text, light-dark(#1a1a1a, #f4f4f4));
+	--wb-muted: var(--color-text-secondary, light-dark(#555555, #c4c4c4));
+	--wb-border: var(--color-border, light-dark(#e0e0e0, #333333));
+	--wb-surface: var(--color-surface, light-dark(#f7f7f7, #1c1c1c));
+	--wb-brand: var(--color-brand, light-dark(#0066cc, #4d9fff));
+	--wb-on-brand: var(--color-on-brand, #ffffff);
+	--wb-star: light-dark(#b45309, #f5a623);
+	--wb-ok-bg: light-dark(#ecfdf5, #052e16);
+	--wb-ok-fg: light-dark(#166534, #86efac);
+	--wb-bad-bg: light-dark(#fef2f2, #3f0d0d);
+	--wb-bad-fg: light-dark(#b91c1c, #fca5a5);
+	--wb-gap: 1rem;
+	--wb-radius: 10px;
+	--wb-tap: 44px;
+	display: grid;
+	gap: calc(var(--wb-gap) * 1.5);
+	color: var(--wb-fg);
+}
+
+.wb *,
+.wb *::before,
+.wb *::after {
+	box-sizing: border-box;
+}
+
+.wb h2,
+.wb h3,
+.wb p {
+	margin: 0;
+}
+
+.wb-summary {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: baseline;
+	gap: 0.5rem;
+}
+
+.wb-muted {
+	color: var(--wb-muted);
+	font-size: 0.875rem;
+}
+
+.wb-list {
+	display: grid;
+	gap: var(--wb-gap);
+	margin: 0;
+	padding: 0;
+	list-style: none;
+}
+
+.wb-item,
+.wb-card,
+.wb-empty,
+.wb-form {
+	padding: var(--wb-gap);
+	border: 1px solid var(--wb-border);
+	border-radius: var(--wb-radius);
+}
+
+.wb-item {
+	display: grid;
+	gap: 0.35rem;
+}
+
+.wb-empty,
+.wb-form {
+	background: var(--wb-surface);
+}
+
+.wb-form {
+	display: grid;
+	gap: var(--wb-gap);
+}
+
+.wb-field {
+	display: grid;
+	gap: 0.35rem;
+}
+
+.wb-label {
+	font-weight: 600;
+}
+
+.wb-input {
+	width: 100%;
+	min-height: var(--wb-tap);
+	padding: 0.6rem 0.75rem;
+	border: 1px solid var(--wb-border);
+	border-radius: 6px;
+	background: var(--color-bg, light-dark(#ffffff, #121212));
+	color: inherit;
+	font: inherit;
+}
+
+textarea.wb-input {
+	min-height: 6.5rem;
+	resize: vertical;
+}
+
+.wb-btn {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	min-height: var(--wb-tap);
+	padding: 0 1.1rem;
+	border: 1px solid transparent;
+	border-radius: 8px;
+	background: var(--wb-brand);
+	color: var(--wb-on-brand);
+	font: inherit;
+	font-weight: 600;
+	cursor: pointer;
+}
+
+.wb-btn--quiet {
+	border-color: var(--wb-border);
+	background: transparent;
+	color: var(--wb-fg);
+}
+
+.wb-btn[aria-busy="true"] {
+	opacity: 0.6;
+	pointer-events: none;
+}
+
+.wb-input:focus-visible,
+.wb-btn:focus-visible,
+.wb a:focus-visible,
+.wb-focus-next:focus-visible + label {
+	outline: 2px solid var(--wb-brand);
+	outline-offset: 2px;
+}
+
+.wb-status {
+	padding: 0.75rem 1rem;
+	border-radius: 8px;
+	background: var(--wb-ok-bg);
+	color: var(--wb-ok-fg);
+}
+
+.wb-status[data-tone="error"] {
+	background: var(--wb-bad-bg);
+	color: var(--wb-bad-fg);
+}
+
+.wb-status a {
+	color: inherit;
+	font-weight: 600;
+}
+
+.wb-sr {
+	position: absolute;
+	width: 1px;
+	height: 1px;
+	margin: -1px;
+	padding: 0;
+	overflow: hidden;
+	clip: rect(0, 0, 0, 0);
+	white-space: nowrap;
+	border: 0;
+}

@@ -1,0 +1,44 @@
+{
+	"name": "@wbcomdesigns/emdash-roadmap",
+	"version": "0.1.0",
+	"private": true,
+	"type": "module",
+	"packageManager": "npm@10.9.8",
+	"main": "dist/index.mjs",
+	"exports": {
+		".": {
+			"import": "./dist/index.mjs",
+			"types": "./dist/index.d.mts"
+		},
+		"./sandbox": "./dist/plugin.mjs"
+	},
+	"files": [
+		"dist",
+		"emdash-plugin.jsonc",
+		"site-kit"
+	],
+	"lab": {
+		"port": 4335
+	},
+	"scripts": {
+		"validate": "emdash-plugin validate",
+		"build": "emdash-plugin build",
+		"typecheck": "tsc --noEmit",
+		"test": "emdash-plugin validate && tsc --noEmit && vitest run",
+		"bundle": "emdash-plugin bundle",
+		"publish": "emdash-plugin publish"
+	},
+	"peerDependencies": {
+		"emdash": ">=1.2.0"
+	},
+	"devDependencies": {
+		"@emdash-cms/plugin-cli": "0.13.3",
+		"@emdash-cms/plugin-test": "^0.2.8",
+		"astro": "^7.3.2",
+		"emdash": "^1.2.0",
+		"react": "19.2.4",
+		"react-dom": "19.2.4",
+		"typescript": "^5.9.0",
+		"vitest": "^4.1.0"
+	}
+}

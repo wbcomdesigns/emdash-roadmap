@@ -20,7 +20,13 @@
 	"security": {
 		"email": "security@wbcomdesigns.com"
 	},
-	"description": "A public roadmap where members vote on ideas and suggest their own, with a changelog for what shipped.",
+	"description": "A public roadmap where people vote on ideas and suggest their own, with a changelog for what shipped.",
+	"sections": {
+		"description": { "file": "./docs/registry/description.md" },
+		"installation": { "file": "./docs/registry/installation.md" },
+		"faq": { "file": "./docs/registry/faq.md" },
+		"changelog": { "file": "./docs/registry/changelog.md" }
+	},
 	"capabilities": [
 		"content:read",
 		"content:write",
@@ -109,7 +115,14 @@
 			},
 			"banner": {
 				"file": "./images/banner.png"
-			}
+			},
+			"screenshots": [
+				{ "file": "./images/screenshot-1-board.png" },
+				{ "file": "./images/screenshot-2-item.png" },
+				{ "file": "./images/screenshot-3-changelog.png" },
+				{ "file": "./images/screenshot-4-suggest.png" },
+				{ "file": "./images/screenshot-5-settings.png" }
+			]
 		}
 	}
 }

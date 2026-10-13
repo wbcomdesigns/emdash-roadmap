@@ -2,6 +2,7 @@ import type { PluginContext } from "emdash/plugin";
 
 import { EMAIL_RE } from "./core";
 import { countInStage, hasCollections, listRoadmapItems, patchStage, stageCounts } from "./content";
+import { approveIdea, listPendingIdeas, mergeItems, rejectIdea } from "./ideas";
 import { ensureNotifyTask } from "./notify";
 import {
 	addStage,
@@ -31,12 +32,48 @@ function failed(ctx: PluginContext, message: string) {
 	return renderSettings(ctx, { toast: { message, type: "error" } });
 }
 
+function whoLabel(idea: { name: string; visitor: string; member_id: string }): string {
+	if (idea.visitor) return idea.name ? `${idea.name} (guest)` : "Guest";
+	return idea.name || "Member";
+}
+
+function stamped(action: string, id: string, rev: string): string {
+	return `${action}|${rev}|${id}`;
+}
+
+function parseStamped(value: unknown): { action: string; rev: string; id: string } {
+	const [action = "", rev = "", ...rest] = asString(value).split("|");
+	return { action, rev, id: rest.join("|") };
+}
+
 export async function renderIdeas(
 	ctx: PluginContext,
 	extra?: Pick<BlockResponse, "toast">,
 ): Promise<BlockResponse> {
 	const collections = await hasCollections(ctx);
-	const waiting = await ctx.storage.ideas.count({ status: "pending" }).catch(() => 0);
+	const pending = await listPendingIdeas(ctx);
+	const items = (await listRoadmapItems(ctx)).filter((item) => item.published);
+	const keepOptions = items.length
+		? items.map((item) => ({ label: item.title, value: item.id }))
+		: [{ label: "No published items yet", value: "" }];
+	const sourceOptions = [
+		...pending.map((idea) => ({ label: `${idea.title} (waiting)`, value: `idea:${idea.id}:${idea.rev}` })),
+		...items.map((item) => ({ label: item.title, value: `item:${item.id}` })),
+	];
+	const rows = pending.map((idea) => ({
+		title: idea.title,
+		description: idea.description,
+		from: whoLabel(idea),
+		action: {
+			type: "menu",
+			action_id: "idea_mod",
+			label: "Decide",
+			items: [
+				{ label: "Approve", value: stamped("approve", idea.id, idea.rev) },
+				{ label: "Reject", value: stamped("reject", idea.id, idea.rev) },
+			],
+		},
+	}));
 	return {
 		blocks: [
 			{ type: "header", text: "Ideas" },
@@ -45,7 +82,7 @@ export async function renderIdeas(
 				fields: [
 					{ label: "Roadmap collection", value: collections.roadmap ? "Ready" : "Missing" },
 					{ label: "Changelog collection", value: collections.changelog ? "Ready" : "Missing" },
-					{ label: "Waiting", value: String(waiting) },
+					{ label: "Waiting", value: String(pending.length) },
 				],
 			},
 			...(!collections.roadmap
@@ -59,16 +96,48 @@ export async function renderIdeas(
 						},
 					]
 				: []),
-			waiting === 0
+			pending.length === 0
 				? {
 						type: "empty",
 						title: "No ideas waiting",
 						description: "Suggestions from the site wait here. Approve one to put it on the board.",
 					}
 				: {
-						type: "section",
-						text: `${waiting} ${waiting === 1 ? "idea is" : "ideas are"} waiting for a decision.`,
+						type: "table",
+						page_action_id: "ideas_page",
+						columns: [
+							{ key: "title", label: "Title" },
+							{ key: "description", label: "Description" },
+							{ key: "from", label: "From" },
+							{ key: "action", label: "Decision", format: "element" },
+						],
+						rows,
 					},
+			{ type: "header", text: "Merge a duplicate" },
+			...lines([
+				"Pick the item to drop and the item to keep. Votes move across, one per person. The dropped item is unpublished and its address redirects to the one you keep.",
+			]),
+			{
+				type: "form",
+				block_id: "merge_items",
+				fields: [
+					{
+						type: "select",
+						action_id: "source",
+						label: "Merge this item",
+						options: sourceOptions.length
+							? sourceOptions
+							: [{ label: "Nothing to merge yet", value: "" }],
+					},
+					{
+						type: "select",
+						action_id: "keep",
+						label: "Into this item",
+						options: keepOptions,
+					},
+				],
+				submit: { label: "Merge", action_id: "merge_items" },
+			},
 			{
 				type: "actions",
 				elements: [{ type: "link", label: "Settings", target: { kind: "plugin-page", path: "/settings" } }],
@@ -170,6 +239,7 @@ export async function renderSettings(
 			...lines([
 				"Allow suggestions: when on, people can send an idea. It always waits for you to approve it.",
 				"Who can vote and suggest: anyone, or signed-in members only. Anyone is the default.",
+				"Guest identity uses a trusted visitor address when the host supplies one. On hosting that does not, it falls back to a browser cookie, which is weaker: clearing the cookie lets someone vote again.",
 			]),
 			{
 				type: "form",
@@ -350,12 +420,39 @@ async function handleMoveItem(
 	const stageId = asString(values.stage);
 	const stage = findStage(settings.stages, stageId);
 	if (!id || !stage) return failed(ctx, "Pick an item and a stage.");
-	const result = await patchStage(ctx, id, stage.id);
+	const result = await patchStage(ctx, id, stage.name);
 	if (result.state === "missing") return failed(ctx, "That item is no longer there.");
 	if (result.state === "busy") {
 		return failed(ctx, "That item has unpublished edits. Publish or discard them, then move it.");
 	}
 	return saved(ctx, `Moved to ${stage.name}.`);
+}
+
+async function handleIdeaMod(ctx: PluginContext, value: unknown): Promise<BlockResponse> {
+	const { action, rev, id } = parseStamped(value);
+	if (action === "approve") {
+		const result = await approveIdea(ctx, id, rev);
+		if (!result.ok) return renderIdeas(ctx, { toast: { message: result.error, type: "error" } });
+		return renderIdeas(ctx, { toast: { message: "Idea published to the board.", type: "success" } });
+	}
+	if (action === "reject") {
+		const result = await rejectIdea(ctx, id, rev);
+		if (!result.ok) return renderIdeas(ctx, { toast: { message: result.error, type: "error" } });
+		return renderIdeas(ctx, { toast: { message: "Idea rejected. It stays a draft.", type: "info" } });
+	}
+	return renderIdeas(ctx, { toast: { message: "Unknown decision.", type: "error" } });
+}
+
+async function handleMerge(ctx: PluginContext, values: Record<string, unknown>): Promise<BlockResponse> {
+	const sourceRaw = asString(values.source);
+	const keep = asString(values.keep);
+	const ideaMatch = sourceRaw.match(/^idea:([^:]+):(.*)$/);
+	const itemMatch = sourceRaw.match(/^item:(.+)$/);
+	const sourceId = ideaMatch?.[1] || itemMatch?.[1] || sourceRaw;
+	const rev = ideaMatch?.[2] || "";
+	const result = await mergeItems(ctx, sourceId, keep, rev);
+	if (!result.ok) return renderIdeas(ctx, { toast: { message: result.error, type: "error" } });
+	return renderIdeas(ctx, { toast: { message: "Merged. Votes moved to the item you kept.", type: "success" } });
 }
 
 export async function handleAdmin(input: unknown, ctx: PluginContext): Promise<BlockResponse> {
@@ -371,11 +468,13 @@ export async function handleAdmin(input: unknown, ctx: PluginContext): Promise<B
 		if (action === "save_email") return saveEmail(ctx, values);
 		if (action === "add_stage") return handleAddStage(ctx, settings, values);
 		if (action === "move_item") return handleMoveItem(ctx, settings, values);
+		if (action === "merge_items") return handleMerge(ctx, values);
 		if (action.startsWith("save_stage:")) return handleStageSave(ctx, settings, action.slice(11), values);
 	}
 
 	if (type === "block_action") {
 		const settings = await loadSettings(ctx);
+		if (action === "idea_mod") return handleIdeaMod(ctx, raw.value);
 		if (action.startsWith("stage_up:")) return handleMoveStage(ctx, settings, action.slice(9), "up");
 		if (action.startsWith("stage_down:")) return handleMoveStage(ctx, settings, action.slice(11), "down");
 		if (action.startsWith("stage_remove:")) return handleRemoveStage(ctx, settings, action.slice(13));

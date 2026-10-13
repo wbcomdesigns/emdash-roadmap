@@ -67,6 +67,29 @@
 	color: var(--wb-on-brand);
 }
 
+.roadmap-links {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 0.75rem;
+}
+
+.roadmap-card a,
+.roadmap-links a,
+.roadmap-item a,
+.roadmap-month a {
+	color: inherit;
+}
+
+.roadmap-item,
+.roadmap-month {
+	display: grid;
+	gap: 0.75rem;
+}
+
+.roadmap-item__body {
+	white-space: pre-wrap;
+}
+
 @media (min-width: 768px) {
 	.roadmap-tabs {
 		display: none;

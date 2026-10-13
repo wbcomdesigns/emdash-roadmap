@@ -1,0 +1,58 @@
+---
+import { getEmDashEntry, getSeoMeta, getSiteSettings } from "emdash";
+import Layout from "../../layouts/RoadmapLayout.astro";
+import { strings } from "../../lib/roadmap-strings";
+import "../../styles/wbcom-base.css";
+import "../../styles/roadmap.css";
+
+const slug = Astro.params.slug || "";
+const settings = await getSiteSettings();
+const { entry, cacheHint } = slug ? await getEmDashEntry("changelog", slug) : { entry: null, cacheHint: undefined };
+if (Astro.cache?.enabled && cacheHint) Astro.cache.set(cacheHint);
+
+const live = Boolean(entry);
+if (!live) Astro.response.status = 404;
+
+const seo = live
+	? getSeoMeta(entry, {
+			siteTitle: settings?.title || strings.changelogTitle,
+			siteUrl: Astro.url.origin,
+			path: Astro.url.pathname.replace(/\/$/, ""),
+		})
+	: {
+			title: strings.releaseMissingTitle,
+			description: strings.releaseMissingHint,
+			canonical: null,
+			ogTitle: strings.releaseMissingTitle,
+			ogImage: null,
+		};
+
+const title = live ? String(entry.data.title || "") : strings.releaseMissingTitle;
+const summary = live ? String(entry.data.summary || "") : "";
+---
+
+<Layout
+	title={seo.title || title}
+	pageTitle={seo.ogTitle || title}
+	description={seo.description}
+	canonical={seo.canonical}
+	image={seo.ogImage}
+	content={live ? { collection: "changelog", id: String(entry.data.id || ""), slug } : undefined}
+>
+	<div class="wb roadmap">
+		<p><a href="/changelog/">{strings.backToChangelog}</a></p>
+		{
+			!live ? (
+				<div class="wb-empty">
+					<h1>{strings.releaseMissingTitle}</h1>
+					<p>{strings.releaseMissingHint}</p>
+				</div>
+			) : (
+				<article class="roadmap-item">
+					<h1>{title}</h1>
+					{summary ? <p class="roadmap-item__body">{summary}</p> : null}
+				</article>
+			)
+		}
+	</div>
+</Layout>

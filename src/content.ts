@@ -150,6 +150,29 @@ export async function hasCollections(ctx: PluginContext): Promise<{ roadmap: boo
 	return { roadmap, changelog };
 }
 
+export async function getItem(ctx: PluginContext, id: string) {
+	const collection = await collectionName(ctx);
+	return ctx.content?.get?.(collection, id).catch(() => null) ?? null;
+}
+
+export async function publishNow(ctx: PluginContext, id: string): Promise<boolean> {
+	const collection = await collectionName(ctx);
+	if (!ctx.content?.getVersioned || !ctx.content.publish) return false;
+	const versioned = await ctx.content.getVersioned(collection, id);
+	if (!versioned) return false;
+	await ctx.content.publish(collection, id, { _rev: versioned._rev });
+	return true;
+}
+
+export async function unpublishNow(ctx: PluginContext, id: string): Promise<boolean> {
+	const collection = await collectionName(ctx);
+	if (!ctx.content?.getVersioned || !ctx.content.unpublish) return false;
+	const versioned = await ctx.content.getVersioned(collection, id);
+	if (!versioned) return false;
+	await ctx.content.unpublish(collection, id, { _rev: versioned._rev });
+	return true;
+}
+
 /** Change the stage on an item and keep a published item live. */
 export async function patchStage(
 	ctx: PluginContext,

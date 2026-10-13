@@ -48,6 +48,19 @@ export function nowIso(): string {
 	return new Date().toISOString();
 }
 
+/** Strip markup so an approved idea shows as plain text. */
+export function plainText(value: unknown, max: number): string {
+	return asString(value)
+		.replace(/<[^>]+>/g, " ")
+		.replace(/&nbsp;/gi, " ")
+		.replace(/&amp;/gi, "&")
+		.replace(/&lt;/gi, "<")
+		.replace(/&gt;/gi, ">")
+		.replace(/\s+/g, " ")
+		.trim()
+		.slice(0, max);
+}
+
 export type Row = Record<string, unknown> & { id: string };
 
 /** Flatten a storage query result into plain rows carrying their id. */

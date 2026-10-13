@@ -13,6 +13,14 @@ export const RATE_LIMITED = {
 	ok: false,
 	error: { code: "RATE_LIMITED", message: "Too many requests. Try again in an hour." },
 };
+export const MEMBERS_ONLY = { ok: false, error: { code: "MEMBERS_ONLY", message: "Sign in to continue." } };
+export const SPAM = { ok: false, error: { code: "SPAM", message: "That request was not accepted." } };
+export const NO_VISITOR = { ok: false, error: { code: "NO_VISITOR", message: "Could not identify this visitor." } };
+export const IDEAS_CLOSED = { ok: false, error: { code: "IDEAS_CLOSED", message: "Suggestions are closed." } };
+export const INVALID = { ok: false, error: { code: "INVALID", message: "Check the form and try again." } };
+export const STALE = { ok: false, error: { code: "STALE", message: "That idea changed after this page loaded." } };
+export const NAME_REQUIRED = { ok: false, error: { code: "NAME_REQUIRED", message: "Give a name." } };
+export const FAILED = { ok: false, error: { code: "FAILED", message: "Something went wrong. Try again." } };
 
 export const ROADMAP = "roadmap";
 export const CHANGELOG = "changelog";

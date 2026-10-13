@@ -2,15 +2,13 @@
 
 One living list of flow-level cases. Walk all of it before every release. When you add or fix behaviour, add or change its case in the same pull request. There are no per-release QA files.
 
-**Last walk:** 2026-10-14, 0.1.0. Card QA on the lab (isolated Chromium; Playwright MCP still locked). Screenshots in `/tmp/roadmap-card-qa`.
+**Last walk:** 2026-10-14, 0.1.0. Isolated Chromium against `emdash-lab-roadmap` on port 4335. Screenshots in `/tmp/roadmap-card-qa` and `images/`.
 
-Walked in a browser: G-1, G-2, G-3 (also after setting members), G-5 (site 404), M-1, M-2, M-3, M-8, A-8 (rename), A-9 (add hidden Declined and move Setup guide off the board), A-11 (who + email survive reload), Ideas empty queue, dashboard widget, board at 1440 / 1024 / 390, light and dark.
+Walked in a browser: G-1, G-2, G-4, G-5, G-6, G-9, G-10, G-12, M-1, M-2, M-3, M-5, M-8, A-1 (queue with guest mark Sam (guest)), A-11, board at 1440 and 390, light and dark.
 
-Checked at route level only: G-7, M-4, tally equals count, hourly vote limit.
+Checked at route level only: G-7, G-11, M-4, M-6, M-7, A-2 (approve published to the board), A-3, A-4, A-8 (rename Under review to QA Review kept the three seeded items), A-9, A-10, A-12, merge votes 3+5-1=7, guest honeypot and members-only, prove-lab.
 
-Not walked: G-4, G-6, G-8 to G-12, M-5 to M-7, M-9, M-10, A-1 to A-7, A-10 (remove-with-items after rename is unsafe to trust), A-12, P-5 keyboard, second same-role member.
-
-**Bounce:** renaming Under review to QA Review empties that column. Three live items disappear from the board. See the new Bugs card.
+Not walked: G-8 (members-only suggest prompt in the browser; route refused), M-9, M-10 (0.2.0), A-6 (ideas off in the browser; route refused), A-7 as a separate admin click after A-1 already showed the guest row, P-5 keyboard, second same-role member, hourly email firing on its own on the lab.
 
 When you walk it, replace that line with the date, the version, and three lists: cases walked in the browser, cases checked at route level only, cases not walked. Do not claim a case you did not run.
 
@@ -90,6 +88,7 @@ Three roles, in this order: guest (private window), member (subscriber), admin. 
 
 ## Known gaps
 
-- Item page, changelog page, suggest, guest voting, and the ideas queue are not built yet. The seed menu Changelog link 404s.
-- Renaming a stage drops items that still store the old stage name. Filed as a bug after the 2026-10-14 Card QA walk.
+- My votes (`<MyVotes>`) is 0.2.0. M-9 and M-10 stay parked.
+- The in-text Roadmap block (#18) needs a trusted install. The registry install is the whole product without it.
 - This plugin has no `OWNER_INVENTORY.md`, `CORE_PATHS.md`, or `ROLE_MATRIX.md`. The contract is this checklist. Only one lab login exists, so two same-role members cannot be walked.
+- Hourly email is proven in tests, not seen firing on its own on the lab.

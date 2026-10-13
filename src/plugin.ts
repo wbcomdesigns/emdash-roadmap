@@ -4,8 +4,9 @@ import { handleAdmin } from "./admin";
 import { loadBoard } from "./content";
 import { CHANGELOG, MEMBER, ROADMAP, hasCollection } from "./core";
 import { ensureNotifyTask, notifyOwners } from "./notify";
-import { seedDefaults } from "./settings";
-import { handleVote, listMyVotes } from "./vote";
+import { loadSettings, seedDefaults } from "./settings";
+import { handleSuggest, handleSuggestGuest } from "./suggest";
+import { handleVote, handleVoteGuest, listMyVotes } from "./vote";
 
 const plugin: SandboxedPlugin = {
 	hooks: {
@@ -36,6 +37,7 @@ const plugin: SandboxedPlugin = {
 		health: {
 			public: true,
 			handler: async (_routeCtx, ctx) => {
+				const settings = await loadSettings(ctx);
 				const [roadmap, changelog] = await Promise.all([
 					hasCollection(ctx, ROADMAP),
 					hasCollection(ctx, CHANGELOG),
@@ -46,6 +48,8 @@ const plugin: SandboxedPlugin = {
 					version: ctx.plugin.version,
 					collection: roadmap,
 					changelog,
+					allowIdeas: settings.allowIdeas,
+					who: settings.who,
 				};
 			},
 		},
@@ -58,6 +62,21 @@ const plugin: SandboxedPlugin = {
 			permission: MEMBER,
 			methods: ["GET"],
 			handler: listMyVotes,
+		},
+		vote_guest: {
+			public: true,
+			methods: ["POST", "DELETE"],
+			handler: handleVoteGuest,
+		},
+		suggest: {
+			permission: MEMBER,
+			methods: ["POST"],
+			handler: handleSuggest,
+		},
+		suggest_guest: {
+			public: true,
+			methods: ["POST"],
+			handler: handleSuggestGuest,
 		},
 		admin: {
 			handler: async (routeCtx, ctx) => handleAdmin(routeCtx.input, ctx),

@@ -13,7 +13,7 @@ json "$API/health" | grep -q '"ok":true' || fail "health"
 ok "health"
 
 # Member and admin routes must refuse guests. List every such route here.
-GUEST_REFUSED_ROUTES="${GUEST_REFUSED_ROUTES:-vote votes}"
+GUEST_REFUSED_ROUTES="${GUEST_REFUSED_ROUTES:-vote votes suggest}"
 for route in $GUEST_REFUSED_ROUTES; do
 	[[ "$(status "$API/$route")" == "401" ]] || fail "guest refused on $route"
 done
@@ -61,5 +61,40 @@ echo "$UNVOTED" | grep -q '"votes":0' || fail "vote count after take back"
 MISSING="$(curl -s -b "$JAR" -H "X-EmDash-Request: 1" -H "Origin: $BASE" -X POST -H "Content-Type: application/json" -d '{"id":"no-such-item"}' "$API/vote")"
 echo "$MISSING" | grep -q "NOT_FOUND" || fail "missing item refused"
 ok "member can vote, take it back, and a missing item is refused"
+
+json "$API/health" | grep -q '"allowIdeas"' || fail "health who"
+ok "health reports who can take part"
+
+SUGGEST="$(json -b "$JAR" -X POST -H "Content-Type: application/json" -d '{"title":"QA-RFT lab idea","description":"From prove-lab."}' "$API/suggest")"
+echo "$SUGGEST" | grep -q '"ok":true' || fail "member suggest"
+echo "$SUGGEST" | grep -q '"THANKS"\|"ok":true' || fail "suggest thanks"
+ok "member can suggest an idea"
+
+GUEST_VOTE="$(json -H "X-Forwarded-For: 203.0.113.10" -X POST -H "Content-Type: application/json" -d "{\"id\":\"$ITEM\",\"visitor\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"}" "$API/vote_guest")"
+echo "$GUEST_VOTE" | grep -q '"voted":true' || fail "guest vote"
+ok "guest can vote when anyone is allowed"
+
+CHANGELOG_PAGE="$(curl -sf "$BASE/changelog/")"
+echo "$CHANGELOG_PAGE" | grep -q 'Changelog' || fail "changelog page"
+ok "changelog page loads"
+
+ITEM_SLUG="$(json "$API/board" | node -e '
+let raw = "";
+process.stdin.on("data", (chunk) => { raw += chunk; });
+process.stdin.on("end", () => {
+	const parsed = JSON.parse(raw);
+	const data = parsed.data && parsed.data.columns ? parsed.data : parsed;
+	const item = (data.columns || []).flatMap((column) => column.items || []).find((row) => row.slug);
+	if (!item || !item.slug) process.exit(1);
+	process.stdout.write(item.slug);
+});
+')" || fail "board has a slug"
+ITEM_PAGE="$(curl -sf "$BASE/roadmap/$ITEM_SLUG/")"
+echo "$ITEM_PAGE" | grep -q 'roadmap-item\|wb-vote' || fail "item page"
+ok "item page loads"
+
+SUGGEST_PAGE="$(curl -sf "$BASE/roadmap/suggest/")"
+echo "$SUGGEST_PAGE" | grep -q 'roadmap-suggest' || fail "suggest page"
+ok "suggest page loads"
 
 echo "All checks passed for $SLUG"

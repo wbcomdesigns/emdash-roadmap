@@ -7,6 +7,8 @@ export type Stage = {
 	name: string;
 	order: number;
 	shown: boolean;
+	/** Previous names. Items keep the name they were saved with, so rename must still find them. */
+	aliases: string[];
 };
 
 export type Settings = {
@@ -18,10 +20,10 @@ export type Settings = {
 };
 
 export const DEFAULT_STAGES: Stage[] = [
-	{ id: "under-review", name: "Under review", order: 0, shown: true },
-	{ id: "planned", name: "Planned", order: 1, shown: true },
-	{ id: "in-progress", name: "In progress", order: 2, shown: true },
-	{ id: "done", name: "Done", order: 3, shown: true },
+	{ id: "under-review", name: "Under review", order: 0, shown: true, aliases: [] },
+	{ id: "planned", name: "Planned", order: 1, shown: true, aliases: [] },
+	{ id: "in-progress", name: "In progress", order: 2, shown: true, aliases: [] },
+	{ id: "done", name: "Done", order: 3, shown: true, aliases: [] },
 ];
 
 export const STAGE_NAME_MAX = 40;
@@ -49,6 +51,7 @@ function normalizeStages(input: unknown): Stage[] {
 			name,
 			order: asNumber(row.order) ?? index,
 			shown: row.shown !== false,
+			aliases: aliasesOf(row, id, name),
 		});
 	}
 	return stages.length ? sortStages(stages) : DEFAULT_STAGES.map((stage) => ({ ...stage }));
@@ -71,14 +74,39 @@ export async function saveStages(ctx: PluginContext, stages: Stage[]): Promise<S
 	return next;
 }
 
+function aliasesOf(row: Record<string, unknown>, id: string, name: string): string[] {
+	const raw = Array.isArray(row.aliases) ? row.aliases.map(asString).filter(Boolean) : [];
+	const skip = new Set([id.toLowerCase(), name.toLowerCase()]);
+	const seen = new Set<string>();
+	const aliases: string[] = [];
+	for (const alias of raw) {
+		const key = alias.toLowerCase();
+		if (skip.has(key) || seen.has(key)) continue;
+		seen.add(key);
+		aliases.push(alias);
+	}
+	return aliases;
+}
+
+function matchesStage(stage: Stage, raw: string): boolean {
+	if (stage.id === raw || stage.name === raw) return true;
+	return stage.aliases.some((alias) => alias === raw);
+}
+
+function matchesStageLoose(stage: Stage, raw: string): boolean {
+	const lower = raw.toLowerCase();
+	if (stage.id.toLowerCase() === lower || stage.name.toLowerCase() === lower) return true;
+	return stage.aliases.some((alias) => alias.toLowerCase() === lower);
+}
+
 export function findStage(stages: Stage[], value: string): Stage | null {
 	const raw = asString(value);
 	if (!raw) return null;
-	return (
-		stages.find((stage) => stage.id === raw || stage.name === raw) ||
-		stages.find((stage) => stage.id.toLowerCase() === raw.toLowerCase() || stage.name.toLowerCase() === raw.toLowerCase()) ||
-		null
-	);
+	return stages.find((stage) => matchesStage(stage, raw)) || stages.find((stage) => matchesStageLoose(stage, raw)) || null;
+}
+
+export function firstStage(stages: Stage[]): Stage {
+	return sortStages(stages)[0] ?? DEFAULT_STAGES[0]!;
 }
 
 function slugId(name: string, taken: Set<string>): string {
@@ -111,6 +139,7 @@ export function addStage(
 		name: label,
 		order: next.length,
 		shown,
+		aliases: [],
 	});
 	return { ok: true, stages: next };
 }
@@ -126,7 +155,14 @@ export function renameStage(
 	if (!current) return { ok: false, error: "That stage is no longer on the list." };
 	const clash = findStage(stages, label);
 	if (clash && clash.id !== id) return { ok: false, error: "A stage with that name already exists." };
-	return { ok: true, stages: stages.map((stage) => (stage.id === id ? { ...stage, name: label } : stage)) };
+	return {
+		ok: true,
+		stages: stages.map((stage) => {
+			if (stage.id !== id) return stage;
+			const aliases = aliasesOf({ aliases: [...stage.aliases, stage.name] }, stage.id, label);
+			return { ...stage, name: label, aliases };
+		}),
+	};
 }
 
 export function setStageShown(stages: Stage[], id: string, shown: boolean): Stage[] | null {

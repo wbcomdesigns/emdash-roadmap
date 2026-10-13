@@ -2,7 +2,7 @@ import { api, esc } from "./wbcom-kit";
 import { phrase, strings } from "./roadmap-strings";
 import { bindVoteButtons, voteButtonHtml } from "./roadmap-vote";
 
-type Card = { id: string; title: string; votes: number };
+type Card = { id: string; title: string; slug: string; votes: number };
 type Column = { name: string; items: Card[]; empty: string | null };
 
 export async function loadBoard(): Promise<void> {
@@ -44,7 +44,7 @@ function columnHtml(column: Column, active: boolean): string {
 	const cards = column.items
 		.map(
 			(item) =>
-				`<article class="wb-card roadmap-card"><h3>${esc(item.title)}</h3>${voteButtonHtml(item.id, item.votes, item.title)}</article>`,
+				`<article class="wb-card roadmap-card"><h3><a href="/roadmap/${esc(item.slug || item.id)}/">${esc(item.title)}</a></h3>${voteButtonHtml(item.id, item.votes, item.title)}</article>`,
 		)
 		.join("");
 	const empty = column.empty ? `<p class="wb-empty">${esc(strings.columnEmpty)}</p>` : "";

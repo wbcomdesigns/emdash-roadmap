@@ -1,4 +1,4 @@
-# Handoff: Product Roadmap (2026-10-14, voting and board page on 0.1.0)
+# Handoff: Product Roadmap (2026-10-14, 0.1.0 ready for the owner to publish)
 
 You are the one agent for this repo. Read this, then work.
 
@@ -12,39 +12,29 @@ You are the one agent for this repo. Read this, then work.
 
 ## Where it stands
 
-Branch `0.1.0`. Schema, collections, stages, Settings, dashboard card, hourly email, the public `board` route, member `vote` / `votes`, and a kit board page with a Vote button are in. Tests pass. Lab is `../emdash-lab-roadmap` on port 4335. Open `/roadmap/` after `./scripts/reset-lab.sh`.
+Branch `0.1.0`, PR https://github.com/wbcomdesigns/emdash-roadmap/pull/19. Schema, stages, Settings, dashboard card, hourly email, board, member and guest voting, suggest, Ideas queue, merge, item/suggest/changelog pages, wording file, lab scripts and registry branding are in. Tests: 25 passing. `./scripts/prove-lab.sh` passed. Bundle 37.6 KB.
 
-EmDash DELETE has no body. Take a vote back with `DELETE /vote?id=...`.
+Lab is `../emdash-lab-roadmap` on port 4335. `./scripts/reset-lab.sh` then open `/roadmap/`.
+
+EmDash DELETE has no body. Take a vote back with `DELETE /vote?id=...` or `DELETE /vote_guest?id=...&visitor=...`.
 
 Playwright MCP stays locked (`mcp-chrome-6cf007c`). Walks used isolated Chromium against the lab.
 
-## Start with
+## Still open on purpose
 
-#4 suggest. Then #11 guests, #5 ideas queue, #17 merge. Item and changelog pages are still #7.
+- #8 My votes: 0.2.0.
+- #18 in-text block: trusted install only. Not proven. Registry install is complete without it.
 
-## Prove before you build on it
+## Do not do
 
-EmDash comments on the item page. A redirect on merge (`redirects:write`). The hourly task (code and tests done; not yet seen firing on its own on the lab). A trusted-install block (#18, late).
-
-Prove each on the lab first. If a proof fails, stop, write what you tried and what happened on the task's issue, and wait for the owner. Not possible on EmDash means the idea is dropped, not worked around.
-
-## Not in this release
-
-Emails to voters, several roadmaps, other layouts, `<MyVotes>` (0.2.0), the typed product label (categories replace it).
+Never merge to `main`, never tag, never publish. The owner publishes after the gate in `CONTRIBUTING.md`. Wait for the automatic security review of the last pushed commit before tagging.
 
 ## How to work
 
-- Branch `0.1.0` from `main`. Commit per finished task. Open one pull request into `main` and keep pushing to it.
-- Lab: `./scripts/setup-lab.sh` creates `../emdash-lab-roadmap` on port 4335. `./scripts/reset-lab.sh`, `./scripts/prove-lab.sh`, `./scripts/lab-role.sh`. To walk visitor features on the lab, the lab already has `trustedProxyHeaders: ["x-forwarded-for"]`. Send that header, and also walk the cookie fallback without it.
-- Copy proven patterns from `~/code/emdash-listora` (branch `0.5.0`): the hourly notice task `notifyOwners`, guarded writes with `updateIf`, the compare-and-set rate limit, the version token on every admin decision, the single layout file in the kit.
-- A task is done when its tests pass and you have walked it in a browser as a visitor and as the admin, including a failed request, at 1440 and 390, in light and dark. Say on the issue what you walked and what you did not.
-- Add each task's cases to `docs/qa/QA_CHECKLIST.md`.
-- No AI attribution in commits or pull requests. No em-dashes. Plain words in everything a site owner reads.
+- One pull request into `main`. GitHub issues only. Never Basecamp.
+- Lab: `./scripts/setup-lab.sh`, `./scripts/reset-lab.sh`, `./scripts/prove-lab.sh`, `./scripts/lab-role.sh`.
+- No AI attribution. No em-dashes.
 
 ## You stop when
 
-Every 0.1.0 task is closed with a verification comment, the checklist has an honest last-walk line, and the pull request is open. You never merge into `main`, never tag, never publish. A registry release cannot be changed. The owner releases.
-
-## Who checks your work
-
-The Listora session reviews each plugin's pull request against `SCOPE.md` and walks it in a browser before the owner releases. Leave the lab in a state that can be reset and walked.
+The owner publishes, or the next milestone is locked.

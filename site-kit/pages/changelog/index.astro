@@ -1,0 +1,67 @@
+---
+import { getEmDashCollection, getSiteSettings } from "emdash";
+import Layout from "../../layouts/RoadmapLayout.astro";
+import { strings } from "../../lib/roadmap-strings";
+import "../../styles/wbcom-base.css";
+import "../../styles/roadmap.css";
+
+const settings = await getSiteSettings();
+const { entries } = await getEmDashCollection("changelog", { limit: 100 }).catch(() => ({ entries: [] as Array<{ data: Record<string, unknown> }> }));
+const zone = settings?.timezone || "UTC";
+
+function releasedAt(entry: { data: Record<string, unknown> }): string {
+	return String(entry.data.released || entry.data.publishedAt || entry.data.createdAt || "");
+}
+
+const items = [...entries].sort((a, b) => releasedAt(b).localeCompare(releasedAt(a)));
+
+function monthOf(value: string): string {
+	const date = new Date(value);
+	if (Number.isNaN(date.getTime())) return strings.changelogTitle;
+	try {
+		return new Intl.DateTimeFormat("en", { month: "long", year: "numeric", timeZone: zone }).format(date);
+	} catch {
+		return new Intl.DateTimeFormat("en", { month: "long", year: "numeric" }).format(date);
+	}
+}
+
+const groups: Array<{ month: string; items: typeof items }> = [];
+for (const item of items) {
+	const month = monthOf(releasedAt(item));
+	const last = groups[groups.length - 1];
+	if (last && last.month === month) last.items.push(item);
+	else groups.push({ month, items: [item] });
+}
+---
+
+<Layout title={strings.changelogTitle} description={strings.changelogIntro}>
+	<div class="wb roadmap">
+		<p><a href="/roadmap/">{strings.backToBoard}</a></p>
+		<h1>{strings.changelogTitle}</h1>
+		<p class="wb-muted">{strings.changelogIntro}</p>
+		{
+			groups.length === 0 ? (
+				<div class="wb-empty">
+					<p>{strings.changelogEmpty}</p>
+					<p class="wb-muted">{strings.changelogEmptyHint}</p>
+				</div>
+			) : (
+				groups.map((group) => (
+					<section class="roadmap-month">
+						<h2>{group.month}</h2>
+						<ul class="wb-list">
+							{group.items.map((item) => (
+								<li class="wb-item">
+									<h3>
+										<a href={`/changelog/${String(item.data.slug || item.data.id)}/`}>{String(item.data.title || "")}</a>
+									</h3>
+									{item.data.summary ? <p>{String(item.data.summary)}</p> : null}
+								</li>
+							))}
+						</ul>
+					</section>
+				))
+			)
+		}
+	</div>
+</Layout>

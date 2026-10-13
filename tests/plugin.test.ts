@@ -402,3 +402,235 @@ describe("voting", () => {
 		});
 	});
 });
+
+describe("suggest and ideas queue", () => {
+	type Board = { columns: Array<{ name: string; items: Array<{ title: string }> }> };
+
+	it("creates a draft that stays off the board, then publishes it on approve", async () => {
+		const site = await openRoadmap();
+		const sent = (await site.call(
+			"suggest",
+			{ title: "Dark <b>mode</b> for comments", description: "Show <em>plain</em> text." },
+			site.as(ana),
+		)) as { ok: true; id: string };
+		expect(sent.ok).toBe(true);
+		expect(JSON.stringify(await site.call("board"))).not.toContain("Dark mode for comments");
+		const draft = await site.rt.inspect.content.get("roadmap", sent.id);
+		expect(draft?.status).not.toBe("published");
+
+		const page = await admin(site.call, { type: "page_load", page: "/ideas" });
+		expect(textOf(page)).toContain("Dark mode for comments");
+		expect(textOf(page)).toContain("Show plain text.");
+		expect(textOf(page)).toContain("ana");
+
+		const idea = await site.rt.inspect.storage.get<{ rev: string }>("ideas", sent.id);
+		const approved = await admin(site.call, {
+			type: "block_action",
+			action_id: "idea_mod",
+			page: "/ideas",
+			value: `approve|${idea?.rev}|${sent.id}`,
+		});
+		expect(approved.toast?.type).toBe("success");
+		const board = (await site.call("board")) as Board;
+		expect(board.columns[0]?.items.map((item) => item.title)).toContain("Dark mode for comments");
+	});
+
+	it("refuses ideas when they are off, a ninth suggest, and a stale approve", async () => {
+		const site = await openRoadmap();
+		await admin(site.call, {
+			type: "form_submit",
+			action_id: "save_who",
+			page: "/settings",
+			values: { allow_ideas: false, who: "anyone" },
+		});
+		expect(await site.call("suggest", { title: "Closed" }, site.as(ana))).toMatchObject({
+			ok: false,
+			error: { code: "IDEAS_CLOSED" },
+		});
+		await admin(site.call, {
+			type: "form_submit",
+			action_id: "save_who",
+			page: "/settings",
+			values: { allow_ideas: true, who: "anyone" },
+		});
+		for (let i = 0; i < 8; i += 1) {
+			expect(await site.call("suggest", { title: `Cap ${i}` }, site.as(ben))).toMatchObject({ ok: true });
+		}
+		expect(await site.call("suggest", { title: "Cap 8" }, site.as(ben))).toMatchObject({
+			ok: false,
+			error: { code: "RATE_LIMITED" },
+		});
+
+		const sent = (await site.call("suggest", { title: "Stale one" }, site.as(ana))) as { ok: true; id: string };
+		const idea = await site.rt.inspect.storage.get<Record<string, unknown>>("ideas", sent.id);
+		await site.rt.fixtures.plugin.storage("ideas", sent.id, { ...(idea || {}), rev: "rewritten" });
+		const refused = await admin(site.call, {
+			type: "block_action",
+			action_id: "idea_mod",
+			page: "/ideas",
+			value: `approve|${String(idea?.rev || "")}|${sent.id}`,
+		});
+		expect(refused.toast?.type).toBe("error");
+		expect(refused.toast?.message).toMatch(/changed after this page loaded/);
+	});
+
+	it("rejects a waiting idea and leaves it unpublished", async () => {
+		const site = await openRoadmap();
+		const sent = (await site.call("suggest", { title: "Skip this" }, site.as(ana))) as { ok: true; id: string };
+		const idea = await site.rt.inspect.storage.get<{ rev: string }>("ideas", sent.id);
+		const rejected = await admin(site.call, {
+			type: "block_action",
+			action_id: "idea_mod",
+			page: "/ideas",
+			value: `reject|${idea?.rev}|${sent.id}`,
+		});
+		expect(rejected.toast?.type).toBe("info");
+		expect(JSON.stringify(await site.call("board"))).not.toContain("Skip this");
+		expect((await site.rt.inspect.content.get("roadmap", sent.id))?.status).not.toBe("published");
+	});
+});
+
+describe("guest participation", () => {
+	const visitor = "a".repeat(32);
+	const guest = { method: "POST" as const };
+
+	it("lets a guest vote and take it back, and never stores an IP", async () => {
+		const site = await openRoadmap();
+		const item = await addItem(site.rt, "Guest vote item");
+		const first = await site.call("vote_guest", { id: item.id, visitor }, guest);
+		expect(first).toMatchObject({ ok: true, votes: 1, voted: true });
+		const rows = await site.rt.inspect.storage.list<{ visitor: string; member_id: string }>("votes");
+		expect(rows[0]?.data.visitor).toMatch(/^[a-f0-9]{64}$/);
+		expect(JSON.stringify(rows)).not.toMatch(/1\.2\.3\.4|visitor-ip/);
+		const back = await site.call("vote_guest", { id: item.id, visitor }, { method: "DELETE" });
+		expect(back).toMatchObject({ ok: true, votes: 0, voted: false });
+	});
+
+	it("refuses members-only, a honeypot, and a missing visitor", async () => {
+		const site = await openRoadmap();
+		const item = await addItem(site.rt, "Closed vote");
+		await admin(site.call, {
+			type: "form_submit",
+			action_id: "save_who",
+			page: "/settings",
+			values: { allow_ideas: true, who: "members" },
+		});
+		expect(await site.call("vote_guest", { id: item.id, visitor }, guest)).toMatchObject({
+			ok: false,
+			error: { code: "MEMBERS_ONLY" },
+		});
+		expect(await site.call("suggest_guest", { title: "Nope", name: "Sam", visitor }, guest)).toMatchObject({
+			ok: false,
+			error: { code: "MEMBERS_ONLY" },
+		});
+		await admin(site.call, {
+			type: "form_submit",
+			action_id: "save_who",
+			page: "/settings",
+			values: { allow_ideas: true, who: "anyone" },
+		});
+		expect(
+			await site.call("vote_guest", { id: item.id, visitor, website: "https://spam.example" }, guest),
+		).toMatchObject({ ok: false, error: { code: "SPAM" } });
+		expect(await site.call("vote_guest", { id: item.id }, guest)).toMatchObject({
+			ok: false,
+			error: { code: "NO_VISITOR" },
+		});
+	});
+
+	it("takes a guest idea with a name and marks it as from a guest", async () => {
+		const site = await openRoadmap();
+		const sent = (await site.call(
+			"suggest_guest",
+			{ title: "From the door", description: "Please", name: "Sam", visitor },
+			guest,
+		)) as { ok: true; id: string };
+		expect(sent.ok).toBe(true);
+		const page = textOf(await admin(site.call, { type: "page_load", page: "/ideas" }));
+		expect(page).toContain("From the door");
+		expect(page).toContain("Sam (guest)");
+	});
+});
+
+describe("merge", () => {
+	it("moves votes once per person and refuses merging an item into itself", async () => {
+		const site = await openRoadmap();
+		const keep = await addItem(site.rt, "Keep this");
+		const drop = await addItem(site.rt, "Drop this");
+		await site.call("vote", { id: keep.id }, site.as(ana));
+		await site.call("vote", { id: keep.id }, site.as(ben));
+		await site.rt.fixtures.plugin.storage("votes", `${keep.id}:cara`, {
+			item: keep.id,
+			member_id: "cara",
+			createdAt: "2026-10-01T00:00:00.000Z",
+			visitor: "",
+		});
+		await site.rt.fixtures.plugin.storage("votes", `${keep.id}:drew`, {
+			item: keep.id,
+			member_id: "drew",
+			createdAt: "2026-10-01T00:00:00.000Z",
+			visitor: "",
+		});
+		await site.rt.fixtures.plugin.storage("votes", `${keep.id}:erin`, {
+			item: keep.id,
+			member_id: "erin",
+			createdAt: "2026-10-01T00:00:00.000Z",
+			visitor: "",
+		});
+		await site.call("vote", { id: drop.id }, site.as(ana));
+		await site.rt.fixtures.plugin.storage("votes", `${drop.id}:finn`, {
+			item: drop.id,
+			member_id: "finn",
+			createdAt: "2026-10-01T00:00:00.000Z",
+			visitor: "",
+		});
+		await site.rt.fixtures.plugin.storage("votes", `${drop.id}:gabe`, {
+			item: drop.id,
+			member_id: "gabe",
+			createdAt: "2026-10-01T00:00:00.000Z",
+			visitor: "",
+		});
+		const merged = await admin(site.call, {
+			type: "form_submit",
+			action_id: "merge_items",
+			page: "/ideas",
+			values: { source: `item:${drop.id}`, keep: keep.id },
+		});
+		expect(merged.toast?.type).toBe("success");
+		const board = (await site.call("board")) as {
+			columns: Array<{ items: Array<{ id: string; votes: number; title: string }> }>;
+		};
+		const kept = board.columns.flatMap((column) => column.items).find((item) => item.id === keep.id);
+		expect(kept?.votes).toBe(7);
+		expect(JSON.stringify(board)).not.toContain("Drop this");
+		const self = await admin(site.call, {
+			type: "form_submit",
+			action_id: "merge_items",
+			page: "/ideas",
+			values: { source: `item:${keep.id}`, keep: keep.id },
+		});
+		expect(self.toast?.type).toBe("error");
+	});
+});
+
+describe("rename keeps items", () => {
+	it("keeps Under review items after the stage is renamed", async () => {
+		const site = await openRoadmap();
+		await addItem(site.rt, "One", "Under review");
+		await addItem(site.rt, "Two", "Under review");
+		await addItem(site.rt, "Three", "Under review");
+		const renamed = await admin(site.call, {
+			type: "form_submit",
+			action_id: "save_stage:under-review",
+			page: "/settings",
+			values: { name: "QA Review", shown: true },
+		});
+		expect(textOf(renamed)).toContain("QA Review");
+		expect(textOf(renamed)).toContain("3 items are in this stage.");
+		const board = (await site.call("board")) as {
+			columns: Array<{ name: string; items: Array<{ title: string }> }>;
+		};
+		const column = board.columns.find((item) => item.name === "QA Review");
+		expect(column?.items.map((item) => item.title).sort()).toEqual(["One", "Three", "Two"]);
+	});
+});

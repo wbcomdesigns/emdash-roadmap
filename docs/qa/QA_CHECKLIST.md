@@ -2,13 +2,15 @@
 
 One living list of flow-level cases. Walk all of it before every release. When you add or fix behaviour, add or change its case in the same pull request. There are no per-release QA files.
 
-**Last walk:** 2026-10-14, presentation pass after 0.1.0. Isolated Chromium against `emdash-lab-roadmap` on port 4335. Shots in `~/work-artifacts/screenshots/2026-10/roadmap-ux/`.
+**Last walk:** 2026-10-14, full coverage after `ea8de3d`. Isolated Chromium and routes against `emdash-lab-roadmap` :4335 after `./scripts/reset-lab.sh`. 25 tests pass. `./scripts/prove-lab.sh` pass.
 
-Walked in a browser: P-1 (390, 430, 768, 1024, 1440, no sideways scroll), P-2 (OS dark does not flip the light lab theme; `fae6df0` stands), P-3 (body on the real canvas is #1a1a1a on white, 16.25:1 on the 404 empty; current filter 5.57:1), P-4 after the #21 fix (kit nav, filters, votes, tabs, inputs, card titles all >= 40px), P-5 after the #22 fix (focus rings 2px brand; ArrowRight on phone tabs moves Under review to Planned), P-6 (404 and changelog empty use `.wb-empty` with a next line; load error uses the status box), P-7 (no raw ids). Guest board, suggest, item, 404, changelog.
+Walked in a browser: G-1, G-2, G-4, G-5, G-6, G-9, G-10, G-12, M-1, M-2, M-3, M-5, M-8, A-1 (Ideas table: title, description, From including Sam (guest), Decide, merge form), A-11 (Settings who + stages + email), P-1 at 390 (tabs, no sideways scroll), P-7.
 
-Checked at route level only: none this pass. Function cases from the 0.1.0 walk were not re-run.
+Checked at route level only: G-7, G-11, M-4, A-2, A-3, A-6, A-7, A-8 (rename to QA Review kept items), A-9, A-10, A-11 persist, #11 honeypot, #17 merge (Guest voting unpublished, keep stayed), prove-lab.
 
-Not walked: G-8, M-9, M-10, A-6, second same-role member, hourly email on its own, VoiceOver, RTL (kit uses logical properties; no RTL lab), host comment fields (36px / Post Comment 34px, EmDash chrome).
+Checked in tests only: M-6, M-7, A-4, A-12, G-94 (wording file import).
+
+Not walked: G-8 (members-only suggest page prompt; routes refused), M-9, M-10 (#8, 0.2.0), #18 in-text block, second same-role member, hourly email firing on its own, VoiceOver, RTL.
 
 When you walk it, replace that line with the date, the version, and three lists: cases walked in the browser, cases checked at route level only, cases not walked. Do not claim a case you did not run.
 

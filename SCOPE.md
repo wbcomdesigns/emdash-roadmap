@@ -35,6 +35,16 @@ How it stays general:
 
 **Decided by the owner on 2026-10-13: the site owner chooses who can take part.** One setting: signed-in members only, or anyone. For a guest: one entry per visitor, identified by a salted hash of the IP (never the IP itself, never a cookie the visitor can clear to vote again within the hour limit), an hourly limit per visitor, a honeypot field on every guest form, and written content always held for approval. Guests have no account, so they have no "My ..." list and cannot erase their entries themselves; the owner removes them in admin. If the host supplies no IP, every guest shares one bucket: refuse guest writes in that case and say why in the admin page. Member routes stay private routes using `routeCtx.user`. Guest routes are separate public routes: never merge the two paths.
 
+## Decisions made with the owner
+
+Settled. Do not reopen these in code review. Dated 2026-10-13 unless noted.
+
+| Question | Decision |
+| --- | --- |
+| Who can take part | The site owner chooses: signed-in members only, or anyone. Default is anyone. |
+| Stages on the board | Four stages in a fixed order. The owner renames each one. |
+| Discussion on an idea | Yes, using EmDash's own comments on the idea page. The plugin builds no comment system. |
+
 ## In scope for 0.1.0
 
 - Roadmap items live in an EmDash collection (`roadmap`): title, description, status, optional product label
@@ -47,14 +57,13 @@ How it stays general:
 - Changelog: a second collection (`changelog`) with a kit page. No plugin logic
 - Drop-in `<MyVotes>` for an account page, with delete-my-votes
 - Setting "Who can take part": signed-in members only, or anyone. A guest gets one vote per visitor per item, and can suggest an idea with a display name. Ideas always wait for approval
+- The owner renames the four stages in settings. The order and the number stay fixed
+- Idea pages show EmDash's own comment list and form, with EmDash's moderation
 
 ## Out of scope
 
 Do not build these. If a card seems to need one, stop and ask the owner.
 
-- Comments on items
-- Custom statuses
-- Merging duplicate ideas
 - Notifying voters when status changes
 - Private boards
 - Multiple boards
@@ -63,6 +72,8 @@ Do not build these. If a card seems to need one, stop and ask the owner.
 - Email sending (the host may have no mail configured)
 - Portable Text blocks or anything that needs a native plugin
 - Injecting scripts, styles or HTML into pages from the plugin
+- Adding, removing or reordering stages
+- A comment system of our own
 
 ## Roles
 
@@ -157,7 +168,7 @@ None.
 | --- | --- |
 | `site-kit/seed/collection.mjs` | `roadmap` and `changelog` collections |
 | `site-kit/pages/roadmap/index.astro` | The board |
-| `site-kit/pages/roadmap/[slug].astro` | Item page |
+| `site-kit/pages/roadmap/[slug].astro` | Item page. Mounts EmDash `Comments` and `CommentForm` |
 | `site-kit/pages/roadmap/suggest.astro` | Idea form |
 | `site-kit/pages/changelog/index.astro` | Changelog |
 | `site-kit/components/VoteButton.astro` | `<VoteButton id />` |
@@ -178,6 +189,7 @@ A screen is done when every state listed here has been seen in a browser at 1440
 | Suggest form | Idle, busy, thanks with what happens next, validation, guest sign-in prompt, ideas turned off |
 | Changelog | Entries newest first, grouped by month, empty state |
 | Admin queue | Full idea text, the member's name, empty state |
+| Comments on an idea | EmDash's comment list and form below the description. Closed when the site has comments turned off, with no broken box |
 
 ## Risks and open questions
 
@@ -189,3 +201,4 @@ A screen is done when every state listed here has been seen in a browser at 1440
 - Board pages are cached. Own-vote marks load in the browser from `votes`
 - Kit pages must not import starter-only files
 - Guest routes are public writes. Per-visitor limit, honeypot, length caps, and refuse when the host gives no IP. Never trust a visitor id from the request: derive it from the request's IP on the server
+- The collection must have comments enabled for the idea page to show them. The kit's collection definition turns them on, and the page must cope when the owner turns them off

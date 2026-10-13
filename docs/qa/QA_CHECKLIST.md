@@ -32,6 +32,7 @@ Three roles, in this order: guest (private window), member (subscriber), admin. 
 | G-9 | Setting anyone: vote signed out, then click again | Count goes up by one, then back |
 | G-10 | Setting anyone: suggest an idea signed out with a name | Thanks message. It waits in the admin queue |
 | G-11 | Setting members: call `vote_guest` and `suggest_guest` directly | Refused |
+| G-12 | Open an idea page | EmDash comments show below the description, following the site's own comment settings |
 
 ## Member (subscriber role)
 
@@ -59,6 +60,7 @@ Three roles, in this order: guest (private window), member (subscriber), admin. 
 | A-5 | Move an item to Done in the content admin | It moves column on the board |
 | A-6 | Turn ideas off | The suggest page says ideas are closed. The route refuses |
 | A-7 | Open the queue with a guest idea waiting | It shows the guest's name and is marked as from a guest |
+| A-8 | Rename the four stages in settings | The board, the idea page and the admin all use the new names. The order does not change |
 
 ## Presentation, every screen
 

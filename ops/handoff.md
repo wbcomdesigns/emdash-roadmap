@@ -1,6 +1,6 @@
 # Handoff: Roadmap and Feature Voting
 
-Read this first. Then `SCOPE.md`, `AGENTS.md`, `CONTRIBUTING.md` and `docs/qa/QA_CHECKLIST.md`.
+Read this first. Then `SCOPE.md`, `PLAN.md`, `AGENTS.md`, `CONTRIBUTING.md` and `docs/qa/QA_CHECKLIST.md`.
 
 ## Where it stands (2026-10-13)
 
@@ -36,8 +36,10 @@ npm test
 7. Item page, suggest page, changelog page
 8. My votes and erase
 9. Guest participation
-10. Lab, prove script, owner docs
-11. Registry branding and release gate
+10. Rename the stages
+11. Comments on idea pages
+12. Lab, prove script, owner docs
+13. Registry branding and release gate
 
 Each card lists what to build, when it is UX ready, when it is function ready, and the QA cases that prove it. A card is done when all three hold and you have commented on it with what you verified and how. Take them in order: later cards assume earlier ones.
 
@@ -58,6 +60,7 @@ Each card lists what to build, when it is UX ready, when it is function ready, a
 - Board pages are cached. Own-vote marks load in the browser from `votes`
 - Kit pages must not import starter-only files
 - Guest routes are public writes. Per-visitor limit, honeypot, length caps, and refuse when the host gives no IP. Never trust a visitor id from the request: derive it from the request's IP on the server
+- The collection must have comments enabled for the idea page to show them. The kit's collection definition turns them on, and the page must cope when the owner turns them off
 
 ## When you stop
 

@@ -1,6 +1,7 @@
 import type { SandboxedPlugin } from "emdash/plugin";
 
 import { handleAdmin } from "./admin";
+import { loadBoard } from "./content";
 import { CHANGELOG, ROADMAP, hasCollection } from "./core";
 import { ensureNotifyTask, notifyOwners } from "./notify";
 import { seedDefaults } from "./settings";
@@ -26,6 +27,11 @@ const plugin: SandboxedPlugin = {
 		},
 	},
 	routes: {
+		board: {
+			public: true,
+			cacheControl: "public, max-age=30, stale-while-revalidate=120",
+			handler: async (routeCtx, ctx) => loadBoard(ctx, routeCtx.input),
+		},
 		health: {
 			public: true,
 			handler: async (_routeCtx, ctx) => {

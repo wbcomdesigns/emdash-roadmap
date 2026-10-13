@@ -252,3 +252,73 @@ describe("settings, dashboard card and hourly email", () => {
 		expect(await site.rt.inspect.email()).toHaveLength(1);
 	});
 });
+
+describe("board route", () => {
+	type Board = {
+		ok: true;
+		sort: string;
+		columns: Array<{ name: string; items: Array<{ id: string; title: string; votes: number }>; empty: string | null }>;
+	};
+
+	it("groups published items, skips drafts, and marks empty columns", async () => {
+		const site = await openRoadmap();
+		await addItem(site.rt, "Live idea", "Planned");
+		await site.rt.fixtures.content("roadmap", {
+			data: { title: "Secret draft", description: "no", stage: "Planned" },
+			slug: "secret-draft",
+			status: "draft",
+		} as never);
+		const board = (await site.call("board")) as Board;
+		expect(board.sort).toBe("votes");
+		expect(board.columns.map((column) => column.name)).toEqual([
+			"Under review",
+			"Planned",
+			"In progress",
+			"Done",
+		]);
+		const planned = board.columns.find((column) => column.name === "Planned");
+		expect(planned?.items.map((item) => item.title)).toEqual(["Live idea"]);
+		expect(planned?.empty).toBeNull();
+		expect(board.columns.find((column) => column.name === "Done")?.empty).toBe("COLUMN_EMPTY");
+		expect(JSON.stringify(board)).not.toContain("Secret draft");
+	});
+
+	it("sorts by votes or newest, and hides a hidden stage", async () => {
+		const site = await openRoadmap();
+		const old = await addItem(site.rt, "Old idea", "Under review");
+		const hot = await addItem(site.rt, "Hot idea", "Under review");
+		await site.rt.fixtures.plugin.storage("tallies", hot.id, { votes: 5 });
+		await site.rt.fixtures.plugin.storage("tallies", old.id, { votes: 1 });
+
+		const byVotes = (await site.call("board", { sort: "votes" })) as Board;
+		expect(byVotes.columns[0]?.items.map((item) => item.title)).toEqual(["Hot idea", "Old idea"]);
+		expect(byVotes.columns[0]?.items[0]?.votes).toBe(5);
+
+		const byNew = (await site.call("board", { sort: "newest" })) as Board;
+		expect(byNew.columns[0]?.items.map((item) => item.title)).toEqual(["Hot idea", "Old idea"]);
+
+		await admin(site.call, {
+			type: "form_submit",
+			action_id: "add_stage",
+			page: "/settings",
+			values: { name: "Declined", shown: false },
+		});
+		await admin(site.call, {
+			type: "form_submit",
+			action_id: "move_item",
+			page: "/settings",
+			values: { item: old.id, stage: "declined" },
+		});
+		const after = (await site.call("board")) as Board;
+		expect(after.columns.map((column) => column.name)).not.toContain("Declined");
+		expect(JSON.stringify(after)).not.toContain("Old idea");
+	});
+
+	it("category filter hides items that have no matching term", async () => {
+		const site = await openRoadmap();
+		await addItem(site.rt, "Unsorted idea", "Planned");
+		const board = (await site.call("board", { category: "core" })) as Board;
+		expect(board.columns.flatMap((column) => column.items)).toEqual([]);
+		expect(board.columns.every((column) => column.empty === "COLUMN_EMPTY")).toBe(true);
+	});
+});

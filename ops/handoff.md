@@ -1,4 +1,4 @@
-# Handoff: Product Roadmap (2026-10-13, #1 #15 #16 on 0.1.0)
+# Handoff: Product Roadmap (2026-10-14, #1 #15 #16 #2 on 0.1.0)
 
 You are the one agent for this repo. Read this, then work.
 
@@ -12,13 +12,13 @@ You are the one agent for this repo. Read this, then work.
 
 ## Where it stands
 
-Branch `0.1.0`. Schema, the two collections, owner-managed stages, the Settings page, the dashboard card, and the hourly admin email are in. Tests pass. Lab is `../emdash-lab-roadmap` on port 4335.
+Branch `0.1.0`. Schema, collections, stages, Settings, dashboard card, hourly email, and the public `board` route are in. Tests pass. Lab is `../emdash-lab-roadmap` on port 4335.
 
 Playwright MCP was locked during this session, so Ideas, Settings and the dashboard card were walked at route level on the lab, not in a real browser at 1440/390. The next session should walk those screens as admin before calling #1, #15 and #16 fully closed.
 
 ## Start with
 
-#2 (board route: categories and sort). Then #3 voting, #4 suggest, #11 guests, #5 ideas queue, #17 merge.
+#3 voting. Then #4 suggest, #11 guests, #5 ideas queue, #17 merge.
 
 ## Prove before you build on it
 

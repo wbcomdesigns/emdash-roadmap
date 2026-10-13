@@ -2,7 +2,7 @@
 
 One living list of flow-level cases. Walk all of it before every release. When you add or fix behaviour, add or change its case in the same pull request. There are no per-release QA files.
 
-**Last walk:** 2026-10-13, 0.1.0. Ideas, Settings and the dashboard card were checked at route level on the lab (guest health, both collections present, add a hidden Declined stage, refuse remove with a count, bad email address). Playwright MCP was locked by another session, so these screens were not walked in a real browser at 1440, 768 or 390, or in light and dark. Board, vote, suggest, guest, comments and wording cases are not built yet.
+**Last walk:** 2026-10-14, 0.1.0. Route-level on the lab: Ideas, Settings, dashboard card, and `board` (four columns, category=docs shows only Changelog list and Setup guide). No board page yet, so G-1 and G-2 were not walked in a browser. Playwright MCP was locked earlier. Vote, suggest, guest, comments and wording cases are not built yet.
 
 When you walk it, replace that line with the date, the version, and three lists: cases walked in the browser, cases checked at route level only, cases not walked. Do not claim a case you did not run.
 
@@ -22,7 +22,7 @@ Three roles, in this order: guest (private window), member (subscriber), admin. 
 | ID | Steps | Expected |
 | --- | --- | --- |
 | G-1 | Open the roadmap | Four columns with items and vote counts |
-| G-2 | Filter by a product label | Only that product's items |
+| G-2 | Filter by a category | Only that category's items |
 | G-3 | Setting members: click a vote button signed out | Sign-in link. Count unchanged |
 | G-4 | Open an item page | Description, status, vote button |
 | G-5 | Open an item url that does not exist | 404 page with a 404 status |

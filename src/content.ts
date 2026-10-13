@@ -1,14 +1,31 @@
 import type { PluginContext } from "emdash/plugin";
 
 import { CHANGELOG, ROADMAP, collectionName, hasCollection } from "./core";
-import { findStage, type Stage } from "./settings";
-import { asRecord, asString } from "./util";
+import { findStage, loadSettings, type Stage } from "./settings";
+import { asNumber, asRecord, asString, rows } from "./util";
+
+export const BOARD_MAX = 100;
 
 export type RoadmapItem = {
 	id: string;
 	title: string;
+	slug: string;
 	stage: string;
 	published: boolean;
+	createdAt: string;
+};
+
+export type BoardCard = {
+	id: string;
+	title: string;
+	slug: string;
+	votes: number;
+};
+
+export type BoardColumn = {
+	name: string;
+	items: BoardCard[];
+	empty: "COLUMN_EMPTY" | null;
 };
 
 const PAGE = 100;
@@ -29,8 +46,10 @@ async function listByStatus(
 			items.push({
 				id: item.id,
 				title: asString(data.title) || item.slug || item.id,
+				slug: item.slug || "",
 				stage: asString(data.stage),
 				published: item.status === "published",
+				createdAt: item.publishedAt || item.createdAt || "",
 			});
 		}
 		if (!page.hasMore || !page.cursor) break;
@@ -65,6 +84,65 @@ export function stageCounts(items: RoadmapItem[], stages: Stage[]): Map<string, 
 		counts.set(stage.id, (counts.get(stage.id) ?? 0) + 1);
 	}
 	return counts;
+}
+
+async function votesMap(ctx: PluginContext): Promise<Map<string, number>> {
+	const found = await ctx.storage.tallies.query({ limit: BOARD_MAX });
+	return new Map(rows(found).map((row) => [row.id, asNumber(row.votes) ?? 0]));
+}
+
+async function inCategory(ctx: PluginContext, id: string, collection: string, wanted: string): Promise<boolean> {
+	if (!ctx.taxonomies) return false;
+	try {
+		const terms = await ctx.taxonomies.getEntryTerms(collection, id);
+		const needle = wanted.toLowerCase();
+		return terms.some((term) => term.slug.toLowerCase() === needle || term.label.toLowerCase() === needle);
+	} catch {
+		return false;
+	}
+}
+
+export async function loadBoard(
+	ctx: PluginContext,
+	input: unknown,
+): Promise<{ ok: true; sort: "votes" | "newest"; columns: BoardColumn[] }> {
+	const raw = asRecord(input);
+	const sort = asString(raw.sort) === "newest" ? "newest" : "votes";
+	const category = asString(raw.category);
+	const settings = await loadSettings(ctx);
+	const shown = settings.stages.filter((stage) => stage.shown);
+	let items = (await listRoadmapItems(ctx)).filter((item) => item.published);
+	if (category) {
+		const collection = await collectionName(ctx);
+		const keep: RoadmapItem[] = [];
+		// ponytail: one terms read per item. Fine at BOARD_MAX; batch if the host adds getEntriesByTerm.
+		for (const item of items) {
+			if (await inCategory(ctx, item.id, collection, category)) keep.push(item);
+		}
+		items = keep;
+	}
+	items = items.slice(0, BOARD_MAX);
+	const votes = await votesMap(ctx);
+	items.sort((a, b) => {
+		if (sort === "newest") return (b.createdAt || "").localeCompare(a.createdAt || "");
+		const diff = (votes.get(b.id) ?? 0) - (votes.get(a.id) ?? 0);
+		return diff || (b.createdAt || "").localeCompare(a.createdAt || "");
+	});
+	return {
+		ok: true,
+		sort,
+		columns: shown.map((stage) => {
+			const cards = items
+				.filter((item) => findStage([stage], item.stage)?.id === stage.id)
+				.map((item) => ({
+					id: item.id,
+					title: item.title,
+					slug: item.slug,
+					votes: votes.get(item.id) ?? 0,
+				}));
+			return { name: stage.name, items: cards, empty: cards.length ? null : "COLUMN_EMPTY" };
+		}),
+	};
 }
 
 export async function hasCollections(ctx: PluginContext): Promise<{ roadmap: boolean; changelog: boolean }> {

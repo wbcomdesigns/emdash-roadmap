@@ -28,5 +28,11 @@ json -b "$JAR" -X POST -H "Content-Type: application/json" -d '{"type":"page_loa
 ok "settings page loads"
 json -b "$JAR" -X POST -H "Content-Type: application/json" -d '{"type":"page_load","widget":"waiting"}' "$API/admin" | grep -q "waiting" || fail "dashboard card"
 ok "dashboard card loads"
+json "$API/board" | grep -q "Under review" || fail "board columns"
+json "$API/board" | grep -q "Dark mode for the board" || fail "board items"
+ok "board groups published items"
+json "$API/board?category=docs" | grep -q "Setup guide" || fail "board category filter"
+if json "$API/board?category=docs" | grep -q "Dark mode for the board"; then fail "board category leaked another category"; fi
+ok "board filters by category"
 
 echo "All checks passed for $SLUG"

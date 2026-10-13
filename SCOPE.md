@@ -4,6 +4,20 @@
 
 This file is the contract for the plugin. Code, tests, docs and cards all follow it. If something here is wrong, change it here first, in the same pull request as the code.
 
+## Corrections after reading EmDash's own guides (2026-10-13)
+
+**This section wins over any older line below that disagrees with it.**
+
+- **Comments are EmDash's own.** `Comments` and `CommentForm` from `emdash/ui/comments`, with `commentsEnabled: true` on the roadmap collection. Moderation happens in EmDash's comment admin. Nothing of ours.
+- **Categories are EmDash's own taxonomy.** The typed product label is gone.
+- **Merging a duplicate** uses EmDash redirects (`redirects:write`) so the old address lands on the kept item.
+- **Owner alert:** a card on the EmDash dashboard (`admin.widgets`) shows what is waiting and links to it. That is the alert on every site. The hourly email is an extra, sent only where the site has mail; the setup guide names the official Resend plugin.
+- **Visitors first:** a visitor is never locked out by hosting. Trusted visitor address where EmDash supplies it, browser cookie otherwise, written content always approved first.
+- **Member account list (`<My...>`):** not in 0.1.0. Moved to 0.2.0. The erase-by-person function stays, as an admin action.
+- **Block inside post text:** only with a trusted install. The registry install is the whole product without it.
+- **Admin pages:** Ideas (waiting list, merge), Settings (suggestions on or off, who can take part, stages, email), plus the dashboard card.
+- **Changelog** is a normal EmDash collection with a list page and a page per release. No plugin logic.
+
 ## Purpose
 
 Show customers what is planned, let signed-in members vote and suggest ideas, and let the owner decide what moves forward. A changelog shows what shipped.
@@ -74,9 +88,9 @@ Extra, not in WordPress: merging duplicate ideas. Paid WordPress features stay o
 
 ## In scope for 0.1.0
 
-- Roadmap items live in an EmDash collection (`roadmap`): title, description, status, optional product label
+- Roadmap items live in an EmDash collection (`roadmap`): title, description, stage. Categories are an EmDash taxonomy on that collection
 - Stages managed by the admin (start: Under review, Planned, In progress, Done). A stage can be hidden from the board
-- Public board: one column per status, sorted by votes, with a filter by product label
+- Public board: one column per stage, with a filter by category and a sort choice (Most votes, Newest)
 - Item page with description, status and vote button
 - One vote per member per item. Click again to take it back
 - Members suggest an idea: it is created as a draft and waits in the admin queue
@@ -115,7 +129,7 @@ Do not build these. If a card seems to need one, stop and ask the owner.
 
 ## Capabilities
 
-`content:read`, `content:write`, `content:publish`, `schema:read`
+`content:read`, `content:write`, `content:publish` (an approved idea becomes a published item), `taxonomies:read` (categories on the board), `redirects:write` (merge), `email:send` (the hourly notice to the site admin)
 
 Ask for nothing more without the owner's agreement: every capability is shown to the site owner at install.
 
@@ -159,8 +173,10 @@ Row id: `<itemId>`. Indexes: `status`, `member_id`, `createdAt`.
 | Key | Type | Default | Meaning |
 | --- | --- | --- | --- |
 | `allow_ideas` | boolean | `true` | Members can suggest ideas |
-| `status_labels` | string | `Under review, Planned, In progress, Done` | Display names for the four statuses, in order. The statuses themselves are fixed |
-| `collection` | string | `roadmap` | Collection that holds the items |
+| `stages` | json | Under review, Planned, In progress, Done | The list of stages: name, order, shown on the board or hidden. Managed on the Settings page |
+| `notify` | boolean | `true` | Email the site admin when ideas are waiting, at most once an hour |
+| `notify_to` | string | site admin | Where that email goes |
+| `collection` | string | `roadmap` | Collection that holds the items. Internal: never shown on the Settings page |
 | `who` | string | `anyone` | `members` or `anyone` |
 
 ## Routes
@@ -170,7 +186,7 @@ Base: `/_emdash/api/plugins/roadmap/<name>`.
 | Route | Who | Methods | Input | Returns |
 | --- | --- | --- | --- | --- |
 | `health` | public | GET | - | `ok`, version, whether the collection exists |
-| `board` | public | GET | `product` (optional) | Published items grouped by status with vote counts. 100 items max |
+| `board` | public | GET | `category` (optional), `sort` (`votes` or `newest`) | Published items grouped by status with vote counts. 100 items max |
 | `votes` | member | GET | - | Ids of the items the caller voted for, so the board can mark them |
 | `vote` | member | POST, DELETE | `id` | New vote count for the item |
 | `suggest` | member | POST | `title`, `description` | Creates a draft item and a pending idea. Rate limited |
@@ -201,7 +217,6 @@ None.
 | `site-kit/pages/roadmap/suggest.astro` | Idea form |
 | `site-kit/pages/changelog/index.astro` | Changelog |
 | `site-kit/components/VoteButton.astro` | `<VoteButton id />` |
-| `site-kit/components/MyVotes.astro` | `<MyVotes />` |
 | `site-kit/styles/roadmap.css` | Board columns and cards |
 | `site-kit/lib/roadmap-strings.ts` | The wording file. The only place visitor-facing text is written |
 

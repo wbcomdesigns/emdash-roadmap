@@ -52,6 +52,7 @@ Each plugin has its own lab folder (`../emdash-lab-<slug>`) and its own port (`l
 | Kit colours come from `wbcom-base.css` tokens | They use `light-dark()` and follow the site theme. Never a `.dark` class, never a raw colour in a component |
 | Kit markup is the same for every visitor | Site pages are cached without regard to cookies. Sign-in state is decided in the browser from the API's answer |
 | No outside scripts or styles in the kit | Sites run a content security policy that only allows their own. Ship what you need inside the kit |
+| All visitor-facing text comes from one wording file | A non-English site, or one with its own vocabulary, changes one file. Routes return codes, not sentences |
 | Empty, loading and error states on every list and form | A blank area reads as broken |
 | Two clicks instead of `confirm()` | Browser dialogs are not allowed |
 

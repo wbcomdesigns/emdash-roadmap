@@ -66,3 +66,7 @@ See "Out of scope" in `SCOPE.md`. If a card seems to need one of those, stop and
 #1 schema and collections, #15 stages, #16 settings page and admin email, #2 board route (categories, sort), #3 voting, #4 suggest, #11 guests, #5 ideas queue, #17 merge, #6 board page and vote button, #7 item, suggest and changelog pages, #13 comments, #18 in-text block (prove first), #14 wording file, #9 lab and docs, #10 branding and release gate. #8 (My votes) is 0.2.0.
 
 One agent works this repo, in order, on a branch named `0.1.0`, opens a pull request into `main` and stops. It never merges, tags or publishes. Copy the proven patterns from `emdash-listora`, do not reinvent them.
+
+## Before any task
+
+Read `EMDASH-SUPPORT.md` in `~/code/emdash-plugin-starter` (`wbcomdesigns/emdash-plugin-starter`). If a task depends on a row marked "not proven", prove it on the lab first. If the proof fails, stop and tell the owner on the issue. Do not build around it.

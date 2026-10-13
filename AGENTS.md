@@ -1,5 +1,7 @@
 # Agent instructions
 
+**Before anything else:** load the `emdash-plugin-development` skill. It separates what EmDash core already gives every site, what a plugin may add, and what was decided with the owner. Then read `PLAN.md`, `SCOPE.md` and `ops/handoff.md` here.
+
 Read these in order before you change anything:
 
 1. `ops/handoff.md`: where this plugin stands and what to do next.

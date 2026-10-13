@@ -9,6 +9,8 @@ The plan for this plugin, kept in the repository so it travels with the code. `S
 | Who can take part | The site owner chooses: signed-in members only, or anyone. Default is anyone. |
 | Stages on the board | Four stages in a fixed order. The owner renames each one. |
 | Discussion on an idea | Yes, using EmDash's own comments on the idea page. The plugin builds no comment system. |
+| Wording and language | One wording file per plugin kit. Every visitor-facing phrase lives there, so an owner can translate or reword the plugin by editing one file. |
+| How the owner learns something is waiting | A clear waiting count on the plugin's admin page in 0.1.0. Email alerts in 0.2.0. |
 
 ## 0.1.0: first release
 
@@ -25,8 +27,9 @@ Work the cards in this order. Each is a GitHub issue under milestone `0.1.0` wit
 9. **Guest participation**. Proven by: G-9, G-10, G-11, A-7
 10. **Rename the stages**. Proven by: A-8
 11. **Comments on idea pages**. Proven by: G-12
-12. **Lab, prove script, owner docs**. Proven by: tests
-13. **Registry branding and release gate**. Proven by: the whole checklist
+12. **Wording file**. Proven by: G-94
+13. **Lab, prove script, owner docs**. Proven by: tests
+14. **Registry branding and release gate**. Proven by: the whole checklist
 
 0.1.0 is done when every card is closed with a verification comment, `docs/qa/QA_CHECKLIST.md` has an honest last-walk line, and the gate in `CONTRIBUTING.md` passes. The owner publishes.
 
@@ -34,6 +37,7 @@ Work the cards in this order. Each is a GitHub issue under milestone `0.1.0` wit
 
 Agreed as worth doing, not now. Do not start these during 0.1.0.
 
+- Email the site admin when something is waiting for approval, on sites that have mail set up
 - Telling voters when an idea changes stage
 - Merging duplicate ideas
 - Owner-defined stages

@@ -33,6 +33,7 @@ Three roles, in this order: guest (private window), member (subscriber), admin. 
 | G-10 | Setting anyone: suggest an idea signed out with a name | Thanks message. It waits in the admin queue |
 | G-11 | Setting members: call `vote_guest` and `suggest_guest` directly | Refused |
 | G-12 | Open an idea page | EmDash comments show below the description, following the site's own comment settings |
+| G-94 | Change three phrases in the wording file (a button, an empty state, an error), rebuild | Each change shows everywhere that phrase is used. No English left on screen that is not in the file |
 
 ## Member (subscriber role)
 

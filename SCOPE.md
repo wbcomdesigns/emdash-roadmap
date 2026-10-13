@@ -31,7 +31,7 @@ How it stays general:
 
 - Status names are fixed in 0.1.0 but their display labels are owner-editable, so "Planned" can read "Coming up" or "On our list"
 - "Product" is an optional free label. A site with one product or none ignores it
-- Page titles (Roadmap, Ideas, What's next) are set by the owner
+- Every visitor-facing word is in one wording file, so a non-English site or a site with its own vocabulary changes it in one place
 
 **Decided by the owner on 2026-10-13: the site owner chooses who can take part.** One setting: signed-in members only, or anyone. For a guest: one entry per visitor, identified by a salted hash of the IP (never the IP itself, never a cookie the visitor can clear to vote again within the hour limit), an hourly limit per visitor, a honeypot field on every guest form, and written content always held for approval. Guests have no account, so they have no "My ..." list and cannot erase their entries themselves; the owner removes them in admin. If the host supplies no IP, every guest shares one bucket: refuse guest writes in that case and say why in the admin page. Member routes stay private routes using `routeCtx.user`. Guest routes are separate public routes: never merge the two paths.
 
@@ -44,6 +44,8 @@ Settled. Do not reopen these in code review. Dated 2026-10-13 unless noted.
 | Who can take part | The site owner chooses: signed-in members only, or anyone. Default is anyone. |
 | Stages on the board | Four stages in a fixed order. The owner renames each one. |
 | Discussion on an idea | Yes, using EmDash's own comments on the idea page. The plugin builds no comment system. |
+| Wording and language | One wording file per plugin kit. Every visitor-facing phrase lives there, so an owner can translate or reword the plugin by editing one file. |
+| How the owner learns something is waiting | A clear waiting count on the plugin's admin page in 0.1.0. Email alerts in 0.2.0. |
 
 ## In scope for 0.1.0
 
@@ -59,6 +61,7 @@ Settled. Do not reopen these in code review. Dated 2026-10-13 unless noted.
 - Setting "Who can take part": signed-in members only, or anyone. A guest gets one vote per visitor per item, and can suggest an idea with a display name. Ideas always wait for approval
 - The owner renames the four stages in settings. The order and the number stay fixed
 - Idea pages show EmDash's own comment list and form, with EmDash's moderation
+- One wording file, `site-kit/lib/roadmap-strings.ts`: every phrase a visitor can see (buttons, labels, messages, empty states, errors shown to visitors). Components and pages take their text only from it
 
 ## Out of scope
 
@@ -74,6 +77,7 @@ Do not build these. If a card seems to need one, stop and ask the owner.
 - Injecting scripts, styles or HTML into pages from the plugin
 - Adding, removing or reordering stages
 - A comment system of our own
+- Translating the admin screens, and switching language per visitor. The wording file holds one language
 
 ## Roles
 
@@ -129,7 +133,6 @@ Row id: `<itemId>`. Indexes: `status`, `member_id`, `createdAt`.
 | Key | Type | Default | Meaning |
 | --- | --- | --- | --- |
 | `allow_ideas` | boolean | `true` | Members can suggest ideas |
-| `title` | string | `Roadmap` | Heading on the board page. The owner's own word for it |
 | `status_labels` | string | `Under review, Planned, In progress, Done` | Display names for the four statuses, in order. The statuses themselves are fixed |
 | `collection` | string | `roadmap` | Collection that holds the items |
 | `who` | string | `anyone` | `members` or `anyone` |
@@ -174,6 +177,7 @@ None.
 | `site-kit/components/VoteButton.astro` | `<VoteButton id />` |
 | `site-kit/components/MyVotes.astro` | `<MyVotes />` |
 | `site-kit/styles/roadmap.css` | Board columns and cards |
+| `site-kit/lib/roadmap-strings.ts` | The wording file. The only place visitor-facing text is written |
 
 Plus the two shared files every Wbcom plugin kit carries: `site-kit/lib/wbcom-kit.ts` and `site-kit/styles/wbcom-base.css`.
 
@@ -202,3 +206,4 @@ A screen is done when every state listed here has been seen in a browser at 1440
 - Kit pages must not import starter-only files
 - Guest routes are public writes. Per-visitor limit, honeypot, length caps, and refuse when the host gives no IP. Never trust a visitor id from the request: derive it from the request's IP on the server
 - The collection must have comments enabled for the idea page to show them. The kit's collection definition turns them on, and the page must cope when the owner turns them off
+- Messages that come back from a route (for example a refusal) reach the visitor too. Routes return a stable `code`; the kit maps codes to phrases from the wording file and never prints the route's own English message

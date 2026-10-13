@@ -2,7 +2,13 @@
 
 One living list of flow-level cases. Walk all of it before every release. When you add or fix behaviour, add or change its case in the same pull request. There are no per-release QA files.
 
-**Last walk:** 2026-10-14, 0.1.0. Route-level on the lab: Ideas, Settings, dashboard card, and `board` (four columns, category=docs shows only Changelog list and Setup guide). No board page yet, so G-1 and G-2 were not walked in a browser. Playwright MCP was locked earlier. Vote, suggest, guest, comments and wording cases are not built yet.
+**Last walk:** 2026-10-14, 0.1.0.
+
+Walked in a browser on `emdash-lab-roadmap` (Playwright MCP was locked, so an isolated Chromium walk): G-1, G-2, G-3, M-1, M-2, M-3, M-8, Ideas, Settings, dashboard card, board at 1440 and 390, board in dark (kit tokens flip). Guest vote shows a sign-in link because guest voting is not built yet.
+
+Checked at route level only: G-7 (`vote` and `votes` 401), M-4 (missing item and a forged member id), tally equals `storage.count`, hourly vote limit.
+
+Not walked: G-4 to G-6, G-8 to G-12, M-5 to M-7, M-9, M-10, A-1 to A-7, A-8 to A-12 as actions (the Settings and Ideas screens were opened), P-3, P-4, P-5, 768 width.
 
 When you walk it, replace that line with the date, the version, and three lists: cases walked in the browser, cases checked at route level only, cases not walked. Do not claim a case you did not run.
 

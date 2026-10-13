@@ -2,9 +2,10 @@ import type { SandboxedPlugin } from "emdash/plugin";
 
 import { handleAdmin } from "./admin";
 import { loadBoard } from "./content";
-import { CHANGELOG, ROADMAP, hasCollection } from "./core";
+import { CHANGELOG, MEMBER, ROADMAP, hasCollection } from "./core";
 import { ensureNotifyTask, notifyOwners } from "./notify";
 import { seedDefaults } from "./settings";
+import { handleVote, listMyVotes } from "./vote";
 
 const plugin: SandboxedPlugin = {
 	hooks: {
@@ -47,6 +48,16 @@ const plugin: SandboxedPlugin = {
 					changelog,
 				};
 			},
+		},
+		vote: {
+			permission: MEMBER,
+			methods: ["POST", "DELETE"],
+			handler: handleVote,
+		},
+		votes: {
+			permission: MEMBER,
+			methods: ["GET"],
+			handler: listMyVotes,
 		},
 		admin: {
 			handler: async (routeCtx, ctx) => handleAdmin(routeCtx.input, ctx),

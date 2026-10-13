@@ -1,0 +1,93 @@
+.roadmap {
+	color-scheme: light dark;
+}
+
+.roadmap-toolbar {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: var(--wb-gap);
+}
+
+.roadmap-filters,
+.roadmap-tabs {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 0.5rem;
+}
+
+.roadmap-filters a {
+	display: inline-flex;
+	align-items: center;
+	min-height: var(--wb-tap);
+	padding: 0 0.85rem;
+	border: 1px solid var(--wb-border);
+	border-radius: 8px;
+	color: inherit;
+	text-decoration: none;
+}
+
+.roadmap-filters a[aria-current="page"] {
+	background: var(--wb-brand);
+	border-color: transparent;
+	color: var(--wb-on-brand);
+	font-weight: 600;
+}
+
+.roadmap-board {
+	display: grid;
+	gap: var(--wb-gap);
+	grid-template-columns: 1fr;
+}
+
+.roadmap-col {
+	display: none;
+	align-content: start;
+	gap: 0.75rem;
+	min-width: 0;
+}
+
+.roadmap-col.is-active {
+	display: grid;
+}
+
+.roadmap-card {
+	display: grid;
+	gap: 0.5rem;
+}
+
+.roadmap-card h3 {
+	font-size: 1rem;
+}
+
+.wb-vote {
+	justify-self: start;
+	gap: 0.4rem;
+}
+
+.wb-vote[aria-pressed="true"] {
+	background: var(--wb-brand);
+	border-color: transparent;
+	color: var(--wb-on-brand);
+}
+
+@media (min-width: 768px) {
+	.roadmap-tabs {
+		display: none;
+	}
+
+	.roadmap-board {
+		grid-template-columns: repeat(2, minmax(0, 1fr));
+	}
+
+	.roadmap-col,
+	.roadmap-col.is-active {
+		display: grid;
+	}
+}
+
+@media (min-width: 1100px) {
+	.roadmap-board {
+		grid-template-columns: repeat(4, minmax(0, 1fr));
+	}
+}

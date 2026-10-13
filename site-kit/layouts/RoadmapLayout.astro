@@ -1,0 +1,21 @@
+---
+/**
+ * The one place the roadmap pages meet the site's design.
+ *
+ * Every roadmap page is wrapped in this file. It hands the page to the site's
+ * own layout. If that layout has another name or lives somewhere else, change
+ * the import below. Updating the kit never overwrites this file.
+ */
+import Base from "./Base.astro";
+
+interface Props {
+	title: string;
+	pageTitle?: string | null;
+	description?: string | null;
+	image?: string | null;
+	canonical?: string | null;
+	content?: { collection: string; id: string; slug?: string | null };
+}
+---
+
+<Base {...Astro.props}><slot /></Base>

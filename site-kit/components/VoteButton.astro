@@ -1,0 +1,28 @@
+---
+import { strings } from "../lib/roadmap-strings";
+
+interface Props {
+	id: string;
+	votes?: number;
+	title?: string;
+}
+
+const { id, votes = 0, title = "" } = Astro.props;
+---
+
+<button
+	type="button"
+	class="wb-btn wb-btn--quiet wb-vote"
+	data-vote={id}
+	data-votes={String(votes)}
+	aria-pressed="false"
+	aria-label={title ? `${strings.vote}: ${title}` : strings.vote}
+>
+	<span class="wb-vote__label">{strings.vote}</span>
+	<span class="wb-vote__count">{votes}</span>
+</button>
+
+<script>
+	import { bindVoteButtons } from "../lib/roadmap-vote";
+	bindVoteButtons();
+</script>

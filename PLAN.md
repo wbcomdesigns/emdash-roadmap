@@ -1,5 +1,7 @@
 # Plan: Roadmap and Feature Voting
 
+**Status: LOCKED on 2026-10-13.** Scope and decisions were agreed with the owner. An agent does not add options or features. If a task cannot be done as written, stop, say why on its issue, and wait for the owner.
+
 The plan for this plugin, kept in the repository so it travels with the code. `SCOPE.md` says what the plugin is. This file says in what order it gets built and what waits.
 
 ## Decisions made with the owner
@@ -7,10 +9,17 @@ The plan for this plugin, kept in the repository so it travels with the code. `S
 | Question | Decision |
 | --- | --- |
 | Who can take part | The site owner chooses: signed-in members only, or anyone. Default is anyone. |
-| Stages on the board | Four stages in a fixed order. The owner renames each one. |
 | Discussion on an idea | Yes, using EmDash's own comments on the idea page. The plugin builds no comment system. |
 | Wording and language | One wording file per plugin kit. Every visitor-facing phrase lives there, so an owner can translate or reword the plugin by editing one file. |
-| How the owner learns something is waiting | A clear waiting count on the plugin's admin page in 0.1.0. Email alerts in 0.2.0. |
+| Who suggests ideas | Anyone, with a name, always with approval. A switch turns suggestions off. |
+| Layout | Board with a column per stage. |
+| Stages | The admin adds, removes, renames and reorders them, and can hide a stage from the board. Replaces "four fixed". |
+| Emails | Only to the admin: one an hour when ideas are waiting. No emails to voters. |
+| Duplicate ideas | Merge into an existing item. Votes move, one per person. |
+| Changelog | List page plus a page per release. |
+| Categories and sort | EmDash categories on roadmap items. Visitors filter by category and sort by Most votes or Newest. |
+| Member pieces | My votes moves to 0.2.0. EmDash is not member-focused for now. |
+| Setup and long lists | Developer guide plus one command. Next, Previous and find in admin. |
 
 ## 0.1.0: first release
 
@@ -51,3 +60,9 @@ See "Out of scope" in `SCOPE.md`. If a card seems to need one of those, stop and
 - Prove the kit on a preview deploy of one existing site, never on production first
 - Check the site's EmDash version, its content security policy, and its page cache against what the kit does
 - Findings from the first plugin are in `wbcomdesigns/emdash-listora` issue #23
+
+## Order after the owner review (2026-10-13)
+
+#1 schema and collections, #15 stages, #16 settings page and admin email, #2 board route (categories, sort), #3 voting, #4 suggest, #11 guests, #5 ideas queue, #17 merge, #6 board page and vote button, #7 item, suggest and changelog pages, #13 comments, #18 in-text block (prove first), #14 wording file, #9 lab and docs, #10 branding and release gate. #8 (My votes) is 0.2.0.
+
+One agent works this repo, in order, on a branch named `0.1.0`, opens a pull request into `main` and stops. It never merges, tags or publishes. Copy the proven patterns from `emdash-listora`, do not reinvent them.

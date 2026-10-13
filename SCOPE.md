@@ -1,5 +1,7 @@
 # Roadmap and Feature Voting: scope
 
+**Status: LOCKED on 2026-10-13.** Scope and decisions were agreed with the owner. An agent does not add options or features. If a task cannot be done as written, stop, say why on its issue, and wait for the owner.
+
 This file is the contract for the plugin. Code, tests, docs and cards all follow it. If something here is wrong, change it here first, in the same pull request as the code.
 
 ## Purpose
@@ -42,24 +44,48 @@ Settled. Do not reopen these in code review. Dated 2026-10-13 unless noted.
 | Question | Decision |
 | --- | --- |
 | Who can take part | The site owner chooses: signed-in members only, or anyone. Default is anyone. |
-| Stages on the board | Four stages in a fixed order. The owner renames each one. |
 | Discussion on an idea | Yes, using EmDash's own comments on the idea page. The plugin builds no comment system. |
 | Wording and language | One wording file per plugin kit. Every visitor-facing phrase lives there, so an owner can translate or reword the plugin by editing one file. |
-| How the owner learns something is waiting | A clear waiting count on the plugin's admin page in 0.1.0. Email alerts in 0.2.0. |
+| Who suggests ideas | Anyone, with a name, always with approval. A switch turns suggestions off. |
+| Layout | Board with a column per stage. |
+| Stages | The admin adds, removes, renames and reorders them, and can hide a stage from the board. Replaces "four fixed". |
+| Emails | Only to the admin: one an hour when ideas are waiting. No emails to voters. |
+| Duplicate ideas | Merge into an existing item. Votes move, one per person. |
+| Changelog | List page plus a page per release. |
+| Categories and sort | EmDash categories on roadmap items. Visitors filter by category and sort by Most votes or Newest. |
+| Member pieces | My votes moves to 0.2.0. EmDash is not member-focused for now. |
+| Setup and long lists | Developer guide plus one command. Next, Previous and find in admin. |
+
+## Against the free WordPress plugin (Product Roadmap), checked 2026-10-13
+
+| Free WordPress feature | Here |
+| --- | --- |
+| Public roadmap, voting by members or guests, "Voted" state | Yes |
+| Suggestions with approval and spam protection | Yes, and open to guests (paid on WordPress) |
+| Comments on items | Yes, EmDash's own comments |
+| Custom statuses | Yes |
+| Categories, filter and sort | Yes |
+| Changelog with list and release pages | Yes |
+| Emails to voters and commenters on a status change | No, by owner decision: admin notice only for now |
+| Follows the site's colours and dark mode | Yes |
+| Layout | Board with columns (paid on WordPress; the free layout there is a list) |
+
+Extra, not in WordPress: merging duplicate ideas. Paid WordPress features stay out: several roadmaps, timeline and card layouts, analytics, advanced filters, feedback button, digests, webhooks, custom fields.
 
 ## In scope for 0.1.0
 
 - Roadmap items live in an EmDash collection (`roadmap`): title, description, status, optional product label
-- Four fixed statuses: Under review, Planned, In progress, Done
+- Stages managed by the admin (start: Under review, Planned, In progress, Done). A stage can be hidden from the board
 - Public board: one column per status, sorted by votes, with a filter by product label
 - Item page with description, status and vote button
 - One vote per member per item. Click again to take it back
 - Members suggest an idea: it is created as a draft and waits in the admin queue
 - Admin: ideas queue (approve publishes it as Under review, reject), settings
 - Changelog: a second collection (`changelog`) with a kit page. No plugin logic
-- Drop-in `<MyVotes>` for an account page, with delete-my-votes
+- Merge a duplicate idea into an existing item
+- Changelog: list page and a page per release
+- One email an hour to the admin when ideas are waiting
 - Setting "Who can take part": signed-in members only, or anyone. A guest gets one vote per visitor per item, and can suggest an idea with a display name. Ideas always wait for approval
-- The owner renames the four stages in settings. The order and the number stay fixed
 - Idea pages show EmDash's own comment list and form, with EmDash's moderation
 - One wording file, `site-kit/lib/roadmap-strings.ts`: every phrase a visitor can see (buttons, labels, messages, empty states, errors shown to visitors). Components and pages take their text only from it
 
@@ -68,14 +94,14 @@ Settled. Do not reopen these in code review. Dated 2026-10-13 unless noted.
 Do not build these. If a card seems to need one, stop and ask the owner.
 
 - Notifying voters when status changes
+- `<MyVotes>` and any member account list (0.2.0)
 - Private boards
 - Multiple boards
 - Importing from other tools
 - Any paid or Pro feature
-- Email sending (the host may have no mail configured)
+- Email to anyone but the site admin
 - Portable Text blocks or anything that needs a native plugin
 - Injecting scripts, styles or HTML into pages from the plugin
-- Adding, removing or reordering stages
 - A comment system of our own
 - Translating the admin screens, and switching language per visitor. The wording file holds one language
 

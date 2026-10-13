@@ -62,7 +62,10 @@ A registry release cannot be changed or removed. Every check runs before `publis
 
 1. `npm test` (validate, typecheck, tests) and `npm run build`.
 2. `./scripts/reset-lab.sh` then `./scripts/prove-lab.sh`.
-3. Walk `docs/qa/QA_CHECKLIST.md` in a browser as guest, member (subscriber) and admin, at 1440, 768 and 390, in light and dark. Update its "Last walk" line honestly: what was walked in the browser, what only at route level, what was not walked.
+3. Trace every route from the kit page that calls it to its storage and its admin screen. A route with no screen is a finding.
+4. Run EVERY case in `docs/qa/QA_CHECKLIST.md` in a browser, not a sample, including failure states (block a request and look at the page), keyboard use, and contrast in light and dark.
+
+   Walk `docs/qa/QA_CHECKLIST.md` in a browser as guest, member (subscriber) and admin, at 1440, 768 and 390, in light and dark. Update its "Last walk" line honestly: what was walked in the browser, what only at route level, what was not walked.
 4. Wait for the automatic security review of the last pushed commit and fix what it finds. Do not tag while a review is outstanding.
 5. Registry branding in the manifest: `name`, `description` (140 characters), up to 5 `keywords`, `sections` (2000 characters each), `release.artifacts` (icon 256x256, banner, up to 8 screenshots in `images/`). Screenshots come from a freshly reset lab with no test data.
 6. The same version in `package.json`, `package-lock.json`, `CHANGELOG.md`, `docs/registry/changelog.md` and the git tag.

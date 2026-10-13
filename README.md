@@ -2,7 +2,7 @@
 
 A public roadmap where members vote on ideas and suggest their own, with a changelog for what shipped.
 
-Status: 0.1.0 ready for the owner to publish. Not published yet.
+Published as `@vapvarun.bsky.social/roadmap@0.1.0`. Copy `site-kit/` so `/roadmap/` exists.
 
 - Scope and schema: [SCOPE.md](SCOPE.md)
 - Plan and decisions: [PLAN.md](PLAN.md)

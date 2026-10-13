@@ -30,3 +30,7 @@ export function labAstroConfig(lab = labRoot()) {
 	}
 	return "";
 }
+
+export function labSeedPath(lab = labRoot()) {
+	return resolve(lab, "seed", "seed.json");
+}

@@ -46,10 +46,8 @@ Work the cards in this order. Each is a GitHub issue under milestone `0.1.0` wit
 
 Agreed as worth doing, not now. Do not start these during 0.1.0.
 
-- Email the site admin when something is waiting for approval, on sites that have mail set up
+- `<MyVotes>` and any member account list
 - Telling voters when an idea changes stage
-- Merging duplicate ideas
-- Owner-defined stages
 
 ## Not planned
 

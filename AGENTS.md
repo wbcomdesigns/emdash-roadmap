@@ -9,7 +9,7 @@ Read these in order before you change anything:
 3. `CONTRIBUTING.md`: build rules, the gate that runs before every release, and the publish steps.
 4. `docs/qa/QA_CHECKLIST.md`: the cases a release must pass.
 
-Work is tracked as GitHub issues ("cards") under version milestones. Take a card, do all of it (function, screen, tests, QA case), and comment on the card with what you verified and how. One card per commit once it is verified.
+Work is tracked as GitHub issues ("cards") under version milestones. Take a card, do all of it (function, screen, tests, QA case), and comment on the card with what you verified and how. One card per commit once it is verified. Never Basecamp. That is for WordPress products only.
 
 ## Hard rules
 

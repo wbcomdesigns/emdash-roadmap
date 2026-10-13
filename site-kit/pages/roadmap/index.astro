@@ -1,0 +1,64 @@
+---
+import { getTaxonomyTerms } from "emdash";
+import Layout from "../../layouts/RoadmapLayout.astro";
+import { strings } from "../../lib/roadmap-strings";
+import "../../styles/wbcom-base.css";
+import "../../styles/roadmap.css";
+
+const sort = Astro.url.searchParams.get("sort") === "newest" ? "newest" : "votes";
+const category = Astro.url.searchParams.get("category") || "";
+const terms = await getTaxonomyTerms("roadmap_category").catch(() => []);
+
+const href = (next: { category?: string; sort?: string }) => {
+	const params = new URLSearchParams();
+	const nextCategory = "category" in next ? next.category || "" : category;
+	const nextSort = "sort" in next ? next.sort || "votes" : sort;
+	if (nextCategory) params.set("category", nextCategory);
+	if (nextSort !== "votes") params.set("sort", nextSort);
+	const query = params.toString();
+	return query ? `/roadmap/?${query}` : "/roadmap/";
+};
+---
+
+<Layout title={strings.boardTitle} description={strings.boardIntro}>
+	<div class="wb roadmap" id="roadmap" data-category={category} data-sort={sort}>
+		<header>
+			<h1>{strings.boardTitle}</h1>
+			<p class="wb-muted">{strings.boardIntro}</p>
+			<p class="roadmap-links">
+				<a href="/roadmap/suggest/">{strings.suggestLink}</a>
+				<a href="/changelog/">{strings.changelogLink}</a>
+			</p>
+		</header>
+
+		<div class="roadmap-toolbar">
+			<nav class="roadmap-filters" aria-label={strings.allCategories}>
+				<a href={href({ category: "" })} aria-current={category ? undefined : "page"}>{strings.allCategories}</a>
+				{
+					terms.map((term) => (
+						<a href={href({ category: term.slug })} aria-current={category === term.slug ? "page" : undefined}>
+							{term.label}
+						</a>
+					))
+				}
+			</nav>
+			<nav class="roadmap-filters" aria-label={strings.sortVotes}>
+				<a href={href({ sort: "votes" })} aria-current={sort === "votes" ? "page" : undefined}>{strings.sortVotes}</a>
+				<a href={href({ sort: "newest" })} aria-current={sort === "newest" ? "page" : undefined}>{strings.sortNewest}</a>
+			</nav>
+		</div>
+
+		<p id="roadmap-status" class="wb-status" hidden></p>
+		<p id="roadmap-loading">{strings.loading}</p>
+		<noscript>
+			<p class="wb-empty">{strings.needsJs}</p>
+		</noscript>
+		<div id="roadmap-tabs" class="roadmap-tabs" role="tablist" hidden></div>
+		<div id="roadmap-board" class="roadmap-board" hidden></div>
+	</div>
+</Layout>
+
+<script>
+	import { loadBoard } from "../../lib/roadmap-board";
+	void loadBoard();
+</script>

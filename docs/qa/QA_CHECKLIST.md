@@ -2,7 +2,13 @@
 
 One living list of flow-level cases. Walk all of it before every release. When you add or fix behaviour, add or change its case in the same pull request. There are no per-release QA files.
 
-**Last walk:** not walked yet.
+**Last walk:** 2026-10-14, 0.1.0. Isolated Chromium against `emdash-lab-roadmap` on port 4335. Screenshots in `/tmp/roadmap-card-qa` and `images/`.
+
+Walked in a browser: G-1, G-2, G-4, G-5, G-6, G-9, G-10, G-12, M-1, M-2, M-3, M-5, M-8, A-1 (queue with guest mark Sam (guest)), A-11, board at 1440 and 390, light and dark.
+
+Checked at route level only: G-7, G-11, M-4, M-6, M-7, A-2 (approve published to the board), A-3, A-4, A-8 (rename Under review to QA Review kept the three seeded items), A-9, A-10, A-12, merge votes 3+5-1=7, guest honeypot and members-only, prove-lab.
+
+Not walked: G-8 (members-only suggest prompt in the browser; route refused), M-9, M-10 (0.2.0), A-6 (ideas off in the browser; route refused), A-7 as a separate admin click after A-1 already showed the guest row, P-5 keyboard, second same-role member, hourly email firing on its own on the lab.
 
 When you walk it, replace that line with the date, the version, and three lists: cases walked in the browser, cases checked at route level only, cases not walked. Do not claim a case you did not run.
 
@@ -22,7 +28,7 @@ Three roles, in this order: guest (private window), member (subscriber), admin. 
 | ID | Steps | Expected |
 | --- | --- | --- |
 | G-1 | Open the roadmap | Four columns with items and vote counts |
-| G-2 | Filter by a product label | Only that product's items |
+| G-2 | Filter by a category | Only that category's items |
 | G-3 | Setting members: click a vote button signed out | Sign-in link. Count unchanged |
 | G-4 | Open an item page | Description, status, vote button |
 | G-5 | Open an item url that does not exist | 404 page with a 404 status |
@@ -62,6 +68,10 @@ Three roles, in this order: guest (private window), member (subscriber), admin. 
 | A-6 | Turn ideas off | The suggest page says ideas are closed. The route refuses |
 | A-7 | Open the queue with a guest idea waiting | It shows the guest's name and is marked as from a guest |
 | A-8 | Rename the four stages in settings | The board, the idea page and the admin all use the new names. The order does not change |
+| A-9 | Add a hidden stage named Declined, move an item there | The item leaves the public board. The stage name is shown, never an internal key |
+| A-10 | Try to remove a stage that still has items | Refused. The page says how many items are in that stage |
+| A-11 | Change who can take part and the email address, reload | The saved values are still there and take effect |
+| A-12 | Twenty ideas waiting, hourly task runs twice; then switch email off | One email, no idea text and no link. Switch off sends none |
 
 ## Presentation, every screen
 
@@ -78,4 +88,7 @@ Three roles, in this order: guest (private window), member (subscriber), admin. 
 
 ## Known gaps
 
-None recorded yet. List anything a release ships without, here, in plain words.
+- My votes (`<MyVotes>`) is 0.2.0. M-9 and M-10 stay parked.
+- The in-text Roadmap block (#18) needs a trusted install. The registry install is the whole product without it.
+- This plugin has no `OWNER_INVENTORY.md`, `CORE_PATHS.md`, or `ROLE_MATRIX.md`. The contract is this checklist. Only one lab login exists, so two same-role members cannot be walked.
+- Hourly email is proven in tests, not seen firing on its own on the lab.

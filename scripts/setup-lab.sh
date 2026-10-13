@@ -17,6 +17,7 @@ fi
 
 node "$PLUGIN/scripts/wire-lab.mjs"
 "$PLUGIN/scripts/apply-kit.sh"
+node "$PLUGIN/scripts/merge-seed.mjs"
 (cd "$LAB" && npm install --legacy-peer-deps)
 
 echo

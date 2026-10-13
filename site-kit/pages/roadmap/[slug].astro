@@ -46,7 +46,7 @@ const id = live ? String(entry.data.id || "") : "";
 	content={live ? { collection: "roadmap", id, slug } : undefined}
 >
 	<div class="wb roadmap">
-		<p><a href="/roadmap/">{strings.backToBoard}</a></p>
+		<p><a class="wb-btn wb-btn--quiet" href="/roadmap/">{strings.backToBoard}</a></p>
 		{
 			!live ? (
 				<div class="wb-empty">

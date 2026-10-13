@@ -21,13 +21,13 @@ const href = (next: { category?: string; sort?: string }) => {
 ---
 
 <Layout title={strings.boardTitle} description={strings.boardIntro}>
-	<div class="wb roadmap" id="roadmap" data-category={category} data-sort={sort}>
+	<div class="wb roadmap" id="roadmap" data-category={category} data-sort={sort} aria-busy="true">
 		<header>
 			<h1>{strings.boardTitle}</h1>
 			<p class="wb-muted">{strings.boardIntro}</p>
 			<p class="roadmap-links">
-				<a href="/roadmap/suggest/">{strings.suggestLink}</a>
-				<a href="/changelog/">{strings.changelogLink}</a>
+				<a class="wb-btn wb-btn--quiet" href="/roadmap/suggest/">{strings.suggestLink}</a>
+				<a class="wb-btn wb-btn--quiet" href="/changelog/">{strings.changelogLink}</a>
 			</p>
 		</header>
 
@@ -49,7 +49,7 @@ const href = (next: { category?: string; sort?: string }) => {
 		</div>
 
 		<p id="roadmap-status" class="wb-status" hidden></p>
-		<p id="roadmap-loading">{strings.loading}</p>
+		<p id="roadmap-loading" aria-live="polite">{strings.loading}</p>
 		<noscript>
 			<p class="wb-empty">{strings.needsJs}</p>
 		</noscript>

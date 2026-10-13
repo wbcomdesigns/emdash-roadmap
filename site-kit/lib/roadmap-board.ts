@@ -12,6 +12,7 @@ export async function loadBoard(): Promise<void> {
 	const tabs = document.getElementById("roadmap-tabs");
 	if (!root || !board) return;
 
+	root.setAttribute("aria-busy", "true");
 	const query = new URLSearchParams();
 	const category = root.dataset.category || "";
 	const sort = root.dataset.sort || "votes";
@@ -19,6 +20,7 @@ export async function loadBoard(): Promise<void> {
 	if (sort !== "votes") query.set("sort", sort);
 	const result = await api("roadmap", `board${query.toString() ? `?${query}` : ""}`);
 	if (loading) loading.hidden = true;
+	root.setAttribute("aria-busy", "false");
 	if (!result.ok || !Array.isArray(result.columns)) {
 		showError(result.error?.code);
 		return;
@@ -30,17 +32,22 @@ export async function loadBoard(): Promise<void> {
 	if (tabs) {
 		tabs.hidden = columns.length === 0;
 		tabs.innerHTML = columns
-			.map(
-				(column, index) =>
-					`<button type="button" class="wb-btn wb-btn--quiet" role="tab" data-tab="${esc(column.name)}" aria-selected="${index === 0 ? "true" : "false"}">${esc(column.name)}</button>`,
-			)
+			.map((column, index) => {
+				const id = colId(column.name);
+				return `<button type="button" class="wb-btn wb-btn--quiet" role="tab" id="roadmap-tab-${id}" data-tab="${esc(column.name)}" aria-controls="roadmap-panel-${id}" aria-selected="${index === 0 ? "true" : "false"}" tabindex="${index === 0 ? "0" : "-1"}">${esc(column.name)}</button>`;
+			})
 			.join("");
 	}
 	bindVoteButtons();
 	bindTabs();
 }
 
+function colId(name: string): string {
+	return name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "col";
+}
+
 function columnHtml(column: Column, active: boolean): string {
+	const id = colId(column.name);
 	const cards = column.items
 		.map(
 			(item) =>
@@ -48,7 +55,7 @@ function columnHtml(column: Column, active: boolean): string {
 		)
 		.join("");
 	const empty = column.empty ? `<p class="wb-empty">${esc(strings.columnEmpty)}</p>` : "";
-	return `<section class="roadmap-col${active ? " is-active" : ""}" data-col="${esc(column.name)}"><h2>${esc(column.name)}</h2>${cards}${empty}</section>`;
+	return `<section class="roadmap-col${active ? " is-active" : ""}" id="roadmap-panel-${id}" role="tabpanel" aria-labelledby="roadmap-tab-${id}" data-col="${esc(column.name)}"><h2>${esc(column.name)}</h2>${cards}${empty}</section>`;
 }
 
 function bindTabs(): void {
@@ -58,14 +65,35 @@ function bindTabs(): void {
 	tabs.addEventListener("click", (event) => {
 		const tab = (event.target as HTMLElement).closest<HTMLButtonElement>("[data-tab]");
 		if (!tab) return;
-		const name = tab.dataset.tab || "";
-		for (const button of tabs.querySelectorAll<HTMLButtonElement>("[data-tab]")) {
-			button.setAttribute("aria-selected", button === tab ? "true" : "false");
-		}
-		for (const column of document.querySelectorAll<HTMLElement>("[data-col]")) {
-			column.classList.toggle("is-active", column.dataset.col === name);
-		}
+		selectTab(tabs, tab);
 	});
+	tabs.addEventListener("keydown", (event) => {
+		const buttons = [...tabs.querySelectorAll<HTMLButtonElement>("[data-tab]")];
+		if (!buttons.length) return;
+		const current = buttons.findIndex((button) => button === document.activeElement);
+		if (current < 0) return;
+		let next = -1;
+		if (event.key === "ArrowRight" || event.key === "ArrowDown") next = (current + 1) % buttons.length;
+		else if (event.key === "ArrowLeft" || event.key === "ArrowUp") next = (current - 1 + buttons.length) % buttons.length;
+		else if (event.key === "Home") next = 0;
+		else if (event.key === "End") next = buttons.length - 1;
+		if (next < 0) return;
+		event.preventDefault();
+		buttons[next].focus();
+		selectTab(tabs, buttons[next]);
+	});
+}
+
+function selectTab(tabs: HTMLElement, tab: HTMLButtonElement): void {
+	const name = tab.dataset.tab || "";
+	for (const button of tabs.querySelectorAll<HTMLButtonElement>("[data-tab]")) {
+		const selected = button === tab;
+		button.setAttribute("aria-selected", selected ? "true" : "false");
+		button.tabIndex = selected ? 0 : -1;
+	}
+	for (const column of document.querySelectorAll<HTMLElement>("[data-col]")) {
+		column.classList.toggle("is-active", column.dataset.col === name);
+	}
 }
 
 function showError(code: string | undefined): void {

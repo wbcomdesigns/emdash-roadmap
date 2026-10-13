@@ -40,7 +40,7 @@ const summary = live ? String(entry.data.summary || "") : "";
 	content={live ? { collection: "changelog", id: String(entry.data.id || ""), slug } : undefined}
 >
 	<div class="wb roadmap">
-		<p><a href="/changelog/">{strings.backToChangelog}</a></p>
+		<p><a class="wb-btn wb-btn--quiet" href="/changelog/">{strings.backToChangelog}</a></p>
 		{
 			!live ? (
 				<div class="wb-empty">

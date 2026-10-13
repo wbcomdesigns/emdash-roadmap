@@ -2,13 +2,13 @@
 
 One living list of flow-level cases. Walk all of it before every release. When you add or fix behaviour, add or change its case in the same pull request. There are no per-release QA files.
 
-**Last walk:** 2026-10-14, 0.1.0. Isolated Chromium against `emdash-lab-roadmap` on port 4335. Screenshots in `/tmp/roadmap-card-qa` and `images/`.
+**Last walk:** 2026-10-14, presentation pass after 0.1.0. Isolated Chromium against `emdash-lab-roadmap` on port 4335. Shots in `~/work-artifacts/screenshots/2026-10/roadmap-ux/`.
 
-Walked in a browser: G-1, G-2, G-4, G-5, G-6, G-9, G-10, G-12, M-1, M-2, M-3, M-5, M-8, A-1 (queue with guest mark Sam (guest)), A-11, board at 1440 and 390, light and dark.
+Walked in a browser: P-1 (390, 430, 768, 1024, 1440, no sideways scroll), P-2 (OS dark does not flip the light lab theme; `fae6df0` stands), P-3 (body on the real canvas is #1a1a1a on white, 16.25:1 on the 404 empty; current filter 5.57:1), P-4 after the #21 fix (kit nav, filters, votes, tabs, inputs, card titles all >= 40px), P-5 after the #22 fix (focus rings 2px brand; ArrowRight on phone tabs moves Under review to Planned), P-6 (404 and changelog empty use `.wb-empty` with a next line; load error uses the status box), P-7 (no raw ids). Guest board, suggest, item, 404, changelog.
 
-Checked at route level only: G-7, G-11, M-4, M-6, M-7, A-2 (approve published to the board), A-3, A-4, A-8 (rename Under review to QA Review kept the three seeded items), A-9, A-10, A-12, merge votes 3+5-1=7, guest honeypot and members-only, prove-lab.
+Checked at route level only: none this pass. Function cases from the 0.1.0 walk were not re-run.
 
-Not walked: G-8 (members-only suggest prompt in the browser; route refused), M-9, M-10 (0.2.0), A-6 (ideas off in the browser; route refused), A-7 as a separate admin click after A-1 already showed the guest row, P-5 keyboard, second same-role member, hourly email firing on its own on the lab.
+Not walked: G-8, M-9, M-10, A-6, second same-role member, hourly email on its own, VoiceOver, RTL (kit uses logical properties; no RTL lab), host comment fields (36px / Post Comment 34px, EmDash chrome).
 
 When you walk it, replace that line with the date, the version, and three lists: cases walked in the browser, cases checked at route level only, cases not walked. Do not claim a case you did not run.
 

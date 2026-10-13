@@ -10,7 +10,7 @@ Show customers what is planned, let signed-in members vote and suggest ideas, an
 
 **WordPress source:** Product Roadmap (`~/dev/repos/product-roadmap`, manifest at `audit/manifest.json`) for scope and wording. Its admin has Roadmap, Changelog, Products, Dashboard and Settings. Do not copy PHP.
 
-**Brand:** Logos: `~/Documents/brand logos/product-roadmap/`. Use the mark, never boxed in a tile.
+**Brand:** Product Roadmap, indigo. Full kit (mark, wordmark, horizontal, square, each in light, dark and white, plus PNGs and social banners) and the brand sheet: `~/Documents/brand logos/product-roadmap/`. `icon.png` and `images/banner.png` in this repo come from it. Rebuild with the pipeline in `~/Documents/brand logos/_render-src/`, never by hand. The lockup tagline names WordPress, so use the mark and the no-tagline lockup on EmDash.
 
 ## Fits every kind of site
 

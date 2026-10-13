@@ -25,7 +25,10 @@
 		"content:read",
 		"content:write",
 		"content:publish",
-		"schema:read"
+		"schema:read",
+		"taxonomies:read",
+		"redirects:write",
+		"email:send"
 	],
 	"allowedHosts": [],
 	"storage": {
@@ -52,10 +55,52 @@
 		"pages": [
 			{
 				"path": "/ideas",
-				"label": "Roadmap and Feature Voting",
-				"icon": "sparkle"
+				"label": "Ideas",
+				"icon": "sparkle",
+				"group": "Roadmap"
+			},
+			{
+				"path": "/settings",
+				"label": "Settings",
+				"icon": "settings",
+				"group": "Roadmap"
 			}
-		]
+		],
+		"widgets": [
+			{
+				"id": "waiting",
+				"title": "Roadmap: waiting for you",
+				"size": "half"
+			}
+		],
+		"settingsSchema": {
+			"allow_ideas": {
+				"label": "Allow suggestions",
+				"description": "People can send an idea. It always waits for approval.",
+				"type": "boolean",
+				"default": true
+			},
+			"who": {
+				"label": "Who can vote and suggest",
+				"type": "select",
+				"default": "anyone",
+				"options": [
+					{ "value": "anyone", "label": "Anyone" },
+					{ "value": "members", "label": "Signed-in members only" }
+				]
+			},
+			"notify": {
+				"label": "Email me when ideas are waiting",
+				"description": "One short notice an hour. Needs a mail provider.",
+				"type": "boolean",
+				"default": true
+			},
+			"notify_to": {
+				"label": "Send that email to",
+				"type": "string",
+				"default": ""
+			}
+		}
 	},
 	"release": {
 		"artifacts": {

@@ -2,7 +2,7 @@
 
 One living list of flow-level cases. Walk all of it before every release. When you add or fix behaviour, add or change its case in the same pull request. There are no per-release QA files.
 
-**Last walk:** not walked yet.
+**Last walk:** 2026-10-13, 0.1.0. Ideas, Settings and the dashboard card were checked at route level on the lab (guest health, both collections present, add a hidden Declined stage, refuse remove with a count, bad email address). Playwright MCP was locked by another session, so these screens were not walked in a real browser at 1440, 768 or 390, or in light and dark. Board, vote, suggest, guest, comments and wording cases are not built yet.
 
 When you walk it, replace that line with the date, the version, and three lists: cases walked in the browser, cases checked at route level only, cases not walked. Do not claim a case you did not run.
 
@@ -62,6 +62,10 @@ Three roles, in this order: guest (private window), member (subscriber), admin. 
 | A-6 | Turn ideas off | The suggest page says ideas are closed. The route refuses |
 | A-7 | Open the queue with a guest idea waiting | It shows the guest's name and is marked as from a guest |
 | A-8 | Rename the four stages in settings | The board, the idea page and the admin all use the new names. The order does not change |
+| A-9 | Add a hidden stage named Declined, move an item there | The item leaves the public board. The stage name is shown, never an internal key |
+| A-10 | Try to remove a stage that still has items | Refused. The page says how many items are in that stage |
+| A-11 | Change who can take part and the email address, reload | The saved values are still there and take effect |
+| A-12 | Twenty ideas waiting, hourly task runs twice; then switch email off | One email, no idea text and no link. Switch off sends none |
 
 ## Presentation, every screen
 

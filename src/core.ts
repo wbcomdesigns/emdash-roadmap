@@ -1,6 +1,6 @@
 import type { PluginContext } from "emdash/plugin";
 
-import { asRecord, asString } from "./util";
+import { asString } from "./util";
 
 // Lowest signed-in role (subscriber). Private routes get a host-verified routeCtx.user.
 // A public route never gets a user, and a member id in the request is never trusted.
@@ -14,34 +14,42 @@ export const RATE_LIMITED = {
 	error: { code: "RATE_LIMITED", message: "Too many requests. Try again in an hour." },
 };
 
+export const ROADMAP = "roadmap";
+export const CHANGELOG = "changelog";
+
+export const EMAIL_RE = /^[^\s@<>,;]+@[^\s@<>,;]+\.[^\s@<>,;]+$/;
+
 const RATE_WINDOW_MS = 60 * 60 * 1000;
 const RATE_MAX = 8;
 
-// ponytail: KV read-then-write is not atomic, so a burst of parallel requests can slip a few
-// past the cap. Fine for throttling abuse; move to a host rate-limit primitive if one ships.
-export async function rateLimited(ctx: PluginContext, who: string): Promise<boolean> {
+/** Compare-and-set so requests arriving together cannot each slip under the limit. */
+export async function rateLimited(ctx: Pick<PluginContext, "kv">, who: string): Promise<boolean> {
+	if (!who) return false;
 	const key = `rate:${who}`;
-	const [start, count] = ((await ctx.kv.get<string>(key)) || "0|0").split("|").map(Number);
-	const now = Date.now();
-	if (now - start > RATE_WINDOW_MS) {
-		await ctx.kv.set(key, `${now}|1`);
-		return false;
+	for (let attempt = 0; attempt < 4; attempt += 1) {
+		const seen = await ctx.kv.getVersioned<string>(key);
+		const [start, count] = (seen?.value || "0|0").split("|").map(Number);
+		const now = Date.now();
+		const fresh = now - start > RATE_WINDOW_MS;
+		if (!fresh && count >= RATE_MAX) return true;
+		const next = fresh ? `${now}|1` : `${start}|${count + 1}`;
+		if ((await ctx.kv.compareAndSet(key, seen?.revision ?? null, next)).applied) return false;
 	}
-	if (count >= RATE_MAX) return true;
-	await ctx.kv.set(key, `${start}|${count + 1}`);
-	return false;
+	return true;
 }
 
-export type EntryRef = { title: string; url: string; published: boolean };
+export async function collectionName(ctx: PluginContext): Promise<string> {
+	return asString(await ctx.settings.get<string>("collection")) || ROADMAP;
+}
 
-export async function entryRef(ctx: PluginContext, collection: string, id: string): Promise<EntryRef | null> {
-	const item = await ctx.content?.get?.(collection, id).catch(() => null);
-	if (!item) return null;
-	const published = item.status === "published";
-	const url = published ? await ctx.content?.getPublicUrl?.(collection, id).catch(() => null) : null;
-	return {
-		title: asString(asRecord(item.data).title) || item.slug || id,
-		url: url || "",
-		published,
-	};
+export async function listCollectionSlugs(ctx: PluginContext): Promise<string[]> {
+	try {
+		return ((await ctx.schema?.listCollections()) ?? []).map((item) => item.slug);
+	} catch {
+		return [];
+	}
+}
+
+export async function hasCollection(ctx: PluginContext, slug: string): Promise<boolean> {
+	return (await listCollectionSlugs(ctx)).includes(slug);
 }

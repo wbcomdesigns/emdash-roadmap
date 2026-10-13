@@ -205,7 +205,9 @@ None.
 
 | Page | What it shows |
 | --- | --- |
-| `/ideas` | Stats, pending ideas table with full text and Approve / Reject, settings. Items themselves are edited in the EmDash content admin |
+| `/ideas` | Stats and the pending ideas table with full text and Approve / Reject. Items themselves are edited in the EmDash content admin |
+| `/settings` | Allow suggestions, who can take part, stages, and the hourly admin email. The internal collection name is never shown |
+| Dashboard card | Count of ideas waiting, with a link to `/ideas` |
 
 ## Site kit
 

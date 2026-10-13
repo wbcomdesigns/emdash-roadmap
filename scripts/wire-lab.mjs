@@ -37,4 +37,9 @@ if (!config.includes(name)) {
 	}
 	writeFileSync(configPath, config);
 }
+if (!config.includes("trustedProxyHeaders")) {
+	config = readFileSync(configPath, "utf8");
+	config = config.replace(/emdash\(\s*\{/, (hit) => `${hit}\n\t\t\ttrustedProxyHeaders: ["x-forwarded-for"],`);
+	writeFileSync(configPath, config);
+}
 console.log(`Wired ${name} into ${lab}`);

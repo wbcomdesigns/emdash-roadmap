@@ -24,5 +24,9 @@ curl -sf -c "$JAR" -o /dev/null "$BASE/_emdash/api/setup/dev-bypass?redirect=/"
 ok "admin page loads"
 
 # plugin-specific checks go below this line
+json -b "$JAR" -X POST -H "Content-Type: application/json" -d '{"type":"page_load","page":"/settings"}' "$API/admin" | grep -q "Under review" || fail "settings page"
+ok "settings page loads"
+json -b "$JAR" -X POST -H "Content-Type: application/json" -d '{"type":"page_load","widget":"waiting"}' "$API/admin" | grep -q "waiting" || fail "dashboard card"
+ok "dashboard card loads"
 
 echo "All checks passed for $SLUG"

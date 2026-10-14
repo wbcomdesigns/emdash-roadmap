@@ -49,7 +49,7 @@ In admin, open **Roadmap**, then **Ideas**.
 
 Things to know:
 
-- You can tidy the idea first: open its draft in the content screens, fix the title or description and save. Approving then publishes your version.
+- To tidy an idea before it goes live, open its draft in the content screens, fix the title or description, and publish it there. You see exactly what goes on the board, and the idea leaves the Ideas list by itself. **Approve** only publishes drafts nobody has edited; on an edited draft it tells you to publish from the editor instead.
 - The queue shows the 50 newest waiting ideas.
 - If another admin decided the same idea first, you see "That idea is no longer waiting." and the table refreshes.
 - To fold an idea into an item you already have, use [Merge a duplicate](merge-duplicates.md) instead.

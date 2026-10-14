@@ -1,6 +1,6 @@
 ## 0.1.3
 
-- Fix: approving an idea keeps your edits to its draft.
+- Fix: approve never overwrites your edits; publish an edited idea from the editor and it leaves the Ideas list.
 - Fix: new and approved ideas go to the first stage shown on the board.
 - New: full user guides.
 

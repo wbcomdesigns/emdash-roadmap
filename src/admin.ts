@@ -2,7 +2,7 @@ import type { PluginContext } from "emdash/plugin";
 
 import { EMAIL_RE } from "./core";
 import { countInStage, hasCollections, listRoadmapItems, patchStage, stageCounts } from "./content";
-import { approveIdea, listPendingIdeas, mergeItems, rejectIdea } from "./ideas";
+import { approveIdea, listPendingIdeas, mergeItems, rejectIdea, settlePublishedIdeas } from "./ideas";
 import { ensureNotifyTask } from "./notify";
 import {
 	addStage,
@@ -56,7 +56,7 @@ function withChoice(options: Array<{ label: string; value: string }>): Array<{ l
 
 export async function renderIdeas(ctx: PluginContext, extra?: IdeasExtra): Promise<BlockResponse> {
 	const collections = await hasCollections(ctx);
-	const pending = await listPendingIdeas(ctx);
+	const pending = await settlePublishedIdeas(ctx, await listPendingIdeas(ctx));
 	const items = (await listRoadmapItems(ctx)).filter((item) => item.published);
 	const keepOptions = withChoice(items.map((item) => ({ label: item.title, value: item.id })));
 	const sourceOptions = withChoice([
@@ -413,6 +413,9 @@ async function handleStageSave(
 	if (!renamed.ok) return failed(ctx, renamed.error);
 	const next = setStageShown(renamed.stages, id, asBoolean(values.shown));
 	if (!next) return failed(ctx, "That stage is no longer on the list.");
+	if (!next.some((stage) => stage.shown)) {
+		return failed(ctx, "Keep at least one stage on the board. New and approved ideas go to the first one shown.");
+	}
 	await saveStages(ctx, next);
 	return saved(ctx, "Stage saved.");
 }

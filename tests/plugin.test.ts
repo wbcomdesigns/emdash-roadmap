@@ -435,7 +435,7 @@ describe("suggest and ideas queue", () => {
 		expect(board.columns[0]?.items.map((item) => item.title)).toContain("Dark mode for comments");
 	});
 
-	it("approve keeps the owner's edits to the draft and uses the first shown stage", async () => {
+	it("approve publishes the draft's current text, not the stored idea text", async () => {
 		const site = await openRoadmap();
 		const draft = await site.rt.fixtures.content("roadmap", {
 			data: { title: "Export monthly reports as CSV", description: "Download the monthly report.", stage: "" },
@@ -460,6 +460,26 @@ describe("suggest and ideas queue", () => {
 		const live = await site.rt.inspect.content.get("roadmap", draft.id);
 		expect(JSON.stringify(live)).toContain("Export monthly reports as CSV");
 		expect(JSON.stringify(live)).not.toContain("montly");
+	});
+
+	it("an idea whose draft the owner published from the editor leaves the queue", async () => {
+		const site = await openRoadmap();
+		const item = await site.rt.fixtures.content("roadmap", {
+			data: { title: "Weekly digest email", description: "A summary every Monday.", stage: "Planned" },
+			slug: "weekly-digest-email",
+			status: "published",
+		} as never);
+		await site.rt.fixtures.plugin.storage("ideas", item.id, {
+			title: "weekly digest",
+			description: "",
+			status: "pending",
+			rev: "r-pub",
+			name: "Ana",
+			createdAt: "2026-10-14T00:00:00.000Z",
+		});
+		const page = await admin(site.call, { type: "page_load", page: "/ideas" });
+		expect(textOf(page)).not.toContain("weekly digest (waiting)");
+		expect(await site.rt.inspect.storage.get<{ status: string }>("ideas", item.id)).toMatchObject({ status: "approved" });
 	});
 
 	it("refuses ideas when they are off, a ninth suggest, and a stale approve", async () => {

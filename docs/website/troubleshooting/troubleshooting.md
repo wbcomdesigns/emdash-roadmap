@@ -77,6 +77,10 @@ Someone else decided on or changed the idea. Reload **Ideas** and look again.
 
 You cannot change the stage of an item that has edits waiting. Publish or discard the edits, then move it.
 
+## "This idea's draft has unpublished edits."
+
+Someone edited the idea's draft after it was suggested. Open it in Roadmap content, check it, and publish it there. The idea then leaves the Ideas list by itself.
+
 ## Still stuck?
 
 Gather your EmDash version, the Product Roadmap version, and the exact message you see, and contact [Wbcom Designs](https://wbcomdesigns.com).

@@ -32,6 +32,17 @@ export function ideaFrom(row: { id: string } & Record<string, unknown>): IdeaRow
 	};
 }
 
+/** An idea whose draft the owner published from the content editor is done: mark it approved. Up to 50 reads. */
+export async function settlePublishedIdeas(ctx: PluginContext, ideas: IdeaRow[]): Promise<IdeaRow[]> {
+	const waiting: IdeaRow[] = [];
+	for (const idea of ideas) {
+		const item = await getItem(ctx, idea.id);
+		if (item?.status === "published") await writeIdea(ctx, idea, { status: "approved" });
+		else waiting.push(idea);
+	}
+	return waiting;
+}
+
 export async function listPendingIdeas(ctx: PluginContext): Promise<IdeaRow[]> {
 	try {
 		const found = await ctx.storage.ideas.query({
@@ -81,17 +92,21 @@ export async function approveIdea(
 	if (!item || !ctx.content?.update) return { ok: false, error: "That draft is no longer there." };
 	const settings = await loadSettings(ctx);
 	const stage = firstStage(settings.stages);
-	// The draft starts as the visitor's text and the owner may have tidied it since. Those edits sit in a
-	// draft revision this plugin cannot read without another permission, so when there are edits we publish
-	// the draft as it is (publishing promotes the owner's revision). Untouched drafts get the first shown stage.
-	if (!item.draftRevisionId) {
-		await ctx.content.update(await collectionName(ctx), id, {
-			...item.data,
-			title: asString(asRecord(item.data).title) || idea.title,
-			description: asString(asRecord(item.data).description) || idea.description,
-			stage: stage.name,
-		});
+	// Someone edited the draft since it was suggested. Those edits sit in a draft revision this plugin
+	// cannot show, so approving here would publish text nobody on this screen has seen. The owner publishes
+	// it from the content editor instead; the idea then leaves this queue (settlePublishedIdeas).
+	if (item.draftRevisionId) {
+		return {
+			ok: false,
+			error: "This idea's draft has unpublished edits. Open it in Roadmap content, check it and publish it there. It then leaves this list.",
+		};
 	}
+	await ctx.content.update(await collectionName(ctx), id, {
+		...item.data,
+		title: asString(asRecord(item.data).title) || idea.title,
+		description: asString(asRecord(item.data).description) || idea.description,
+		stage: stage.name,
+	});
 	if (!(await publishNow(ctx, id))) {
 		return { ok: false, error: "Could not publish. Open the item in content admin and publish it there." };
 	}

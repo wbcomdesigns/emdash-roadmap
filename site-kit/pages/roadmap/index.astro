@@ -12,22 +12,30 @@ const terms = await getTaxonomyTerms("roadmap_category").catch(() => []);
 const allowIdeas = await ideasOpen(Astro.url.origin);
 
 // What each card says beyond its title: a short summary, its category and how many comments it has.
-// One collection read and one terms read for the whole board.
+// One collection read and one terms read for the whole board; comment counts run side by side.
+// 100 matches the most items the board shows.
 const SUMMARY_MAX = 120;
-const { entries: published } = await getEmDashCollection("roadmap", { limit: 200 }).catch(() => ({ entries: [] }));
-const termsById = published.length
-	? await getTermsForEntries("roadmap", published.map((entry) => entry.data.id), "roadmap_category").catch(() => new Map())
-	: new Map();
+const { entries: published, cacheHint } = await getEmDashCollection("roadmap", { limit: 100 }).catch(() => ({
+	entries: [],
+	cacheHint: undefined,
+}));
+if (Astro.cache?.enabled && cacheHint) Astro.cache.set(cacheHint);
+const ids = published.map((entry) => String(entry.data.id));
+const [termsById, commentCounts] = await Promise.all([
+	ids.length ? getTermsForEntries("roadmap", ids, "roadmap_category").catch(() => new Map()) : new Map(),
+	// ponytail: one count per item; switch to a bulk count if EmDash adds one.
+	Promise.all(ids.map((id) => getCommentCount("roadmap", id).catch(() => 0))),
+]);
 const details: Record<string, { summary: string; category: string; comments: number }> = {};
-for (const entry of published) {
+published.forEach((entry, index) => {
+	const id = ids[index];
 	const text = String(entry.data.description || "").replace(/\s+/g, " ").trim();
-	details[entry.data.id] = {
+	details[id] = {
 		summary: text.length > SUMMARY_MAX ? `${text.slice(0, SUMMARY_MAX - 1).trimEnd()}…` : text,
-		category: termsById.get(entry.data.id)?.[0]?.label || "",
-		// ponytail: one count per item, capped by the board's 200-item read; batch if EmDash adds a bulk count.
-		comments: await getCommentCount("roadmap", entry.data.id).catch(() => 0),
+		category: termsById.get(id)?.[0]?.label || "",
+		comments: commentCounts[index] ?? 0,
 	};
-}
+});
 
 const href = (next: { category?: string; sort?: string }) => {
 	const params = new URLSearchParams();

@@ -105,8 +105,10 @@ export function findStage(stages: Stage[], value: string): Stage | null {
 	return stages.find((stage) => matchesStage(stage, raw)) || stages.find((stage) => matchesStageLoose(stage, raw)) || null;
 }
 
+/** Where new and approved ideas go: the first stage visitors can see on the board. */
 export function firstStage(stages: Stage[]): Stage {
-	return sortStages(stages)[0] ?? DEFAULT_STAGES[0]!;
+	const sorted = sortStages(stages);
+	return sorted.find((stage) => stage.shown) ?? sorted[0] ?? DEFAULT_STAGES[0]!;
 }
 
 function slugId(name: string, taken: Set<string>): string {

@@ -435,6 +435,33 @@ describe("suggest and ideas queue", () => {
 		expect(board.columns[0]?.items.map((item) => item.title)).toContain("Dark mode for comments");
 	});
 
+	it("approve keeps the owner's edits to the draft and uses the first shown stage", async () => {
+		const site = await openRoadmap();
+		const draft = await site.rt.fixtures.content("roadmap", {
+			data: { title: "Export monthly reports as CSV", description: "Download the monthly report.", stage: "" },
+			slug: "export-monthly-reports",
+			status: "draft",
+		} as never);
+		await site.rt.fixtures.plugin.storage("ideas", draft.id, {
+			title: "Export reports as CSV",
+			description: "let me download the montly report",
+			status: "pending",
+			rev: "r-edit",
+			name: "Priya",
+			createdAt: "2026-10-14T00:00:00.000Z",
+		});
+		const approved = await admin(site.call, {
+			type: "block_action",
+			action_id: "idea_mod",
+			page: "/ideas",
+			value: `approve|r-edit|${draft.id}`,
+		});
+		expect(approved.toast?.type).toBe("success");
+		const live = await site.rt.inspect.content.get("roadmap", draft.id);
+		expect(JSON.stringify(live)).toContain("Export monthly reports as CSV");
+		expect(JSON.stringify(live)).not.toContain("montly");
+	});
+
 	it("refuses ideas when they are off, a ninth suggest, and a stale approve", async () => {
 		const site = await openRoadmap();
 		await admin(site.call, {

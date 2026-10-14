@@ -81,12 +81,17 @@ export async function approveIdea(
 	if (!item || !ctx.content?.update) return { ok: false, error: "That draft is no longer there." };
 	const settings = await loadSettings(ctx);
 	const stage = firstStage(settings.stages);
-	await ctx.content.update(await collectionName(ctx), id, {
-		...item.data,
-		title: idea.title || asString(asRecord(item.data).title),
-		description: idea.description || asString(asRecord(item.data).description),
-		stage: stage.name,
-	});
+	// The draft starts as the visitor's text and the owner may have tidied it since. Those edits sit in a
+	// draft revision this plugin cannot read without another permission, so when there are edits we publish
+	// the draft as it is (publishing promotes the owner's revision). Untouched drafts get the first shown stage.
+	if (!item.draftRevisionId) {
+		await ctx.content.update(await collectionName(ctx), id, {
+			...item.data,
+			title: asString(asRecord(item.data).title) || idea.title,
+			description: asString(asRecord(item.data).description) || idea.description,
+			stage: stage.name,
+		});
+	}
 	if (!(await publishNow(ctx, id))) {
 		return { ok: false, error: "Could not publish. Open the item in content admin and publish it there." };
 	}

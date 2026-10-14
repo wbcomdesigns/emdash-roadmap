@@ -75,17 +75,24 @@ function remember(plugin: string, id: string | null): void {
 /**
  * The address a page's server-side code may call back to. Never the request's Host header: a
  * visitor can send any Host, and the server would then call that address (server-side request
- * forgery). Uses the site address set in EmDash settings (Settings, Site URL); on a local machine
- * (localhost) the request's own address is fine. Anything else returns "", and pluginFetch then
+ * forgery). Uses the site address set in EmDash settings (Settings, Site URL); only while the site
+ * runs in development mode (astro dev) on localhost is the request's own address used. Anything else returns "", and pluginFetch then
  * refuses the call. Version 5.
  */
-export function serverOrigin(siteUrl: unknown, requestUrl: URL): string {
+export function serverOrigin(
+	siteUrl: unknown,
+	requestUrl: URL,
+	dev = Boolean((import.meta as { env?: { DEV?: boolean } }).env?.DEV),
+): string {
 	try {
 		const configured = new URL(String(siteUrl ?? ""));
 		if (configured.protocol === "https:" || configured.protocol === "http:") return configured.origin;
 	} catch {
 		// No site address set: fall through.
 	}
+	// Development only: a live site never trusts the request, not even a "localhost" Host header,
+	// which a visitor can also send to reach a service on the server's own machine.
+	if (!dev) return "";
 	return ["localhost", "127.0.0.1", "[::1]"].includes(requestUrl.hostname) ? requestUrl.origin : "";
 }
 

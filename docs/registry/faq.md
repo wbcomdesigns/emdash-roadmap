@@ -1,6 +1,9 @@
 **Why is `/roadmap/` a 404 after install?**
 The plugin cannot create pages. Copy the site kit pages into your site, then reload.
 
+**The board says it could not load, or every request is 404.**
+Use the site kit from 0.1.1 or later. The 0.1.0 kit asks at `/plugins/roadmap/`, which a registry install does not answer.
+
 **Can guests vote and suggest ideas?**
 Yes, when Settings is set to Anyone, which is the default. Guests add a name on the suggest form. Every idea waits for your approval. Switch the setting to members only to require a sign-in.
 

@@ -1,11 +1,17 @@
-import { api, esc, signInUrl, type ApiResult } from "./wbcom-kit";
-import { phrase, strings } from "./roadmap-strings";
+import { api, esc, pluginFetch, signInUrl, type ApiResult } from "./wbcom-kit";
+import { phrase, strings, voteCountLabel } from "./roadmap-strings";
 import { readVotes, rememberVote, visitorToken } from "./roadmap-visitor";
 
 let bound = false;
 
+export function voteAriaLabel(voted: boolean, title: string, votes: number): string {
+	const action = voted ? strings.voted : strings.vote;
+	const count = voteCountLabel(votes);
+	return title ? `${action}: ${title}, ${count}` : `${action}, ${count}`;
+}
+
 export function voteButtonHtml(id: string, votes: number, title: string): string {
-	return `<button type="button" class="wb-btn wb-btn--quiet wb-vote" data-vote="${esc(id)}" data-votes="${votes}" aria-pressed="false" aria-label="${esc(strings.vote)}: ${esc(title)}"><span class="wb-vote__label">${esc(strings.vote)}</span><span class="wb-vote__count">${votes}</span></button>`;
+	return `<button type="button" class="wb-btn wb-btn--quiet wb-vote" data-vote="${esc(id)}" data-votes="${votes}" data-title="${esc(title)}" aria-pressed="false" aria-label="${esc(voteAriaLabel(false, title, votes))}"><span class="wb-vote__label">${esc(strings.vote)}</span><span class="wb-vote__count">${votes}</span></button>`;
 }
 
 export function bindVoteButtons(): void {
@@ -16,12 +22,58 @@ export function bindVoteButtons(): void {
 }
 
 async function markMine(): Promise<void> {
-	const result = await api("roadmap", "votes");
-	const ids = result.ok
-		? new Set(((result.ids as string[]) || []).filter(Boolean))
-		: new Set(readVotes());
+	const [mine, counts] = await Promise.all([loadMine(), loadCounts()]);
 	for (const button of document.querySelectorAll<HTMLButtonElement>("[data-vote]")) {
-		paint(button, ids.has(button.dataset.vote || ""), Number(button.dataset.votes || 0));
+		const id = button.dataset.vote || "";
+		const voted = mine.has(id);
+		const votes = counts.get(id) ?? Number(button.dataset.votes || 0);
+		paint(button, voted, voted ? Math.max(votes, 1) : votes);
+	}
+}
+
+async function loadMine(): Promise<Set<string>> {
+	const result = await api("roadmap", "votes");
+	if (result.ok) return new Set(((result.ids as string[]) || []).filter(Boolean));
+	return new Set(readVotes());
+}
+
+async function loadCounts(): Promise<Map<string, number>> {
+	const counts = new Map<string, number>();
+	const result = await fetchBoard(true);
+	if (!result.ok || !Array.isArray(result.columns)) return counts;
+	for (const column of result.columns as Array<{ items?: Array<{ id?: string; votes?: number }> }>) {
+		for (const item of column.items || []) {
+			if (item.id) counts.set(item.id, Number(item.votes) || 0);
+		}
+	}
+	return counts;
+}
+
+export async function fetchBoard(fresh: boolean): Promise<ApiResult> {
+	const root = document.getElementById("roadmap");
+	const query = new URLSearchParams();
+	const category = root?.dataset.category || "";
+	const sort = root?.dataset.sort || "votes";
+	if (category) query.set("category", category);
+	if (sort !== "votes") query.set("sort", sort);
+	const path = `board${query.toString() ? `?${query}` : ""}`;
+	try {
+		const response = await pluginFetch("roadmap", path, {
+			method: "GET",
+			credentials: "same-origin",
+			headers: { "Content-Type": "application/json", "X-EmDash-Request": "1" },
+			cache: fresh || readVotes().length ? "no-store" : "default",
+		});
+		if (response.status === 401) {
+			return { ok: false, error: { code: "SIGN_IN_REQUIRED", message: "Sign in to continue." } };
+		}
+		const json = await response.json().catch(() => null);
+		if (!response.ok || !json) {
+			return { ok: false, error: { code: "FAILED", message: json?.error?.message || "Something went wrong. Try again." } };
+		}
+		return json.data ?? { ok: false };
+	} catch {
+		return { ok: false, error: { code: "OFFLINE", message: "Could not reach the site. Check your connection." } };
 	}
 }
 
@@ -63,8 +115,7 @@ function paint(button: HTMLButtonElement, voted: boolean, votes: number): void {
 	const label = button.querySelector(".wb-vote__label");
 	const count = button.querySelector(".wb-vote__count");
 	if (label) label.textContent = voted ? strings.voted : strings.vote;
-	const title = (button.getAttribute("aria-label") || "").split(": ").slice(1).join(": ");
-	button.setAttribute("aria-label", `${voted ? strings.voted : strings.vote}${title ? `: ${title}` : ""}`);
+	button.setAttribute("aria-label", voteAriaLabel(voted, button.dataset.title || "", votes));
 	if (count) count.textContent = String(votes);
 }
 

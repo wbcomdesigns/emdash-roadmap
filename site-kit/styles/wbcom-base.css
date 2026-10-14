@@ -1,15 +1,32 @@
+/* wbcom-shared: 2 */
 /*
  * Wbcom EmDash kit base. Shared by every Wbcom plugin kit: keep this file identical across
  * plugins and change it in emdash-plugin-starter first.
  * Wrap plugin markup in class="wb". Colours follow the site theme through light-dark().
+ *
+ * A site may run any one of the plugins, any mix, or all of them, each at its own version,
+ * and they all load this one file from the same place. So a change only ever adds: never
+ * remove a rule or change what one means, and raise the number on the first line. A look
+ * that belongs to one plugin goes in that plugin's own stylesheet under its own prefix
+ * (.wbp-, .wbr-, .roadmap-), never here.
  */
+
+/* The hidden attribute always wins. The rules below set display on .wb parts, which would
+   otherwise show a part the script meant to keep hidden. */
+.wb[hidden],
+.wb [hidden] {
+	display: none !important;
+}
+
 .wb {
+	color-scheme: light dark;
 	--wb-fg: var(--color-text, light-dark(#1a1a1a, #f4f4f4));
 	--wb-muted: var(--color-text-secondary, light-dark(#555555, #c4c4c4));
 	--wb-border: var(--color-border, light-dark(#e0e0e0, #333333));
 	--wb-surface: var(--color-surface, light-dark(#f7f7f7, #1c1c1c));
 	--wb-brand: var(--color-brand, light-dark(#0066cc, #4d9fff));
-	--wb-on-brand: var(--color-on-brand, #ffffff);
+	--wb-btn-bg: light-dark(var(--wb-brand), color-mix(in srgb, var(--wb-brand) 52%, #000000));
+	--wb-on-brand: #ffffff;
 	--wb-star: light-dark(#b45309, #f5a623);
 	--wb-ok-bg: light-dark(#ecfdf5, #052e16);
 	--wb-ok-fg: light-dark(#166534, #86efac);
@@ -112,7 +129,7 @@ textarea.wb-input {
 	padding: 0 1.1rem;
 	border: 1px solid transparent;
 	border-radius: 8px;
-	background: var(--wb-brand);
+	background: var(--wb-btn-bg);
 	color: var(--wb-on-brand);
 	font: inherit;
 	font-weight: 600;

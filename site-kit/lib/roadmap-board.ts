@@ -1,6 +1,6 @@
-import { api, esc } from "./wbcom-kit";
+import { esc } from "./wbcom-kit";
 import { phrase, strings } from "./roadmap-strings";
-import { bindVoteButtons, voteButtonHtml } from "./roadmap-vote";
+import { bindVoteButtons, fetchBoard, voteButtonHtml } from "./roadmap-vote";
 
 type Card = { id: string; title: string; slug: string; votes: number };
 type Column = { name: string; items: Card[]; empty: string | null };
@@ -13,12 +13,7 @@ export async function loadBoard(): Promise<void> {
 	if (!root || !board) return;
 
 	root.setAttribute("aria-busy", "true");
-	const query = new URLSearchParams();
-	const category = root.dataset.category || "";
-	const sort = root.dataset.sort || "votes";
-	if (category) query.set("category", category);
-	if (sort !== "votes") query.set("sort", sort);
-	const result = await api("roadmap", `board${query.toString() ? `?${query}` : ""}`);
+	const result = await fetchBoard(false);
 	if (loading) loading.hidden = true;
 	root.setAttribute("aria-busy", "false");
 	if (!result.ok || !Array.isArray(result.columns)) {

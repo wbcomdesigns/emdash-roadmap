@@ -12,6 +12,7 @@
 	"include": [
 		"src/**/*",
 		"tests/**/*",
+		"site-kit/lib/**/*.ts",
 		"vitest.config.ts"
 	],
 	"exclude": [

@@ -41,8 +41,8 @@ export const changelogCollection = {
 export const roadmapTaxonomies = [
 	{
 		name: "roadmap_category",
-		label: "Categories",
-		labelSingular: "Category",
+		label: "Roadmap categories",
+		labelSingular: "Roadmap category",
 		hierarchical: true,
 		collections: ["roadmap"],
 		terms: [

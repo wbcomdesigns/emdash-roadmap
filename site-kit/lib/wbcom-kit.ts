@@ -1,4 +1,4 @@
-/* wbcom-shared: 4 */
+/* wbcom-shared: 5 */
 /* Browser helpers shared by every Wbcom EmDash plugin kit. Keep this file identical across plugins.
    Same rules as styles/wbcom-base.css: only ever add, and raise the number on the first line. */
 
@@ -73,14 +73,35 @@ function remember(plugin: string, id: string | null): void {
 }
 
 /**
+ * The address a page's server-side code may call back to. Never the request's Host header: a
+ * visitor can send any Host, and the server would then call that address (server-side request
+ * forgery). Uses the site address set in EmDash settings (Settings, Site URL); on a local machine
+ * (localhost) the request's own address is fine. Anything else returns "", and pluginFetch then
+ * refuses the call. Version 5.
+ */
+export function serverOrigin(siteUrl: unknown, requestUrl: URL): string {
+	try {
+		const configured = new URL(String(siteUrl ?? ""));
+		if (configured.protocol === "https:" || configured.protocol === "http:") return configured.origin;
+	} catch {
+		// No site address set: fall through.
+	}
+	return ["localhost", "127.0.0.1", "[::1]"].includes(requestUrl.hostname) ? requestUrl.origin : "";
+}
+
+/**
  * fetch() for a plugin route, at whichever address this site installed the plugin under.
- * `origin` is for server-side calls from an Astro page (pass Astro.url.origin).
+ * `origin` is for server-side calls from an Astro page: pass serverOrigin(settings.url, Astro.url),
+ * never Astro.url.origin. A server-side call without a trusted origin is refused (version 5).
  *
  * Only an address the plugin itself answered on is remembered. On the server this memory is
  * shared by every visitor, so a failure (the plugin switched off, a deploy in progress) must
  * never be remembered, and a remembered address that stops answering is forgotten.
  */
 export async function pluginFetch(plugin: string, path: string, init: RequestInit = {}, origin = ""): Promise<Response> {
+	if (typeof window === "undefined" && !/^https?:\/\/[^/]+$/.test(origin)) {
+		return new Response(null, { status: 503, statusText: "No trusted site address for a server-side call" });
+	}
 	const known = chosen.get(plugin) ?? remembered(plugin);
 	if (known) {
 		const response = await fetch(`${origin}/_emdash/api/plugins/${known}/${path}`, init);

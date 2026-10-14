@@ -1,3 +1,7 @@
+## 0.1.5
+
+- Security: server-side calls use the Site URL from EmDash settings, never the request's address. Copy the kit again after updating.
+
 ## 0.1.4
 
 - Improve: one command creates the content types. Guides for use cases and blog posts and pages.

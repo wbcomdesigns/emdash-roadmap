@@ -4,8 +4,12 @@ import { ideasOpen } from "../../lib/roadmap-health";
 import { strings } from "../../lib/roadmap-strings";
 import "../../styles/wbcom-base.css";
 import "../../styles/roadmap.css";
+import { getSiteSettings } from "emdash";
+import { serverOrigin } from "../../lib/wbcom-kit";
+// Server-side calls go to the site address from settings, never the request's Host header.
+const origin = serverOrigin((await getSiteSettings())?.url, Astro.url);
 
-const allowIdeas = await ideasOpen(Astro.url.origin);
+const allowIdeas = await ideasOpen(origin);
 ---
 
 <Layout title={strings.suggestTitle} description={strings.suggestIntro}>

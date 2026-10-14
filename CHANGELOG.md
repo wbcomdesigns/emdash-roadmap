@@ -4,6 +4,12 @@ Versions match `package.json`, the git tag and the registry release. Newest firs
 
 ## [Unreleased]
 
+## [0.1.5] - 2026-10-14
+
+Copy `site-kit/` again after you update.
+
+- Security: the board and Suggest page check whether ideas are open by calling the Site URL set in EmDash settings, never the address a visitor's request names. Set Settings, Site URL on a live site.
+
 ## [0.1.4] - 2026-10-14
 
 Copy `site-kit/` again after you update.

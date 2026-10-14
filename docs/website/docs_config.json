@@ -15,7 +15,9 @@
       "pages": [
         { "slug": "introduction", "title": "Introduction" },
         { "slug": "install", "title": "Install Product Roadmap" },
-        { "slug": "first-steps", "title": "Your first steps" }
+        { "slug": "first-steps", "title": "Your first steps" },
+        { "slug": "use-cases", "title": "Use cases" },
+        { "slug": "posts-and-pages", "title": "Posts and pages" }
       ]
     },
     {

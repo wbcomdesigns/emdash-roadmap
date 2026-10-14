@@ -743,3 +743,15 @@ describe("rename keeps items", () => {
 		expect(column?.items.map((item) => item.title).sort()).toEqual(["One", "Three", "Two"]);
 	});
 });
+
+describe("first stage for new ideas", () => {
+	it("skips a hidden first stage", async () => {
+		const { firstStage } = await import("../src/settings");
+		const stages = [
+			{ id: "a", name: "Under review", order: 0, shown: false, aliases: [] },
+			{ id: "b", name: "Planned", order: 1, shown: true, aliases: [] },
+		];
+		expect(firstStage(stages as never).name).toBe("Planned");
+		expect(firstStage(stages.map((s) => ({ ...s, shown: true })) as never).name).toBe("Under review");
+	});
+});

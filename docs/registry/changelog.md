@@ -1,3 +1,9 @@
+## 0.1.3
+
+- Fix: approving an idea keeps your edits to its draft.
+- Fix: new and approved ideas go to the first stage shown on the board.
+- New: full user guides.
+
 ## 0.1.2
 
 - Suggestions off hides the form and the Suggest an idea link.

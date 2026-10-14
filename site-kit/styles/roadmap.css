@@ -101,10 +101,12 @@
 	gap: 0.75rem;
 }
 
-.roadmap-card a,
-.roadmap-links a,
-.roadmap-item a,
-.roadmap-month a {
+/* Plain links take the text colour; links styled as buttons keep the button's own colours
+   (white on the brand fill measured 3.1:1 when this caught "Suggest an idea"). */
+.roadmap-card a:not(.wb-btn),
+.roadmap-links a:not(.wb-btn),
+.roadmap-item a:not(.wb-btn),
+.roadmap-month a:not(.wb-btn) {
 	color: inherit;
 }
 

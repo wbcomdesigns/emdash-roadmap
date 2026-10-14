@@ -1,0 +1,77 @@
+{
+  "product": "Product Roadmap",
+  "productType": "plugin",
+  "shortId": "prdm",
+  "slug": "roadmap",
+  "tagline": "Show what is planned, let people vote and suggest ideas, and share what shipped.",
+  "note": "GitHub-only documentation. Metadata only. No publish or sync target.",
+  "images_dir": "images",
+  "version": "0.1.3",
+  "sections": [
+    {
+      "name": "Getting Started",
+      "folder": "getting-started",
+      "description": "What Product Roadmap does, how to install it, and your first board from start to finish.",
+      "pages": [
+        { "slug": "introduction", "title": "Introduction" },
+        { "slug": "install", "title": "Install Product Roadmap" },
+        { "slug": "first-steps", "title": "Your first steps" }
+      ]
+    },
+    {
+      "name": "Using Product Roadmap",
+      "folder": "using",
+      "description": "Run the board, handle votes and ideas, merge duplicates, and publish a changelog.",
+      "pages": [
+        { "slug": "the-board", "title": "The board" },
+        { "slug": "items-and-stages", "title": "Items and stages" },
+        { "slug": "voting", "title": "Voting" },
+        { "slug": "suggestions", "title": "Suggestions and the Ideas queue" },
+        { "slug": "merge-duplicates", "title": "Merge a duplicate" },
+        { "slug": "changelog", "title": "The changelog" },
+        { "slug": "who-can-do-what", "title": "Who can do what" }
+      ]
+    },
+    {
+      "name": "Settings",
+      "folder": "settings",
+      "description": "Every setting on the Settings screen, what it controls, and its default.",
+      "pages": [
+        { "slug": "settings-reference", "title": "Settings reference" }
+      ]
+    },
+    {
+      "name": "Customize",
+      "folder": "customize",
+      "description": "Change the words visitors see and match the board to your theme.",
+      "pages": [
+        { "slug": "wording-and-look", "title": "Wording and look" }
+      ]
+    },
+    {
+      "name": "FAQ",
+      "folder": "faq",
+      "description": "Short answers to the questions site owners ask most.",
+      "pages": [
+        { "slug": "faq", "title": "Frequently asked questions" }
+      ]
+    },
+    {
+      "name": "Troubleshooting",
+      "folder": "troubleshooting",
+      "description": "What to check when the board is empty, a vote fails, or an idea does not appear.",
+      "pages": [
+        { "slug": "troubleshooting", "title": "Troubleshooting" }
+      ]
+    },
+    {
+      "name": "What's New",
+      "folder": "whats-new",
+      "description": "What changed in each release, newest first.",
+      "pages": [
+        { "slug": "0-1-3", "title": "What's new in 0.1.3" },
+        { "slug": "0-1-2", "title": "What's new in 0.1.2" }
+      ]
+    }
+  ]
+}

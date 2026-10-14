@@ -1,7 +1,9 @@
+/* Same column as the site header on the EmDash themes (KnowX uses the same values). */
 .roadmap {
-	max-width: 72rem;
+	box-sizing: border-box;
+	max-width: var(--wide-width, 75rem);
 	margin-inline: auto;
-	padding-inline: 1.25rem;
+	padding-inline: var(--spacing-6, 1.5rem);
 	padding-block: 1.25rem 3rem;
 }
 
@@ -28,8 +30,9 @@
 	display: none;
 }
 
+/* Selected states use the button fill: in dark mode it is darker than the brand colour, so white text stays readable. */
 .roadmap-tabs [aria-selected="true"] {
-	background: var(--wb-brand);
+	background: var(--wb-btn-bg);
 	border-color: transparent;
 	color: var(--wb-on-brand);
 	font-weight: 600;
@@ -48,7 +51,7 @@
 }
 
 .roadmap-filters a[aria-current="page"] {
-	background: var(--wb-brand);
+	background: var(--wb-btn-bg);
 	border-color: transparent;
 	color: var(--wb-on-brand);
 	font-weight: 600;
@@ -90,7 +93,7 @@
 }
 
 .wb-vote[aria-pressed="true"] {
-	background: var(--wb-brand);
+	background: var(--wb-btn-bg);
 	border-color: transparent;
 	color: var(--wb-on-brand);
 }

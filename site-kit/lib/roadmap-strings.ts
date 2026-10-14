@@ -26,7 +26,7 @@ export const strings = {
 	suggestTitle: "Suggest an idea",
 	suggestIntro: "Describe the idea in a few words. It waits for review before it appears on the board.",
 	suggestName: "Your name",
-	suggestNameHint: "Shown if you are not signed in.",
+	suggestNameHint: "Needed if you are not signed in. Shown with your idea.",
 	suggestTitleLabel: "Title",
 	suggestBodyLabel: "Description",
 	suggestSubmit: "Send idea",

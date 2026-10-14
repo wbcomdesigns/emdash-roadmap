@@ -283,6 +283,15 @@ describe("board route", () => {
 		expect(JSON.stringify(board)).not.toContain("Secret draft");
 	});
 
+	it("shows an item with a mistyped stage in the first column instead of losing it", async () => {
+		const site = await openRoadmap();
+		await addItem(site.rt, "Typo idea", "Plannned");
+		await addItem(site.rt, "Right idea", "Planned");
+		const board = (await site.call("board")) as Board;
+		expect(board.columns[0]?.items.map((item) => item.title)).toEqual(["Typo idea"]);
+		expect(board.columns.find((column) => column.name === "Planned")?.items.map((item) => item.title)).toEqual(["Right idea"]);
+	});
+
 	it("sorts by votes or newest, and hides a hidden stage", async () => {
 		const site = await openRoadmap();
 		const old = await addItem(site.rt, "Old idea", "Under review");

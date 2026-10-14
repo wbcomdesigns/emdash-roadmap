@@ -1,4 +1,4 @@
-/* wbcom-shared: 2 */
+/* wbcom-shared: 3 */
 /*
  * Wbcom EmDash kit base. Shared by every Wbcom plugin kit: keep this file identical across
  * plugins and change it in emdash-plugin-starter first.
@@ -11,6 +11,17 @@
  * (.wbp-, .wbr-, .roadmap-), never here.
  */
 
+/* Themes that switch dark mode with a class or attribute and never declare color-scheme
+   (version 3). The theme's own declaration still wins where it has one, because these only
+   name the scheme the theme is visibly in. */
+:is(.dark, [data-theme="dark"], [data-mode="dark"], [data-bx-mode="dark"]) .wb {
+	color-scheme: dark;
+}
+
+:is(.light, [data-theme="light"], [data-mode="light"], [data-bx-mode="light"]) .wb {
+	color-scheme: light;
+}
+
 /* The hidden attribute always wins. The rules below set display on .wb parts, which would
    otherwise show a part the script meant to keep hidden. */
 .wb[hidden],
@@ -19,7 +30,10 @@
 }
 
 .wb {
-	color-scheme: light dark;
+	/* Follow the scheme the theme declares (version 3). "light dark" here followed the visitor's
+	   device instead, so on a light-only theme with the device in dark mode the text turned
+	   near-white on the theme's white page, and a site's own light switch was ignored. */
+	color-scheme: inherit;
 	--wb-fg: var(--color-text, light-dark(#1a1a1a, #f4f4f4));
 	--wb-muted: var(--color-text-secondary, light-dark(#555555, #c4c4c4));
 	--wb-border: var(--color-border, light-dark(#e0e0e0, #333333));

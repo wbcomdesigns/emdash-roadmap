@@ -4,6 +4,17 @@ Versions match `package.json`, the git tag and the registry release. Newest firs
 
 ## [Unreleased]
 
+## [0.1.4] - 2026-10-14
+
+Copy `site-kit/` again after you update.
+
+- One command creates the roadmap and changelog content types: `npx emdash seed <kit>/seed/roadmap-seed.json --no-content`. It never changes your menus.
+- An item whose stage was mistyped in the content form shows in the first column instead of disappearing from the board.
+- A signed-in member's own vote always shows as theirs after a reload: vote buttons wait for the member's votes, and a failed lookup is retried once.
+- The Suggest form says the name is needed when you are not signed in, and puts the cursor in the name field if it was left empty.
+- The board follows the site's light or dark choice (shared kit styles), so it stays readable when a visitor picks light mode on a device set to dark.
+- Guides: use cases, and how to use the roadmap with blog posts and pages.
+
 ## [0.1.3] - 2026-10-14
 
 - Board cards show the first 120 characters of the description, the category and the comment count, and each stage shows how many items it has.

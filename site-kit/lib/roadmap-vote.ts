@@ -22,7 +22,18 @@ export function bindVoteButtons(): void {
 }
 
 async function markMine(): Promise<void> {
+	// Buttons stay busy until we know which ones are this visitor's, so a member never sees
+	// their vote as missing and votes again (#37).
+	const buttons = document.querySelectorAll<HTMLButtonElement>("[data-vote]");
+	for (const button of buttons) {
+		button.setAttribute("aria-busy", "true");
+		button.disabled = true;
+	}
 	const [mine, counts] = await Promise.all([loadMine(), loadCounts()]);
+	for (const button of buttons) {
+		button.removeAttribute("aria-busy");
+		button.disabled = false;
+	}
 	for (const button of document.querySelectorAll<HTMLButtonElement>("[data-vote]")) {
 		const id = button.dataset.vote || "";
 		const voted = mine.has(id);
@@ -32,7 +43,10 @@ async function markMine(): Promise<void> {
 }
 
 async function loadMine(): Promise<Set<string>> {
-	const result = await api("roadmap", "votes");
+	let result = await api("roadmap", "votes");
+	// A guest gets SIGN_IN_REQUIRED and uses the votes kept in this browser. Any other failure
+	// is retried once before a member's votes would wrongly show as not voted.
+	if (!result.ok && result.error?.code !== "SIGN_IN_REQUIRED") result = await api("roadmap", "votes");
 	if (result.ok) return new Set(((result.ids as string[]) || []).filter(Boolean));
 	return new Set(readVotes());
 }

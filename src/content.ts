@@ -131,9 +131,14 @@ export async function loadBoard(
 	return {
 		ok: true,
 		sort,
-		columns: shown.map((stage) => {
+		columns: shown.map((stage, index) => {
 			const cards = items
-				.filter((item) => findStage([stage], item.stage)?.id === stage.id)
+				// An item whose stage matches no stage at all (a typo in the content form) shows in the
+				// first column instead of vanishing. Items in a hidden stage stay hidden.
+				.filter((item) => {
+					const at = findStage(settings.stages, item.stage);
+					return at ? at.id === stage.id : index === 0;
+				})
 				.map((item) => ({
 					id: item.id,
 					title: item.title,

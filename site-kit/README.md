@@ -5,7 +5,7 @@ The plugin is the engine. EmDash plugins cannot add pages, so copy this kit into
 ## After you install the plugin
 
 1. Confirm the permissions the plugin asks for.
-2. Create the `roadmap` and `changelog` collections from `seed/collection.mjs`, or match those fields by hand. Turn comments on for `roadmap`.
+2. Create the `roadmap` and `changelog` collections from the site root: `npx emdash seed $K/seed/roadmap-seed.json --no-content` (comments on for `roadmap`; existing collections are left alone; menus are never changed). `scripts/make-seed.mjs` rebuilds the file from `seed/collection.mjs`.
 3. Copy `lib/`, `styles/`, `components/` and `pages/` into your site's `src/`.
 4. Point `layouts/RoadmapLayout.astro` at your site layout if it is not `Base.astro`. Updating the kit never overwrites that file.
 5. Add menu links to `/roadmap/` and `/changelog/`.

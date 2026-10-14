@@ -1,3 +1,8 @@
+## 0.1.4
+
+- Improve: one command creates the content types. Guides for use cases and blog posts and pages.
+- Fix: a mistyped stage no longer hides an item; a member's vote always shows after reload; the Suggest form points at a missing name; readable with the site's light mode on a dark device.
+
 ## 0.1.3
 
 - New: board cards show a short description, the category and the comment count; each stage shows how many items it has.

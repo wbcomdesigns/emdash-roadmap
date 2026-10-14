@@ -12,7 +12,12 @@ cd "$PLUGIN"
 
 if [[ ! -f "$LAB/astro.config.mjs" && ! -f "$LAB/astro.config.ts" ]]; then
 	[[ -e "$LAB" ]] && { echo "$LAB exists but is not an EmDash site." >&2; exit 1; }
-	(cd "$(dirname "$LAB")" && npm create emdash@latest -- "$(basename "$LAB")" --template starter --platform node --pm npm --yes)
+	(cd "$(dirname "$LAB")" && npm create emdash@latest -- "$(basename "$LAB")" --template blog --platform node --pm npm --yes)
+fi
+
+if [[ -f "$LAB/src/layouts/Base.astro" ]] && ! grep -q 'theme.css' "$LAB/src/layouts/Base.astro"; then
+	echo "STOP: $LAB is a starter lab (Base.astro has no theme.css). Recreate it with --template blog, or judge on ~/code/emdash-lab-all:4340. Nothing tested here counts." >&2
+	exit 1
 fi
 
 node "$PLUGIN/scripts/wire-lab.mjs"

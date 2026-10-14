@@ -20,7 +20,13 @@ A **Roadmap** group with **Ideas** and **Settings** now appears in the admin men
 
 ## Step 2: create the two content types
 
-The plugin reads two content types: **roadmap** and **changelog**. The site kit's `seed/collection.mjs` file has their exact definitions. Create them in your site, or match the fields by hand.
+The plugin reads two content types: **roadmap** and **changelog**. The kit ships them as one seed file. From your site's root folder, run:
+
+```bash
+npx emdash seed path/to/emdash-roadmap/site-kit/seed/roadmap-seed.json --no-content
+```
+
+It creates both content types (comments on for roadmap) and the **Roadmap categories** taxonomy, and leaves anything you already have alone. Leave out `--no-content` to also add three starter categories you can rename. The seed never changes your menus.
 
 | Content type | Fields | Notes |
 | --- | --- | --- |

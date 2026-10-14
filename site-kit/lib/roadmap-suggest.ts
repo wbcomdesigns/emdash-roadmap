@@ -47,6 +47,7 @@ function show(form: HTMLFormElement, result: ApiResult, closed: boolean): void {
 	if (!box) return;
 	box.hidden = false;
 	if (result.ok) {
+		form.querySelector("input[name=name]")?.removeAttribute("aria-invalid");
 		box.dataset.tone = "ok";
 		box.textContent = strings.suggestThanks;
 		return;
@@ -66,4 +67,15 @@ function show(form: HTMLFormElement, result: ApiResult, closed: boolean): void {
 	}
 	if (closed) return;
 	box.textContent = phrase(code);
+	// A guest without a name: point at the field that needs it.
+	const name = form.querySelector<HTMLInputElement>("input[name=name]");
+	if (name) {
+		if (code === "NAME_REQUIRED") {
+			name.setAttribute("aria-invalid", "true");
+			name.setAttribute("aria-describedby", "roadmap-status");
+			name.focus();
+		} else {
+			name.removeAttribute("aria-invalid");
+		}
+	}
 }

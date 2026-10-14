@@ -6,6 +6,8 @@ Versions match `package.json`, the git tag and the registry release. Newest firs
 
 ## [0.1.3] - 2026-10-14
 
+- Board cards show the first 120 characters of the description, the category and the comment count, and each stage shows how many items it has.
+- The item page shows its category, and the comments sit apart from the vote button.
 - Approving an idea never overwrites edits to its draft. An edited draft is published from the content editor, and the idea then leaves the Ideas list.
 - Settings keeps at least one stage on the board.
 - New and approved ideas go to the first stage shown on the board, so a hidden first stage no longer hides them.

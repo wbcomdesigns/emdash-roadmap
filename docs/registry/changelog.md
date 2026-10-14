@@ -1,5 +1,7 @@
 ## 0.1.3
 
+- New: board cards show a short description, the category and the comment count; each stage shows how many items it has.
+- New: the item page shows its category, with comments set apart from the vote button.
 - Fix: approve never overwrites your edits; publish an edited idea from the editor and it leaves the Ideas list.
 - Fix: new and approved ideas go to the first stage shown on the board.
 - New: full user guides.

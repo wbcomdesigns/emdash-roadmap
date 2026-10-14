@@ -123,6 +123,45 @@
 	white-space: pre-wrap;
 }
 
+/* Board, item and changelog headers: title, intro and buttons with even space, whatever margins the theme gives h1 and p. */
+.roadmap > header {
+	display: grid;
+	gap: 0.75rem;
+	margin-bottom: 1.5rem;
+}
+
+.roadmap > header > * {
+	margin: 0;
+}
+
+/* Card details: a short summary, then votes, category and comment count on one wrapping row. */
+.roadmap-card-summary {
+	margin: 0;
+	color: var(--wb-muted);
+	font-size: 0.9rem;
+}
+
+.roadmap-card-meta {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 0.5rem 0.75rem;
+	font-size: 0.85rem;
+	color: var(--wb-muted);
+}
+
+.roadmap-card-tag {
+	border: 1px solid var(--wb-border);
+	border-radius: 999px;
+	padding: 0.1rem 0.6rem;
+}
+
+.roadmap-col-count {
+	color: var(--wb-muted);
+	font-size: 0.85em;
+	font-weight: 400;
+}
+
 @media (max-width: 1024px) {
 	.roadmap-board {
 		grid-template-columns: repeat(2, minmax(0, 1fr));

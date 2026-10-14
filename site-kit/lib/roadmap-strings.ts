@@ -23,6 +23,7 @@ export const strings = {
 	itemMissingTitle: "This idea is not here",
 	itemMissingHint: "It may have moved, or it is still waiting for review.",
 	commentsClosed: "Comments are closed on this site.",
+	commentCount: (n: number) => (n === 1 ? "1 comment" : `${n} comments`),
 	suggestTitle: "Suggest an idea",
 	suggestIntro: "Describe the idea in a few words. It waits for review before it appears on the board.",
 	suggestName: "Your name",

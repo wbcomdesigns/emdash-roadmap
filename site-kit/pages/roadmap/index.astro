@@ -1,5 +1,5 @@
 ---
-import { getTaxonomyTerms } from "emdash";
+import { getCommentCount, getEmDashCollection, getTaxonomyTerms, getTermsForEntries } from "emdash";
 import Layout from "../../layouts/RoadmapLayout.astro";
 import { ideasOpen } from "../../lib/roadmap-health";
 import { strings } from "../../lib/roadmap-strings";
@@ -10,6 +10,24 @@ const sort = Astro.url.searchParams.get("sort") === "newest" ? "newest" : "votes
 const category = Astro.url.searchParams.get("category") || "";
 const terms = await getTaxonomyTerms("roadmap_category").catch(() => []);
 const allowIdeas = await ideasOpen(Astro.url.origin);
+
+// What each card says beyond its title: a short summary, its category and how many comments it has.
+// One collection read and one terms read for the whole board.
+const SUMMARY_MAX = 120;
+const { entries: published } = await getEmDashCollection("roadmap", { limit: 200 }).catch(() => ({ entries: [] }));
+const termsById = published.length
+	? await getTermsForEntries("roadmap", published.map((entry) => entry.data.id), "roadmap_category").catch(() => new Map())
+	: new Map();
+const details: Record<string, { summary: string; category: string; comments: number }> = {};
+for (const entry of published) {
+	const text = String(entry.data.description || "").replace(/\s+/g, " ").trim();
+	details[entry.data.id] = {
+		summary: text.length > SUMMARY_MAX ? `${text.slice(0, SUMMARY_MAX - 1).trimEnd()}…` : text,
+		category: termsById.get(entry.data.id)?.[0]?.label || "",
+		// ponytail: one count per item, capped by the board's 200-item read; batch if EmDash adds a bulk count.
+		comments: await getCommentCount("roadmap", entry.data.id).catch(() => 0),
+	};
+}
 
 const href = (next: { category?: string; sort?: string }) => {
 	const params = new URLSearchParams();
@@ -23,7 +41,7 @@ const href = (next: { category?: string; sort?: string }) => {
 ---
 
 <Layout title={strings.boardTitle} description={strings.boardIntro}>
-	<div class="wb roadmap" id="roadmap" data-category={category} data-sort={sort} aria-busy="true">
+	<div class="wb roadmap" id="roadmap" data-category={category} data-sort={sort} data-details={JSON.stringify(details)} aria-busy="true">
 		<header>
 			<h1>{strings.boardTitle}</h1>
 			<p class="wb-muted">{strings.boardIntro}</p>

@@ -12,7 +12,7 @@ The board is the page at `/roadmap/`. It shows every published roadmap item as a
 
 - A heading, a short intro, and a **Suggest an idea** button and a **Changelog** button at the top.
 - A **Category** filter and a **Sort** filter.
-- One column per stage that is shown on the board. Each card has the item's title and a **Vote** button with its count.
+- One column per stage that is shown on the board, with the number of items in it. Each card has the item's title, the first 120 characters of its **Description**, a **Vote** button with its count, its category, and how many approved comments it has. A card leaves out whatever an item does not have, so an item with no description shows only its title and votes.
 - An empty column says "Nothing in this stage yet."
 
 The board loads its cards after the page opens, so it needs JavaScript. Without it, visitors see "The roadmap needs JavaScript to show items."

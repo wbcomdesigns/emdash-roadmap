@@ -32,6 +32,11 @@ Product Roadmap has two parts:
 
 EmDash plugins from the registry run in a safe sandbox and cannot add pages to your site by themselves. That is why the visible part comes as a site kit. After your developer copies it, you manage everything from admin.
 
+## Ideas and guides
+
+- [Use cases](use-cases.md): five common setups and the settings to pick.
+- [Posts and pages](posts-and-pages.md): add the pages to your menu and link to them from posts.
+
 ## Next step
 
 [Install Product Roadmap](install.md).

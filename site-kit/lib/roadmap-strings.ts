@@ -5,6 +5,8 @@ export const strings = {
 	boardIntro: "What we are considering, building, and have shipped.",
 	suggestLink: "Suggest an idea",
 	changelogLink: "Changelog",
+	filterCategory: "Category",
+	filterSort: "Sort",
 	loading: "Loading the board.",
 	loadError: "Could not load the board. Try again.",
 	needsJs: "The roadmap needs JavaScript to show items.",

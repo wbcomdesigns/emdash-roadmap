@@ -1,6 +1,7 @@
 ---
 import { getTaxonomyTerms } from "emdash";
 import Layout from "../../layouts/RoadmapLayout.astro";
+import { ideasOpen } from "../../lib/roadmap-health";
 import { strings } from "../../lib/roadmap-strings";
 import "../../styles/wbcom-base.css";
 import "../../styles/roadmap.css";
@@ -8,6 +9,7 @@ import "../../styles/roadmap.css";
 const sort = Astro.url.searchParams.get("sort") === "newest" ? "newest" : "votes";
 const category = Astro.url.searchParams.get("category") || "";
 const terms = await getTaxonomyTerms("roadmap_category").catch(() => []);
+const allowIdeas = await ideasOpen(Astro.url.origin);
 
 const href = (next: { category?: string; sort?: string }) => {
 	const params = new URLSearchParams();
@@ -26,26 +28,32 @@ const href = (next: { category?: string; sort?: string }) => {
 			<h1>{strings.boardTitle}</h1>
 			<p class="wb-muted">{strings.boardIntro}</p>
 			<p class="roadmap-links">
-				<a class="wb-btn wb-btn--quiet" href="/roadmap/suggest/">{strings.suggestLink}</a>
+				{allowIdeas ? <a class="wb-btn" href="/roadmap/suggest/">{strings.suggestLink}</a> : null}
 				<a class="wb-btn wb-btn--quiet" href="/changelog/">{strings.changelogLink}</a>
 			</p>
 		</header>
 
 		<div class="roadmap-toolbar">
-			<nav class="roadmap-filters" aria-label={strings.allCategories}>
-				<a href={href({ category: "" })} aria-current={category ? undefined : "page"}>{strings.allCategories}</a>
-				{
-					terms.map((term) => (
-						<a href={href({ category: term.slug })} aria-current={category === term.slug ? "page" : undefined}>
-							{term.label}
-						</a>
-					))
-				}
-			</nav>
-			<nav class="roadmap-filters" aria-label={strings.sortVotes}>
-				<a href={href({ sort: "votes" })} aria-current={sort === "votes" ? "page" : undefined}>{strings.sortVotes}</a>
-				<a href={href({ sort: "newest" })} aria-current={sort === "newest" ? "page" : undefined}>{strings.sortNewest}</a>
-			</nav>
+			<div class="roadmap-filter-group">
+				<p class="wb-label" id="roadmap-filter-category">{strings.filterCategory}</p>
+				<nav class="roadmap-filters" aria-labelledby="roadmap-filter-category">
+					<a href={href({ category: "" })} aria-current={category ? undefined : "page"}>{strings.allCategories}</a>
+					{
+						terms.map((term) => (
+							<a href={href({ category: term.slug })} aria-current={category === term.slug ? "page" : undefined}>
+								{term.label}
+							</a>
+						))
+					}
+				</nav>
+			</div>
+			<div class="roadmap-filter-group">
+				<p class="wb-label" id="roadmap-filter-sort">{strings.filterSort}</p>
+				<nav class="roadmap-filters" aria-labelledby="roadmap-filter-sort">
+					<a href={href({ sort: "votes" })} aria-current={sort === "votes" ? "page" : undefined}>{strings.sortVotes}</a>
+					<a href={href({ sort: "newest" })} aria-current={sort === "newest" ? "page" : undefined}>{strings.sortNewest}</a>
+				</nav>
+			</div>
 		</div>
 
 		<p id="roadmap-status" class="wb-status" hidden></p>

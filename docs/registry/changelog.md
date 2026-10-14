@@ -1,3 +1,9 @@
+## 0.1.2
+
+- Suggestions off hides the form and the Suggest an idea link.
+- Merge names both items before it runs. Dropdowns start with Choose an item.
+- Board filters labelled. Suggest is a button. Current phone stage tab is marked.
+
 ## 0.1.1
 
 - Kit works on a registry install (generated plugin id, then the slug).

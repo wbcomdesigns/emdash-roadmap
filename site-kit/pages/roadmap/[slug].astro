@@ -1,6 +1,6 @@
 ---
 import { Comments, CommentForm } from "emdash/ui/comments";
-import { getCollectionInfo, getEmDashEntry, getSeoMeta, getSiteSettings } from "emdash";
+import { getCollectionInfo, getEmDashEntry, getSeoMeta, getSiteSettings, getTermsForEntries } from "emdash";
 import Layout from "../../layouts/RoadmapLayout.astro";
 import VoteButton from "../../components/VoteButton.astro";
 import { strings } from "../../lib/roadmap-strings";
@@ -35,6 +35,9 @@ const title = live ? String(entry.data.title || "") : strings.itemMissingTitle;
 const description = live ? String(entry.data.description || "") : "";
 const stage = live ? String(entry.data.stage || "") : "";
 const id = live ? String(entry.data.id || "") : "";
+const category = id
+	? ((await getTermsForEntries("roadmap", [id], "roadmap_category").catch(() => new Map())).get(id)?.[0]?.label ?? "")
+	: "";
 ---
 
 <Layout
@@ -56,7 +59,12 @@ const id = live ? String(entry.data.id || "") : "";
 			) : (
 				<article class="roadmap-item">
 					<header>
-						{stage ? <p class="wb-muted">{stage}</p> : null}
+						{stage || category ? (
+							<p class="roadmap-item__meta">
+								{stage ? <span class="wb-muted">{stage}</span> : null}
+								{category ? <span class="roadmap-card-tag">{category}</span> : null}
+							</p>
+						) : null}
 						<h1>{title}</h1>
 					</header>
 					<p id="roadmap-status" class="wb-status" hidden></p>
@@ -64,10 +72,10 @@ const id = live ? String(entry.data.id || "") : "";
 					<VoteButton id={id} title={title} />
 					{
 						commentsOn ? (
-							<>
+							<section class="roadmap-item__comments">
 								<Comments collection="roadmap" contentId={id} threaded />
 								<CommentForm collection="roadmap" contentId={id} />
-							</>
+							</section>
 						) : (
 							<p class="wb-muted">{strings.commentsClosed}</p>
 						)

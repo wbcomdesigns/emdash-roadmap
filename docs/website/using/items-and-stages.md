@@ -2,7 +2,7 @@
 
 **Included in Free.** Product Roadmap has no paid version.
 
-![A roadmap item page with its stage, description, vote button and comments](../images/item.webp)
+![A roadmap item page with its stage, category, description, vote button and comments](../images/item.webp)
 
 An item is one entry in the **Roadmap** content type. Its stage decides which column it sits in.
 
@@ -14,7 +14,7 @@ An item is one entry in the **Roadmap** content type. Its stage decides which co
 4. Set the stage with the **Stage** panel (see below).
 5. Publish it.
 
-Each item has its own page at `/roadmap/<slug>/`. It shows the stage, the title, the description, a **Vote** button and the comments. A link takes visitors back to the roadmap.
+Each item has its own page at `/roadmap/<slug>/`. It shows the stage and category, the title, the description, a **Vote** button and the comments. A link takes visitors back to the roadmap.
 
 ## Set an item's stage
 

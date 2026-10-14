@@ -1,13 +1,10 @@
-import { pluginFetch } from "./wbcom-kit";
+import { callPluginRoute } from "./wbcom-kit";
 
-/** Whether the owner is accepting suggestions. Fail open if health cannot be read. */
-export async function ideasOpen(origin = ""): Promise<boolean> {
-	try {
-		const response = await pluginFetch("roadmap", "health", {}, origin);
-		const json = await response.json().catch(() => null);
-		const data = (json?.data ?? json) as { allowIdeas?: boolean } | null;
-		return data?.allowIdeas !== false;
-	} catch {
-		return true;
-	}
+/**
+ * Whether the owner is accepting suggestions, read inside the server from an Astro page
+ * (pass Astro.locals). Fail open if health cannot be read.
+ */
+export async function ideasOpen(locals: unknown): Promise<boolean> {
+	const data = await callPluginRoute(locals, "roadmap", "health");
+	return data.allowIdeas !== false;
 }

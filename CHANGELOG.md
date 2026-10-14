@@ -8,7 +8,7 @@ Versions match `package.json`, the git tag and the registry release. Newest firs
 
 Copy `site-kit/` again after you update.
 
-- Security: the board and Suggest page check whether ideas are open by calling the Site URL set in EmDash settings, never the address a visitor's request names. Set Settings, Site URL on a live site.
+- Security: the board and Suggest page check whether ideas are open inside EmDash itself, with no web request, so a visitor can never make the site call another address.
 
 ## [0.1.4] - 2026-10-14
 

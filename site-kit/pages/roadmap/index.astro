@@ -1,18 +1,15 @@
 ---
-import { getCommentCount, getEmDashCollection, getTaxonomyTerms, getTermsForEntries, getSiteSettings } from "emdash";
+import { getCommentCount, getEmDashCollection, getTaxonomyTerms, getTermsForEntries } from "emdash";
 import Layout from "../../layouts/RoadmapLayout.astro";
 import { ideasOpen } from "../../lib/roadmap-health";
 import { strings } from "../../lib/roadmap-strings";
 import "../../styles/wbcom-base.css";
 import "../../styles/roadmap.css";
-import { serverOrigin } from "../../lib/wbcom-kit";
-// Server-side calls go to the site address from settings, never the request's Host header.
-const origin = serverOrigin((await getSiteSettings())?.url, Astro.url);
 
 const sort = Astro.url.searchParams.get("sort") === "newest" ? "newest" : "votes";
 const category = Astro.url.searchParams.get("category") || "";
 const terms = await getTaxonomyTerms("roadmap_category").catch(() => []);
-const allowIdeas = await ideasOpen(origin);
+const allowIdeas = await ideasOpen(Astro.locals);
 
 // What each card says beyond its title: a short summary, its category and how many comments it has.
 // One collection read and one terms read for the whole board; comment counts run side by side.

@@ -1,6 +1,6 @@
 ## 0.1.5
 
-- Security: server-side calls use the Site URL from EmDash settings, never the request's address. Copy the kit again after updating.
+- Security: server-side calls run inside EmDash with no web request. Copy the kit again after updating.
 
 ## 0.1.4
 

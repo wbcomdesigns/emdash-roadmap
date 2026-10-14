@@ -1,5 +1,5 @@
 ---
-import { getTaxonomyTerms } from "emdash";
+import { getCommentCount, getEmDashCollection, getTaxonomyTerms, getTermsForEntries } from "emdash";
 import Layout from "../../layouts/RoadmapLayout.astro";
 import { ideasOpen } from "../../lib/roadmap-health";
 import { strings } from "../../lib/roadmap-strings";
@@ -10,6 +10,32 @@ const sort = Astro.url.searchParams.get("sort") === "newest" ? "newest" : "votes
 const category = Astro.url.searchParams.get("category") || "";
 const terms = await getTaxonomyTerms("roadmap_category").catch(() => []);
 const allowIdeas = await ideasOpen(Astro.url.origin);
+
+// What each card says beyond its title: a short summary, its category and how many comments it has.
+// One collection read and one terms read for the whole board; comment counts run side by side.
+// 100 matches the most items the board shows.
+const SUMMARY_MAX = 120;
+const { entries: published, cacheHint } = await getEmDashCollection("roadmap", { limit: 100 }).catch(() => ({
+	entries: [],
+	cacheHint: undefined,
+}));
+if (Astro.cache?.enabled && cacheHint) Astro.cache.set(cacheHint);
+const ids = published.map((entry) => String(entry.data.id));
+const [termsById, commentCounts] = await Promise.all([
+	ids.length ? getTermsForEntries("roadmap", ids, "roadmap_category").catch(() => new Map()) : new Map(),
+	// ponytail: one count per item; switch to a bulk count if EmDash adds one.
+	Promise.all(ids.map((id) => getCommentCount("roadmap", id).catch(() => 0))),
+]);
+const details: Record<string, { summary: string; category: string; comments: number }> = {};
+published.forEach((entry, index) => {
+	const id = ids[index];
+	const text = String(entry.data.description || "").replace(/\s+/g, " ").trim();
+	details[id] = {
+		summary: text.length > SUMMARY_MAX ? `${text.slice(0, SUMMARY_MAX - 1).trimEnd()}…` : text,
+		category: termsById.get(id)?.[0]?.label || "",
+		comments: commentCounts[index] ?? 0,
+	};
+});
 
 const href = (next: { category?: string; sort?: string }) => {
 	const params = new URLSearchParams();
@@ -23,7 +49,7 @@ const href = (next: { category?: string; sort?: string }) => {
 ---
 
 <Layout title={strings.boardTitle} description={strings.boardIntro}>
-	<div class="wb roadmap" id="roadmap" data-category={category} data-sort={sort} aria-busy="true">
+	<div class="wb roadmap" id="roadmap" data-category={category} data-sort={sort} data-details={JSON.stringify(details)} aria-busy="true">
 		<header>
 			<h1>{strings.boardTitle}</h1>
 			<p class="wb-muted">{strings.boardIntro}</p>

@@ -1,3 +1,9 @@
+## 0.1.3
+
+- Fix: approve never overwrites your edits; publish an edited idea from the editor and it leaves the Ideas list.
+- Fix: new and approved ideas go to the first stage shown on the board.
+- New: full user guides.
+
 ## 0.1.2
 
 - Suggestions off hides the form and the Suggest an idea link.

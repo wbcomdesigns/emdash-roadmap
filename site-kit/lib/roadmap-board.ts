@@ -3,6 +3,7 @@ import { phrase, strings } from "./roadmap-strings";
 import { bindVoteButtons, fetchBoard, voteButtonHtml } from "./roadmap-vote";
 
 type Card = { id: string; title: string; slug: string; votes: number };
+type Details = Record<string, { summary?: string; category?: string; comments?: number }>;
 type Column = { name: string; items: Card[]; empty: string | null };
 
 export async function loadBoard(): Promise<void> {
@@ -22,8 +23,14 @@ export async function loadBoard(): Promise<void> {
 	}
 
 	const columns = result.columns as Column[];
+	let details: Details = {};
+	try {
+		details = JSON.parse(root.dataset.details || "{}") as Details;
+	} catch {
+		details = {};
+	}
 	board.hidden = false;
-	board.innerHTML = columns.map((column, index) => columnHtml(column, index === 0)).join("");
+	board.innerHTML = columns.map((column, index) => columnHtml(column, index === 0, details)).join("");
 	if (tabs) {
 		tabs.hidden = columns.length === 0;
 		tabs.innerHTML = columns
@@ -41,16 +48,18 @@ function colId(name: string): string {
 	return name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "col";
 }
 
-function columnHtml(column: Column, active: boolean): string {
+function cardHtml(item: Card, extra: Details[string] = {}): string {
+	const summary = extra.summary ? `<p class="roadmap-card-summary">${esc(extra.summary)}</p>` : "";
+	const category = extra.category ? `<span class="roadmap-card-tag">${esc(extra.category)}</span>` : "";
+	const comments = extra.comments ? `<span class="roadmap-card-comments">${esc(strings.commentCount(extra.comments))}</span>` : "";
+	return `<article class="wb-card roadmap-card"><h3><a href="/roadmap/${esc(item.slug || item.id)}/">${esc(item.title)}</a></h3>${summary}<div class="roadmap-card-meta">${voteButtonHtml(item.id, item.votes, item.title)}${category}${comments}</div></article>`;
+}
+
+function columnHtml(column: Column, active: boolean, details: Details = {}): string {
 	const id = colId(column.name);
-	const cards = column.items
-		.map(
-			(item) =>
-				`<article class="wb-card roadmap-card"><h3><a href="/roadmap/${esc(item.slug || item.id)}/">${esc(item.title)}</a></h3>${voteButtonHtml(item.id, item.votes, item.title)}</article>`,
-		)
-		.join("");
+	const cards = column.items.map((item) => cardHtml(item, details[item.id])).join("");
 	const empty = column.empty ? `<p class="wb-empty">${esc(strings.columnEmpty)}</p>` : "";
-	return `<section class="roadmap-col${active ? " is-active" : ""}" id="roadmap-panel-${id}" role="tabpanel" aria-labelledby="roadmap-tab-${id}" data-col="${esc(column.name)}"><h2>${esc(column.name)}</h2>${cards}${empty}</section>`;
+	return `<section class="roadmap-col${active ? " is-active" : ""}" id="roadmap-panel-${id}" role="tabpanel" aria-labelledby="roadmap-tab-${id}" data-col="${esc(column.name)}"><h2>${esc(column.name)} <span class="roadmap-col-count">${column.items.length}</span></h2>${cards}${empty}</section>`;
 }
 
 function bindTabs(): void {

@@ -74,6 +74,8 @@ Three roles, in this order: guest (private window), member (subscriber), admin. 
 | A-10 | Try to remove a stage that still has items | Refused. The page says how many items are in that stage |
 | A-11 | Change who can take part and the email address, reload | The saved values are still there and take effect |
 | A-12 | Twenty ideas waiting, hourly task runs twice; then switch email off | One email, no idea text and no link. Switch off sends none |
+| A-13 | Guest suggests "Bulk edit tagz"; admin fixes the draft title to "Bulk edit tags" and saves; Approve | The board shows "Bulk edit tags". An untouched idea approves with its own text |
+| A-14 | Hide the first stage, then approve an idea | It lands in the first shown stage and is on the board |
 
 ## Presentation, every screen
 

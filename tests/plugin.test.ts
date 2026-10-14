@@ -435,6 +435,53 @@ describe("suggest and ideas queue", () => {
 		expect(board.columns[0]?.items.map((item) => item.title)).toContain("Dark mode for comments");
 	});
 
+	it("approve publishes the draft's current text, not the stored idea text", async () => {
+		const site = await openRoadmap();
+		const draft = await site.rt.fixtures.content("roadmap", {
+			data: { title: "Export monthly reports as CSV", description: "Download the monthly report.", stage: "" },
+			slug: "export-monthly-reports",
+			status: "draft",
+		} as never);
+		await site.rt.fixtures.plugin.storage("ideas", draft.id, {
+			title: "Export reports as CSV",
+			description: "let me download the montly report",
+			status: "pending",
+			rev: "r-edit",
+			name: "Priya",
+			createdAt: "2026-10-14T00:00:00.000Z",
+		});
+		const approved = await admin(site.call, {
+			type: "block_action",
+			action_id: "idea_mod",
+			page: "/ideas",
+			value: `approve|r-edit|${draft.id}`,
+		});
+		expect(approved.toast?.type).toBe("success");
+		const live = await site.rt.inspect.content.get("roadmap", draft.id);
+		expect(JSON.stringify(live)).toContain("Export monthly reports as CSV");
+		expect(JSON.stringify(live)).not.toContain("montly");
+	});
+
+	it("an idea whose draft the owner published from the editor leaves the queue", async () => {
+		const site = await openRoadmap();
+		const item = await site.rt.fixtures.content("roadmap", {
+			data: { title: "Weekly digest email", description: "A summary every Monday.", stage: "Planned" },
+			slug: "weekly-digest-email",
+			status: "published",
+		} as never);
+		await site.rt.fixtures.plugin.storage("ideas", item.id, {
+			title: "weekly digest",
+			description: "",
+			status: "pending",
+			rev: "r-pub",
+			name: "Ana",
+			createdAt: "2026-10-14T00:00:00.000Z",
+		});
+		const page = await admin(site.call, { type: "page_load", page: "/ideas" });
+		expect(textOf(page)).not.toContain("weekly digest (waiting)");
+		expect(await site.rt.inspect.storage.get<{ status: string }>("ideas", item.id)).toMatchObject({ status: "approved" });
+	});
+
 	it("refuses ideas when they are off, a ninth suggest, and a stale approve", async () => {
 		const site = await openRoadmap();
 		await admin(site.call, {
@@ -714,5 +761,17 @@ describe("rename keeps items", () => {
 		};
 		const column = board.columns.find((item) => item.name === "QA Review");
 		expect(column?.items.map((item) => item.title).sort()).toEqual(["One", "Three", "Two"]);
+	});
+});
+
+describe("first stage for new ideas", () => {
+	it("skips a hidden first stage", async () => {
+		const { firstStage } = await import("../src/settings");
+		const stages = [
+			{ id: "a", name: "Under review", order: 0, shown: false, aliases: [] },
+			{ id: "b", name: "Planned", order: 1, shown: true, aliases: [] },
+		];
+		expect(firstStage(stages as never).name).toBe("Planned");
+		expect(firstStage(stages.map((s) => ({ ...s, shown: true })) as never).name).toBe("Under review");
 	});
 });

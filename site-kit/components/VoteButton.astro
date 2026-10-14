@@ -1,5 +1,5 @@
 ---
-import { strings } from "../lib/roadmap-strings";
+import { strings, voteCountLabel } from "../lib/roadmap-strings";
 
 interface Props {
 	id: string;
@@ -8,6 +8,9 @@ interface Props {
 }
 
 const { id, votes = 0, title = "" } = Astro.props;
+const aria = title
+	? `${strings.vote}: ${title}, ${voteCountLabel(votes)}`
+	: `${strings.vote}, ${voteCountLabel(votes)}`;
 ---
 
 <button
@@ -15,8 +18,9 @@ const { id, votes = 0, title = "" } = Astro.props;
 	class="wb-btn wb-btn--quiet wb-vote"
 	data-vote={id}
 	data-votes={String(votes)}
+	data-title={title}
 	aria-pressed="false"
-	aria-label={title ? `${strings.vote}: ${title}` : strings.vote}
+	aria-label={aria}
 >
 	<span class="wb-vote__label">{strings.vote}</span>
 	<span class="wb-vote__count">{votes}</span>

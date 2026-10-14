@@ -1,4 +1,4 @@
-# Site kit: Roadmap and Feature Voting
+# Site kit: Product Roadmap
 
 The plugin is the engine. EmDash plugins cannot add pages, so copy this kit into the site once.
 

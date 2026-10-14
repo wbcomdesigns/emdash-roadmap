@@ -234,7 +234,7 @@ export async function renderSettings(
 	return {
 		blocks: [
 			{ type: "header", text: "Settings" },
-			{ type: "section", text: "Each group saves on its own. The collection name stays internal." },
+			{ type: "section", text: "Each group saves on its own." },
 			{ type: "header", text: "Who can take part" },
 			...lines([
 				"Allow suggestions: when on, people can send an idea. It always waits for you to approve it.",
@@ -268,7 +268,7 @@ export async function renderSettings(
 			{ type: "header", text: "Stages" },
 			...lines([
 				"Add, rename, reorder or hide stages. A hidden stage keeps its items off the board.",
-				"On a roadmap item, set Stage to the stage name, for example Done.",
+				"On a roadmap item, pick the stage from the Stage panel. You can also move an item from the list below.",
 				"A stage that still has items cannot be removed until those items move.",
 			]),
 			...settings.stages.flatMap((stage, index) =>

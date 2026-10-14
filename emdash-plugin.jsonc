@@ -1,7 +1,7 @@
 {
 	"$schema": "./node_modules/@emdash-cms/plugin-cli/schemas/emdash-plugin.schema.json",
 	"slug": "roadmap",
-	"name": "Roadmap and Feature Voting",
+	"name": "Product Roadmap",
 	"keywords": [
 		"roadmap",
 		"feature requests",
@@ -77,6 +77,14 @@
 				"id": "waiting",
 				"title": "Roadmap: waiting for you",
 				"size": "half"
+			}
+		],
+		"editorPanels": [
+			{
+				"id": "stage",
+				"title": "Stage",
+				"route": "editor_stage",
+				"collections": ["roadmap"]
 			}
 		],
 		"settingsSchema": {

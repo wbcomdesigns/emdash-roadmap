@@ -1,16 +1,16 @@
-# QA checklist: Roadmap and Feature Voting
+# QA checklist: Product Roadmap
 
 One living list of flow-level cases. Walk all of it before every release. When you add or fix behaviour, add or change its case in the same pull request. There are no per-release QA files.
 
-**Last walk:** 2026-10-14, full coverage after `ea8de3d`. Isolated Chromium and routes against `emdash-lab-roadmap` :4335 after `./scripts/reset-lab.sh`. 25 tests pass. `./scripts/prove-lab.sh` pass.
+**Last walk:** 2026-10-14, 0.1.1 on `0.1.1`. Isolated Chromium and routes against `emdash-lab-roadmap` :4335 after `./scripts/reset-lab.sh`. 30 tests pass. `./scripts/prove-lab.sh --all` pass.
 
-Walked in a browser: G-1, G-2, G-4, G-5, G-6, G-9, G-10, G-12, M-1, M-2, M-3, M-5, M-8, A-1 (Ideas table: title, description, From including Sam (guest), Decide, merge form), A-11 (Settings who + stages + email), P-1 at 390 (tabs, no sideways scroll), P-7.
+Walked in a browser: G-1, G-2, G-4, G-6, G-9 (guest vote 1 to 2), G-10 path (suggest form), M-1 (subscriber vote 0 to 1), M-3 (reload after vote still shows count, not Voted 0), M-5 (subscriber suggest, thanks), M-8 (390 tabs, no sideways scroll), A-11 (Settings: Each group saves on its own; Stage panel wording; no collection-name line), P-1 at 1440 and 390, P-2 dark, P-4 visible vote and filter taps 40px.
 
-Checked at route level only: G-7, G-11, M-4, A-2, A-3, A-6, A-7, A-8 (rename to QA Review kept items), A-9, A-10, A-11 persist, #11 honeypot, #17 merge (Guest voting unpublished, keep stayed), prove-lab.
+Checked at route level only: G-7, G-11, prove-lab (member vote, guest vote, suggest, board filter, admin pages), editor_stage tests (choice list, move to Done, guests and members refused).
 
-Checked in tests only: M-6, M-7, A-4, A-12, G-94 (wording file import).
+Checked in tests only: M-6, M-7, A-4, A-8, A-9, A-10, A-12, registry id `r_76xywti6l5cbxzos`, vote aria-label with count, taxonomy label Roadmap categories.
 
-Not walked: G-8 (members-only suggest page prompt; routes refused), M-9, M-10 (#8, 0.2.0), #18 in-text block, second same-role member, hourly email firing on its own, VoiceOver, RTL.
+Not walked: G-5, G-8, G-12 comments thread, M-2 take-back in this pass (covered by prove-lab), M-9, M-10 (#8, 0.2.0), #18 in-text block, A-5 Stage panel expand in the live editor (route and tests cover the choice; the panel starts collapsed), second same-role member, hourly email firing on its own, VoiceOver, RTL, a second machine's registry install (kit id is unit-tested).
 
 When you walk it, replace that line with the date, the version, and three lists: cases walked in the browser, cases checked at route level only, cases not walked. Do not claim a case you did not run.
 
@@ -49,7 +49,7 @@ Three roles, in this order: guest (private window), member (subscriber), admin. 
 | --- | --- | --- |
 | M-1 | Vote on an item | Count goes up by one. Button shows voted |
 | M-2 | Click again | Vote taken back. Count goes down |
-| M-3 | Reload the board | Own votes are marked |
+| M-3 | Reload the board within two minutes of voting | Own votes are marked and the count is still at least 1, not "Voted 0" |
 | M-4 | Send another member's id, or a draft item's id | Ignored, refused |
 | M-5 | Suggest an idea | Thanks message. The idea is not on the board |
 | M-6 | Suggest nine ideas in an hour | The ninth is refused |
@@ -66,7 +66,7 @@ Three roles, in this order: guest (private window), member (subscriber), admin. 
 | A-2 | Approve it | It appears under Under review on the board |
 | A-3 | Reject another | It never appears. It stays a draft in the content admin |
 | A-4 | Load the page, member edits the idea, click Approve | Refused: changed after this page loaded |
-| A-5 | Move an item to Done in the content admin | It moves column on the board |
+| A-5 | On a roadmap item, pick Done from the Stage panel | A list of stage names, not a typed field. The item moves column on the board |
 | A-6 | Turn ideas off | The suggest page says ideas are closed. The route refuses |
 | A-7 | Open the queue with a guest idea waiting | It shows the guest's name and is marked as from a guest |
 | A-8 | Rename the four stages in settings | The board, the idea page and the admin all use the new names. The order does not change |

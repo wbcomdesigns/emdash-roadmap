@@ -14,6 +14,8 @@ export const strings = {
 	columnEmpty: "Nothing in this stage yet.",
 	vote: "Vote",
 	voted: "Voted",
+	voteCountOne: "1 vote",
+	voteCountMany: "{n} votes",
 	signIn: "Sign in",
 	backToBoard: "Back to the roadmap",
 	itemMissingTitle: "This idea is not here",
@@ -54,4 +56,9 @@ export const strings = {
 
 export function phrase(code: string | undefined): string {
 	return (code && strings.errors[code]) || strings.errors.FAILED;
+}
+
+export function voteCountLabel(count: number): string {
+	const n = Math.max(0, Math.round(Number(count) || 0));
+	return n === 1 ? strings.voteCountOne : strings.voteCountMany.replace("{n}", String(n));
 }

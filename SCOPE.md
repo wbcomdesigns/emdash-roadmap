@@ -15,6 +15,7 @@ This file is the contract for the plugin. Code, tests, docs and cards all follow
 - **Visitors first:** a visitor is never locked out by hosting. Trusted visitor address where EmDash supplies it, browser cookie otherwise, written content always approved first.
 - **Member account list (`<My...>`):** not in 0.1.0. Moved to 0.2.0. The erase-by-person function stays, as an admin action.
 - **Block inside post text:** only with a trusted install. The registry install is the whole product without it.
+- **Listing name (2026-10-14):** Product Roadmap, same as the brand kit. The kit and the board heading still say Roadmap.
 - **Admin pages:** Ideas (waiting list, merge), Settings (suggestions on or off, who can take part, stages, email), plus the dashboard card.
 - **Changelog** is a normal EmDash collection with a list page and a page per release. No plugin logic.
 
@@ -181,7 +182,7 @@ Row id: `<itemId>`. Indexes: `status`, `member_id`, `createdAt`.
 
 ## Routes
 
-Base: `/_emdash/api/plugins/roadmap/<name>`.
+Base: `/_emdash/api/plugins/<id>/<name>`. Local installs use the slug `roadmap`. Registry installs use `r_76xywti6l5cbxzos`. The kit `pluginFetch()` tries both.
 
 | Route | Who | Methods | Input | Returns |
 | --- | --- | --- | --- | --- |
@@ -192,6 +193,7 @@ Base: `/_emdash/api/plugins/roadmap/<name>`.
 | `suggest` | member | POST | `title`, `description` | Creates a draft item and a pending idea. Rate limited |
 | `mine` | member | GET, DELETE | - | GET: own votes and ideas with status. DELETE: erase own votes |
 | `vote_guest` | public | POST, DELETE | `id`, honeypot field | New vote count. Refused when the setting is members |
+| `editor_stage` | admin | POST | saved roadmap item | Stage list for that item. Guests and members are refused |
 | `suggest_guest` | public | POST | `title`, `description`, `name`, honeypot field | Creates a draft item and a pending idea. Refused when the setting is members |
 | `admin` | admin | POST | Block Kit | Ideas queue and settings |
 

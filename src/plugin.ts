@@ -2,6 +2,7 @@ import type { SandboxedPlugin } from "emdash/plugin";
 
 import { handleAdmin } from "./admin";
 import { loadBoard } from "./content";
+import { handleEditorPanel } from "./editor";
 import { CHANGELOG, MEMBER, ROADMAP, hasCollection } from "./core";
 import { ensureNotifyTask, notifyOwners } from "./notify";
 import { loadSettings, seedDefaults } from "./settings";
@@ -80,6 +81,9 @@ const plugin: SandboxedPlugin = {
 		},
 		admin: {
 			handler: async (routeCtx, ctx) => handleAdmin(routeCtx.input, ctx),
+		},
+		editor_stage: {
+			handler: async (routeCtx, ctx) => handleEditorPanel(routeCtx, ctx),
 		},
 	},
 };

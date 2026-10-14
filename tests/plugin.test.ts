@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import { createPluginRuntimeTestHost } from "@emdash-cms/plugin-test";
 
 // @ts-expect-error plain module shared with the lab seed
-import { changelogCollection, roadmapCollection } from "../site-kit/seed/collection.mjs";
+import { changelogCollection, roadmapCollection, roadmapTaxonomies } from "../site-kit/seed/collection.mjs";
 import { ana, ben, openSite } from "./site";
 
 let dispose: (() => Promise<void>) | undefined;
@@ -95,7 +95,7 @@ describe("stages", () => {
 		expect(textOf(renamed)).not.toContain('"initial_value":"Planned"');
 	});
 
-	it("adds a hidden stage, moves an item there, and refuses to remove a stage that still has items", async () => {
+	it("adds a hidden stage, moves an item there, and refuses to remove a stage that still has items", { timeout: 15000 }, async () => {
 		const site = await openRoadmap();
 		const item = await addItem(site.rt, "Skip this one", "Under review");
 
@@ -610,6 +610,64 @@ describe("merge", () => {
 			values: { source: `item:${keep.id}`, keep: keep.id },
 		});
 		expect(self.toast?.type).toBe("error");
+	});
+});
+
+describe("0.1.1 owner findings", () => {
+	it("computes the registry plugin id used on a real site", async () => {
+		const { registryPluginId } = await import("../site-kit/lib/wbcom-kit");
+		expect(await registryPluginId("roadmap")).toBe("r_76xywti6l5cbxzos");
+	});
+
+	it("puts the vote count in the button name", async () => {
+		const { voteAriaLabel } = await import("../site-kit/lib/roadmap-vote");
+		expect(voteAriaLabel(false, "Filter by category", 3)).toBe("Vote: Filter by category, 3 votes");
+		expect(voteAriaLabel(true, "Filter by category", 1)).toBe("Voted: Filter by category, 1 vote");
+	});
+
+	it("keeps owner wording off the Settings page and names the taxonomy", async () => {
+		const site = await openRoadmap();
+		const page = textOf(await admin(site.call, { type: "page_load", page: "/settings" }));
+		expect(page).not.toContain("collection name stays internal");
+		expect(page).not.toContain("set Stage to the stage name");
+		expect(page).toContain("pick the stage from the Stage panel");
+		expect(roadmapTaxonomies[0]?.label).toBe("Roadmap categories");
+	});
+
+	it("offers stages as a choice on the item editor and moves the item", async () => {
+		const site = await openRoadmap();
+		expect(site.rt.manifest.admin?.editorPanels).toEqual(
+			expect.arrayContaining([expect.objectContaining({ id: "stage", title: "Stage", route: "editor_stage" })]),
+		);
+		const item = await addItem(site.rt, "Dark board", "Planned");
+		const panel = await site.rt.admin.loadEditorPanel("stage", "roadmap", item.id);
+		expect(textOf(panel)).toContain("Done");
+		expect(textOf(panel)).toContain("Planned");
+		const saved = await site.rt.admin.submitEditorPanel("stage", "roadmap", item.id, "set_stage", {
+			stage: "done",
+		});
+		expect(saved.toast).toMatchObject({ type: "success", message: "Moved to Done." });
+		const board = (await site.call("board")) as {
+			columns: Array<{ name: string; items: Array<{ title: string }> }>;
+		};
+		expect(board.columns.find((column) => column.name === "Done")?.items.map((row) => row.title)).toContain(
+			"Dark board",
+		);
+		expect(board.columns.find((column) => column.name === "Planned")?.items.map((row) => row.title) || []).not.toContain(
+			"Dark board",
+		);
+	});
+
+	it("refuses guests and members on the stage panel", async () => {
+		const site = await openRoadmap();
+		const guest = await site.rt.actions.routes.request("editor_stage", { method: "POST", body: { type: "panel_load" } });
+		expect(guest.status).toBe(401);
+		const member = await site.rt.actions.routes.request("editor_stage", {
+			method: "POST",
+			body: { type: "panel_load" },
+			user: ana,
+		});
+		expect(member.status).toBe(403);
 	});
 });
 

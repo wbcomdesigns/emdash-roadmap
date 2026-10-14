@@ -2,7 +2,7 @@
 
 One living list of flow-level cases. Walk all of it before every release. When you add or fix behaviour, add or change its case in the same pull request. There are no per-release QA files.
 
-**Last walk:** 2026-10-14, 0.1.1 on `0.1.1`. Isolated Chromium and routes against `emdash-lab-roadmap` :4335 after `./scripts/reset-lab.sh`. 30 tests pass. `./scripts/prove-lab.sh --all` pass.
+**Last walk:** 2026-10-14, 0.1.2 on `0.1.2`. Isolated Chromium against `emdash-lab-roadmap` :4335 after kit apply. 31 tests pass. #27: suggestions off hides the link and the form, closed message and back link only. #28: Ideas merge shows Choose an item and Review merge, then names both items. #29: Category and Sort labels, Suggest is a primary button, current phone tab uses brand fill.
 
 Walked in a browser: G-1, G-2, G-4, G-6, G-9 (guest vote 1 to 2), G-10 path (suggest form), M-1 (subscriber vote 0 to 1), M-3 (reload after vote still shows count, not Voted 0), M-5 (subscriber suggest, thanks), M-8 (390 tabs, no sideways scroll), A-11 (Settings: Each group saves on its own; Stage panel wording; no collection-name line), P-1 at 1440 and 390, P-2 dark, P-4 visible vote and filter taps 40px.
 
@@ -67,7 +67,7 @@ Three roles, in this order: guest (private window), member (subscriber), admin. 
 | A-3 | Reject another | It never appears. It stays a draft in the content admin |
 | A-4 | Load the page, member edits the idea, click Approve | Refused: changed after this page loaded |
 | A-5 | On a roadmap item, pick Done from the Stage panel | A list of stage names, not a typed field. The item moves column on the board |
-| A-6 | Turn ideas off | The suggest page says ideas are closed. The route refuses |
+| A-6 | Turn ideas off | No Suggest an idea link on the board. The suggest page shows only the closed message and a back link, no form. The route refuses |
 | A-7 | Open the queue with a guest idea waiting | It shows the guest's name and is marked as from a guest |
 | A-8 | Rename the four stages in settings | The board, the idea page and the admin all use the new names. The order does not change |
 | A-9 | Add a hidden stage named Declined, move an item there | The item leaves the public board. The stage name is shown, never an internal key |

@@ -4,6 +4,12 @@ Versions match `package.json`, the git tag and the registry release. Newest firs
 
 ## [Unreleased]
 
+## [0.1.2] - 2026-10-14
+
+- When suggestions are off, the board hides Suggest an idea and the suggest page shows only the closed message.
+- Merge a duplicate starts with Choose an item, then names both items before the owner confirms.
+- Board filters are labelled Category and Sort. Suggest is a primary button. The current phone stage tab is marked.
+
 ## [0.1.1] - 2026-10-14
 
 Fixes from the first registry install and the all-plugins site test.

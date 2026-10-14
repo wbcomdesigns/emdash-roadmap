@@ -12,6 +12,11 @@
 	gap: var(--wb-gap);
 }
 
+.roadmap-filter-group {
+	display: grid;
+	gap: 0.35rem;
+}
+
 .roadmap-filters,
 .roadmap-tabs {
 	display: flex;
@@ -21,6 +26,13 @@
 
 .roadmap-tabs {
 	display: none;
+}
+
+.roadmap-tabs [aria-selected="true"] {
+	background: var(--wb-brand);
+	border-color: transparent;
+	color: var(--wb-on-brand);
+	font-weight: 600;
 }
 
 .roadmap-filters a {

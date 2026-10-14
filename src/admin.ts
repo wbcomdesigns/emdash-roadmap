@@ -46,20 +46,23 @@ function parseStamped(value: unknown): { action: string; rev: string; id: string
 	return { action, rev, id: rest.join("|") };
 }
 
-export async function renderIdeas(
-	ctx: PluginContext,
-	extra?: Pick<BlockResponse, "toast">,
-): Promise<BlockResponse> {
+type IdeasExtra = Pick<BlockResponse, "toast"> & {
+	mergeConfirm?: { source: string; keep: string; sourceTitle: string; keepTitle: string };
+};
+
+function withChoice(options: Array<{ label: string; value: string }>): Array<{ label: string; value: string }> {
+	return [{ label: "Choose an item", value: "" }, ...options.filter((option) => option.value)];
+}
+
+export async function renderIdeas(ctx: PluginContext, extra?: IdeasExtra): Promise<BlockResponse> {
 	const collections = await hasCollections(ctx);
 	const pending = await listPendingIdeas(ctx);
 	const items = (await listRoadmapItems(ctx)).filter((item) => item.published);
-	const keepOptions = items.length
-		? items.map((item) => ({ label: item.title, value: item.id }))
-		: [{ label: "No published items yet", value: "" }];
-	const sourceOptions = [
+	const keepOptions = withChoice(items.map((item) => ({ label: item.title, value: item.id })));
+	const sourceOptions = withChoice([
 		...pending.map((idea) => ({ label: `${idea.title} (waiting)`, value: `idea:${idea.id}:${idea.rev}` })),
 		...items.map((item) => ({ label: item.title, value: `item:${item.id}` })),
-	];
+	]);
 	const rows = pending.map((idea) => ({
 		title: idea.title,
 		description: idea.description,
@@ -117,6 +120,48 @@ export async function renderIdeas(
 			...lines([
 				"Pick the item to drop and the item to keep. Votes move across, one per person. The dropped item is unpublished and its address redirects to the one you keep.",
 			]),
+			...(extra?.mergeConfirm
+				? [
+						{
+							type: "banner",
+							variant: "alert",
+							title: `Merge ${extra.mergeConfirm.sourceTitle} into ${extra.mergeConfirm.keepTitle}?`,
+							description: "The first item is unpublished. Its votes move to the second. You cannot undo this.",
+						} as BlockMap,
+						{
+							type: "form",
+							block_id: "merge_confirm",
+							fields: [
+								{
+									type: "select",
+									action_id: "source",
+									label: "Merge this item",
+									initial_value: extra.mergeConfirm.source,
+									options: [
+										{ label: extra.mergeConfirm.sourceTitle, value: extra.mergeConfirm.source },
+									],
+								},
+								{
+									type: "select",
+									action_id: "keep",
+									label: "Into this item",
+									initial_value: extra.mergeConfirm.keep,
+									options: [{ label: extra.mergeConfirm.keepTitle, value: extra.mergeConfirm.keep }],
+								},
+							],
+							submit: {
+								label: "Merge these two",
+								action_id: "merge_items",
+								confirm: {
+									title: `Merge ${extra.mergeConfirm.sourceTitle} into ${extra.mergeConfirm.keepTitle}?`,
+									text: "The first item is unpublished. Votes move to the second.",
+									confirm: "Merge",
+									deny: "Cancel",
+								},
+							},
+						} as BlockMap,
+					]
+				: []),
 			{
 				type: "form",
 				block_id: "merge_items",
@@ -125,18 +170,18 @@ export async function renderIdeas(
 						type: "select",
 						action_id: "source",
 						label: "Merge this item",
-						options: sourceOptions.length
-							? sourceOptions
-							: [{ label: "Nothing to merge yet", value: "" }],
+						initial_value: "",
+						options: sourceOptions,
 					},
 					{
 						type: "select",
 						action_id: "keep",
 						label: "Into this item",
+						initial_value: "",
 						options: keepOptions,
 					},
 				],
-				submit: { label: "Merge", action_id: "merge_items" },
+				submit: { label: "Review merge", action_id: "merge_review" },
 			},
 			{
 				type: "actions",
@@ -443,6 +488,41 @@ async function handleIdeaMod(ctx: PluginContext, value: unknown): Promise<BlockR
 	return renderIdeas(ctx, { toast: { message: "Unknown decision.", type: "error" } });
 }
 
+function mergeTitles(
+	sourceRaw: string,
+	keep: string,
+	pending: Array<{ id: string; title: string }>,
+	items: Array<{ id: string; title: string }>,
+): { sourceTitle: string; keepTitle: string } | null {
+	const ideaMatch = sourceRaw.match(/^idea:([^:]+):/);
+	const itemMatch = sourceRaw.match(/^item:(.+)$/);
+	const sourceId = ideaMatch?.[1] || itemMatch?.[1] || sourceRaw;
+	const sourceTitle =
+		pending.find((idea) => idea.id === sourceId)?.title || items.find((item) => item.id === sourceId)?.title || "";
+	const keepTitle = items.find((item) => item.id === keep)?.title || "";
+	if (!sourceTitle || !keepTitle) return null;
+	return { sourceTitle, keepTitle };
+}
+
+async function handleMergeReview(ctx: PluginContext, values: Record<string, unknown>): Promise<BlockResponse> {
+	const source = asString(values.source);
+	const keep = asString(values.keep);
+	if (!source || !keep) {
+		return renderIdeas(ctx, { toast: { message: "Choose both items.", type: "error" } });
+	}
+	const pending = await listPendingIdeas(ctx);
+	const items = (await listRoadmapItems(ctx)).filter((item) => item.published);
+	const names = mergeTitles(source, keep, pending, items);
+	if (!names) {
+		return renderIdeas(ctx, { toast: { message: "Choose both items.", type: "error" } });
+	}
+	const sourceId = source.match(/^idea:([^:]+):/)?.[1] || source.match(/^item:(.+)$/)?.[1] || source;
+	if (sourceId === keep) {
+		return renderIdeas(ctx, { toast: { message: "Pick two different items.", type: "error" } });
+	}
+	return renderIdeas(ctx, { mergeConfirm: { source, keep, ...names } });
+}
+
 async function handleMerge(ctx: PluginContext, values: Record<string, unknown>): Promise<BlockResponse> {
 	const sourceRaw = asString(values.source);
 	const keep = asString(values.keep);
@@ -468,6 +548,7 @@ export async function handleAdmin(input: unknown, ctx: PluginContext): Promise<B
 		if (action === "save_email") return saveEmail(ctx, values);
 		if (action === "add_stage") return handleAddStage(ctx, settings, values);
 		if (action === "move_item") return handleMoveItem(ctx, settings, values);
+		if (action === "merge_review") return handleMergeReview(ctx, values);
 		if (action === "merge_items") return handleMerge(ctx, values);
 		if (action.startsWith("save_stage:")) return handleStageSave(ctx, settings, action.slice(11), values);
 	}

@@ -18,7 +18,12 @@ for part in lib styles components pages; do
 		if [[ "$name" == wbcom-base.css || "$name" == wbcom-kit.ts ]] && [[ -f "$target" ]]; then
 			(( $(shared_version "$file") >= $(shared_version "$target") )) || continue
 		fi
-		cp -R "$file" "$target"
+		if [[ -d "$file" ]]; then
+			mkdir -p "$target"
+			cp -R "$file"/. "$target"/
+		else
+			cp "$file" "$target"
+		fi
 	done
 done
 # The owner points this at their own layout, so never overwrite it.

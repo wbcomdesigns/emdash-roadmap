@@ -553,6 +553,30 @@ describe("guest participation", () => {
 });
 
 describe("merge", () => {
+	it("asks the owner to choose items and names both before merging", async () => {
+		const site = await openRoadmap();
+		const keep = await addItem(site.rt, "Keep this");
+		const drop = await addItem(site.rt, "Drop this");
+		const page = textOf(await admin(site.call, { type: "page_load", page: "/ideas" }));
+		expect(page).toContain("Choose an item");
+		expect(page).toContain("Review merge");
+		const blank = await admin(site.call, {
+			type: "form_submit",
+			action_id: "merge_review",
+			page: "/ideas",
+			values: { source: "", keep: "" },
+		});
+		expect(blank.toast?.type).toBe("error");
+		const preview = await admin(site.call, {
+			type: "form_submit",
+			action_id: "merge_review",
+			page: "/ideas",
+			values: { source: `item:${drop.id}`, keep: keep.id },
+		});
+		expect(textOf(preview)).toContain("Merge Drop this into Keep this?");
+		expect(textOf(preview)).toContain("Merge these two");
+	});
+
 	it("moves votes once per person and refuses merging an item into itself", async () => {
 		const site = await openRoadmap();
 		const keep = await addItem(site.rt, "Keep this");

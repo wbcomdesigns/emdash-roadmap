@@ -1,36 +1,54 @@
 ---
 import Layout from "../../layouts/RoadmapLayout.astro";
+import { ideasOpen } from "../../lib/roadmap-health";
 import { strings } from "../../lib/roadmap-strings";
 import "../../styles/wbcom-base.css";
 import "../../styles/roadmap.css";
+
+const allowIdeas = await ideasOpen(Astro.url.origin);
 ---
 
 <Layout title={strings.suggestTitle} description={strings.suggestIntro}>
 	<div class="wb roadmap">
 		<p><a class="wb-btn wb-btn--quiet" href="/roadmap/">{strings.backToBoard}</a></p>
 		<h1>{strings.suggestTitle}</h1>
-		<p class="wb-muted">{strings.suggestIntro}</p>
-		<form class="wb-form" id="roadmap-suggest">
-			<p id="roadmap-status" class="wb-status" hidden></p>
-			<label class="wb-field">
-				<span class="wb-label">{strings.suggestTitleLabel}</span>
-				<input class="wb-input" type="text" name="title" maxlength="120" required />
-			</label>
-			<label class="wb-field">
-				<span class="wb-label">{strings.suggestBodyLabel}</span>
-				<textarea class="wb-input" name="description" maxlength="4000"></textarea>
-			</label>
-			<label class="wb-field">
-				<span class="wb-label">{strings.suggestName}</span>
-				<input class="wb-input" type="text" name="name" maxlength="60" autocomplete="name" />
-				<span class="wb-muted">{strings.suggestNameHint}</span>
-			</label>
-			<label class="wb-sr">
-				<span>{strings.honeypot}</span>
-				<input type="text" name="website" tabindex="-1" autocomplete="off" />
-			</label>
-			<button class="wb-btn" type="submit">{strings.suggestSubmit}</button>
-		</form>
+		{
+			allowIdeas ? (
+				<>
+					<p class="wb-muted">{strings.suggestIntro}</p>
+					<form class="wb-form" id="roadmap-suggest">
+						<p id="roadmap-status" class="wb-status" hidden></p>
+						<label class="wb-field">
+							<span class="wb-label">{strings.suggestTitleLabel}</span>
+							<input class="wb-input" type="text" name="title" maxlength="120" required />
+						</label>
+						<label class="wb-field">
+							<span class="wb-label">{strings.suggestBodyLabel}</span>
+							<textarea class="wb-input" name="description" maxlength="4000"></textarea>
+						</label>
+						<label class="wb-field">
+							<span class="wb-label">{strings.suggestName}</span>
+							<input class="wb-input" type="text" name="name" maxlength="60" autocomplete="name" />
+							<span class="wb-muted">{strings.suggestNameHint}</span>
+						</label>
+						<label class="wb-sr">
+							<span>{strings.honeypot}</span>
+							<input type="text" name="website" tabindex="-1" autocomplete="off" />
+						</label>
+						<button class="wb-btn" type="submit">{strings.suggestSubmit}</button>
+					</form>
+				</>
+			) : (
+				<div class="wb-empty">
+					<p>{strings.suggestClosed}</p>
+					<p>
+						<a class="wb-btn wb-btn--quiet" href="/roadmap/">
+							{strings.backToBoard}
+						</a>
+					</p>
+				</div>
+			)
+		}
 	</div>
 </Layout>
 

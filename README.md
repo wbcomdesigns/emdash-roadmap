@@ -2,7 +2,7 @@
 
 A public roadmap where members vote on ideas and suggest their own, with a changelog for what shipped.
 
-Published as `@vapvarun.bsky.social/roadmap`. Copy `site-kit/` so `/roadmap/` exists. Use the kit from 0.1.1 or later on a registry install.
+Published as `@vapvarun.bsky.social/roadmap`. Copy `site-kit/` so `/roadmap/` exists. Use the kit from 0.1.2 or later on a registry install.
 
 - Scope and schema: [SCOPE.md](SCOPE.md)
 - Plan and decisions: [PLAN.md](PLAN.md)

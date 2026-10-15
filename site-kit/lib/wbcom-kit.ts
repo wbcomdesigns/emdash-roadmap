@@ -1,6 +1,8 @@
-/* wbcom-shared: 4 */
+/* wbcom-shared: 5 */
 /* Browser helpers shared by every Wbcom EmDash plugin kit. Keep this file identical across plugins.
    Same rules as styles/wbcom-base.css: only ever add, and raise the number on the first line. */
+
+import { getPublicPluginApiRouteHandler } from "emdash/plugin-utils";
 
 const ESCAPES: Record<string, string> = { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" };
 
@@ -73,28 +75,62 @@ function remember(plugin: string, id: string | null): void {
 }
 
 /**
- * fetch() for a plugin route, at whichever address this site installed the plugin under.
- * `origin` is for server-side calls from an Astro page (pass Astro.url.origin).
+ * fetch() for a plugin route from the browser, at whichever address this site installed the
+ * plugin under. Browser only (version 5): an Astro page's server code uses callPluginRoute, which
+ * runs the route inside the server, so no address a visitor could influence is ever called.
  *
  * Only an address the plugin itself answered on is remembered. On the server this memory is
  * shared by every visitor, so a failure (the plugin switched off, a deploy in progress) must
  * never be remembered, and a remembered address that stops answering is forgotten.
  */
-export async function pluginFetch(plugin: string, path: string, init: RequestInit = {}, origin = ""): Promise<Response> {
+export async function pluginFetch(plugin: string, path: string, init: RequestInit = {}): Promise<Response> {
+	if (typeof window === "undefined") {
+		return new Response(null, { status: 503, statusText: "Server code calls plugin routes with callPluginRoute" });
+	}
 	const known = chosen.get(plugin) ?? remembered(plugin);
 	if (known) {
-		const response = await fetch(`${origin}/_emdash/api/plugins/${known}/${path}`, init);
+		const response = await fetch(`/_emdash/api/plugins/${known}/${path}`, init);
 		if (!(await routeMissing(response))) return response;
 		remember(plugin, null);
 	}
 	let response: Response | null = null;
 	for (const id of [await registryPluginId(plugin), plugin]) {
-		response = await fetch(`${origin}/_emdash/api/plugins/${id}/${path}`, init);
+		response = await fetch(`/_emdash/api/plugins/${id}/${path}`, init);
 		if (await routeMissing(response)) continue;
 		remember(plugin, id);
 		return response;
 	}
 	return response as Response;
+}
+
+/**
+ * Call a plugin's public route from an Astro page's server code (pass Astro.locals). EmDash runs
+ * the route inside the server: there is no HTTP request, so a visitor's Host header or any other
+ * address can never be called (version 5). Tries the registry id, then the plugin's name.
+ */
+export async function callPluginRoute(
+	locals: unknown,
+	plugin: string,
+	path: string,
+	body?: unknown,
+): Promise<ApiResult> {
+	const handler = getPublicPluginApiRouteHandler(locals as Parameters<typeof getPublicPluginApiRouteHandler>[0]);
+	if (!handler) return { ok: false, error: { code: "UNAVAILABLE", message: "Plugin routes are not available here." } };
+	const method = body === undefined ? "GET" : "POST";
+	const [route, query] = path.split("?");
+	for (const id of [await registryPluginId(plugin), plugin]) {
+		const request = new Request(`http://localhost/_emdash/api/plugins/${id}/${route}${query ? `?${query}` : ""}`, {
+			method,
+			headers: { "Content-Type": "application/json" },
+			body: body === undefined ? undefined : JSON.stringify(body),
+		});
+		const result = await handler(id, method, route, request).catch(() => null);
+		if (!result || (!result.success && result.error?.code === "NOT_FOUND" && /plugin|route/i.test(result.error.message))) continue;
+		if (!result.success) return { ok: false, error: result.error };
+		const data = result.data;
+		return data && typeof data === "object" ? (data as ApiResult) : { ok: true, value: data };
+	}
+	return { ok: false, error: { code: "NOT_FOUND", message: "That plugin is not installed." } };
 }
 
 /** Call a plugin route. Member routes answer SIGN_IN_REQUIRED for guests. */

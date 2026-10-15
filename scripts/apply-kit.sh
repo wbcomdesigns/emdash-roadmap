@@ -39,4 +39,8 @@ if [[ -d "$PLUGIN/site-kit/lab" ]]; then
 	mkdir -p "$LAB/src/pages"
 	cp -R "$PLUGIN/site-kit/lab/." "$LAB/src/pages/"
 fi
+if [[ -d "$PLUGIN/site-kit/blocks" ]]; then
+	mkdir -p "$LAB/src/roadmap-block"
+	cp -R "$PLUGIN/site-kit/blocks/." "$LAB/src/roadmap-block/"
+fi
 echo "Copied site-kit into $LAB"

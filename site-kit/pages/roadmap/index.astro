@@ -9,7 +9,7 @@ import "../../styles/roadmap.css";
 const sort = Astro.url.searchParams.get("sort") === "newest" ? "newest" : "votes";
 const category = Astro.url.searchParams.get("category") || "";
 const terms = await getTaxonomyTerms("roadmap_category").catch(() => []);
-const allowIdeas = await ideasOpen(Astro.url.origin);
+const allowIdeas = await ideasOpen(Astro.locals);
 
 // What each card says beyond its title: a short summary, its category and how many comments it has.
 // One collection read and one terms read for the whole board; comment counts run side by side.

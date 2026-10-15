@@ -11,6 +11,10 @@ The plugin is the engine. EmDash plugins cannot add pages, so copy this kit into
 5. Add menu links to `/roadmap/`, `/changelog/`, and `/account/roadmap-votes/` (My votes).
 6. Open Settings in the plugin admin and check who can take part, stages, and the hourly email.
 
+## For the in-text block
+
+Copy `site-kit/blocks/` to `src/roadmap-block/` and add `roadmapBlock()` under `plugins` in `astro.config.mjs`. The install guide has the lines. The block shows the board on that page. Visitors can vote from it. The registry plugin does not need this.
+
 On a fresh lab: `./scripts/setup-lab.sh` then `./scripts/reset-lab.sh`.
 
 Visitor-facing words live in `lib/roadmap-strings.ts`. Change that file to reword or translate the kit.

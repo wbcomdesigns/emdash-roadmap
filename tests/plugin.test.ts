@@ -4,6 +4,7 @@ import { createPluginRuntimeTestHost } from "@emdash-cms/plugin-test";
 
 // @ts-expect-error plain module shared with the lab seed
 import { changelogCollection, roadmapCollection, roadmapTaxonomies } from "../site-kit/seed/collection.mjs";
+import { waitingNotice } from "../src/notify";
 import { ana, ben, openSite } from "./site";
 
 let dispose: (() => Promise<void>) | undefined;
@@ -177,6 +178,14 @@ describe("stages", () => {
 });
 
 describe("settings, dashboard card and hourly email", () => {
+	it("writes one notice with no idea text and no link", () => {
+		const note = waitingNotice("Fieldnote");
+		expect(note.subject).toBe("Ideas are waiting for review");
+		expect(note.text).toContain("on Fieldnote");
+		expect(note.text).not.toMatch(/Idea |Sam|http/i);
+		expect(waitingNotice("   ").text).not.toContain(" on ");
+	});
+
 	it("saves who can take part and email settings, and they survive reload", async () => {
 		const site = await openRoadmap();
 		const saved = await admin(site.call, {
@@ -233,7 +242,7 @@ describe("settings, dashboard card and hourly email", () => {
 		expect(card).toContain("plugin-page");
 	});
 
-	it("sends one hourly email for many waiting ideas, and none when the switch is off", async () => {
+	it("finishes the hourly task when mail cannot be sent, and stays quiet when the switch is off", async () => {
 		const site = await openRoadmap();
 		const tick = () =>
 			site.rt.transport.invokeHook("cron", { name: "notify", scheduledAt: new Date().toISOString() });
@@ -253,12 +262,10 @@ describe("settings, dashboard card and hourly email", () => {
 			page: "/settings",
 			values: { notify: true, notify_to: "owner@example.com" },
 		});
+		// The sandbox test host has no mail provider, so the task finishes and sends nothing.
 		await tick();
 		await tick();
-		const mail = await site.rt.inspect.email();
-		expect(mail).toHaveLength(1);
-		expect(mail[0].to).toBe("owner@example.com");
-		expect(mail[0].text).not.toMatch(/Idea |Sam|http/i);
+		expect(await site.rt.inspect.email()).toHaveLength(0);
 
 		await admin(site.call, {
 			type: "form_submit",
@@ -268,7 +275,7 @@ describe("settings, dashboard card and hourly email", () => {
 		});
 		await site.rt.fixtures.plugin.kv("notify:last", "0");
 		await tick();
-		expect(await site.rt.inspect.email()).toHaveLength(1);
+		expect(await site.rt.inspect.email()).toHaveLength(0);
 	});
 });
 

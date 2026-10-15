@@ -81,6 +81,28 @@ In admin, open **Menus** and add links to `/roadmap/`, `/changelog/`, and `/acco
 
 If the page is a 404 or the board says it could not load, see [Troubleshooting](../troubleshooting/troubleshooting.md).
 
+## For the in-text block
+
+This is optional. The registry plugin works without it.
+
+```bash
+mkdir -p src/roadmap-block
+cp -R path/to/emdash-roadmap/site-kit/blocks/. src/roadmap-block/
+```
+
+In `astro.config.mjs`:
+
+```js
+import { roadmapBlock } from "./src/roadmap-block/descriptor.mjs";
+
+emdash({
+	plugins: [roadmapBlock()],
+	// sandboxed: [roadmap] stays as it is
+});
+```
+
+Restart the site. In a post or page, type `/roadmap` and choose **Roadmap**. The choice is already filled in, so you insert it without typing. The block shows the board, and visitors can vote from it.
+
 ## After you update the plugin
 
 Copy the site kit again from the new version's tag. The kit and the plugin are released together, and an older kit may not reach a newer plugin.

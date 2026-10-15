@@ -10,6 +10,15 @@ export const NOTIFY_CRON = "7 * * * *";
 const LAST_KEY = "notify:last";
 const MIN_GAP_MS = 50 * 60 * 1000;
 
+/** One notice for the owner. No idea text and no link. */
+export function waitingNotice(siteName: string): { subject: string; text: string } {
+	const site = siteName.replace(/\s+/g, " ").trim().slice(0, 80);
+	return {
+		subject: "Ideas are waiting for review",
+		text: `Ideas are waiting for review${site ? ` on ${site}` : ""}. Sign in and open Ideas to decide what happens next.`,
+	};
+}
+
 export async function ensureNotifyTask(ctx: PluginContext): Promise<void> {
 	if (!ctx.cron) return;
 	if ((await ctx.cron.list()).some((task) => task.name === "notify")) return;
@@ -35,13 +44,9 @@ export async function notifyOwners(ctx: PluginContext): Promise<void> {
 	if (now - last < MIN_GAP_MS) return;
 	if (!(await ctx.kv.compareAndSet(LAST_KEY, seen?.revision ?? null, String(now))).applied) return;
 
-	const site = asString(ctx.site?.name).replace(/\s+/g, " ").trim().slice(0, 80);
+	const site = asString(ctx.site?.name);
 	try {
-		await ctx.email.send({
-			to,
-			subject: "Ideas are waiting for review",
-			text: `Ideas are waiting for review${site ? ` on ${site}` : ""}. Sign in and open Ideas to decide what happens next.`,
-		});
+		await ctx.email.send({ to, ...waitingNotice(site) });
 	} catch {
 		await ctx.kv.delete(LAST_KEY).catch(() => undefined);
 	}

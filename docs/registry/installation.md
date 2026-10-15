@@ -5,6 +5,8 @@
 5. Add menu links to `/roadmap/`, `/changelog/`, and `/account/roadmap-votes/` (My votes).
 6. Open Admin, then Settings. Choose who can take part, and set the hourly email if the site has a mail provider.
 
+Optional: copy `site-kit/blocks/` to `src/roadmap-block/` and add `roadmapBlock()` under `plugins` to insert the Roadmap block inside a post. It shows the board. The registry plugin works without that.
+
 Your site needs a sandbox runner in `astro.config.mjs`. Without one, EmDash skips sandboxed plugins at startup.
 
 Full steps: https://github.com/wbcomdesigns/emdash-roadmap/blob/main/site-kit/README.md

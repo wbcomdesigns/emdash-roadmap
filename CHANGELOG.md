@@ -9,6 +9,8 @@ Versions match `package.json`, the git tag and the registry release. Newest firs
 - Merge a duplicate sits in its own section. You search by title, and the confirm step names both items.
 - Settings is three tabs. Each stage still has its own form, plus Add a stage. Renaming a stage keeps its items on the board.
 - A signed-in member can open My votes, see the items they voted for, and take every vote back with a second click. Only that member's votes are removed, and the counts update.
+- Optional Roadmap block for post text. It is trusted site code. It shows the board for the page it sits on, and visitors can vote from it. It inserts with one fixed choice.
+- Security - shared kit file updated: server-side plugin calls run inside EmDash with no web request.
 
 ## [0.1.4] - 2026-10-14
 

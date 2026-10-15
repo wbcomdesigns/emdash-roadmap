@@ -4,13 +4,13 @@
  * Link to /account/roadmap-votes/ from the site header as My votes.
  */
 import Layout from "../../layouts/RoadmapLayout.astro";
-import MyVotes from "../../components/MyVotes.astro";
+import RoadmapVotes from "../../components/RoadmapVotes.astro";
 import { strings } from "../../lib/roadmap-strings";
 ---
 
 <Layout title={strings.myVotes} description="Roadmap items you have voted for on this site.">
 	<div style="max-width: 40rem; margin-inline: auto; padding: 2rem 1rem;">
-		<MyVotes />
+		<RoadmapVotes />
 		<p><a href="/roadmap/">{strings.backToBoard}</a></p>
 	</div>
 </Layout>

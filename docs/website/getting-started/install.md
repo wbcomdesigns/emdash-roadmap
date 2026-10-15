@@ -48,7 +48,7 @@ mkdir -p src/lib src/styles src/components src/layouts src/pages/roadmap src/pag
 cp $K/lib/roadmap-*.ts src/lib/
 cp $K/styles/roadmap.css src/styles/
 cp $K/components/VoteButton.astro src/components/
-cp $K/components/MyVotes.astro src/components/
+cp $K/components/RoadmapVotes.astro src/components/
 cp $K/pages/roadmap/*.astro src/pages/roadmap/
 cp $K/pages/changelog/*.astro src/pages/changelog/
 cp $K/pages/account/roadmap-votes.astro src/pages/account/

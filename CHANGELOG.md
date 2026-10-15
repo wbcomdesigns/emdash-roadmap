@@ -2,16 +2,16 @@
 
 Versions match `package.json`, the git tag and the registry release. Newest first.
 
-## [Unreleased]
+## [0.2.0] - 2026-10-15
 
-- Ideas shows how many ideas are waiting, how many items are in each stage, and votes this week. The ready content-type fields stay hidden. A banner appears only when a content type is missing.
-- Waiting ideas have a find box and show 25 at a time.
-- Merge a duplicate sits in its own section. You search by title, and the confirm step names both items.
-- Settings is three tabs. Each stage still has its own form, plus Add a stage. Renaming a stage keeps its items on the board.
-- A signed-in member can open My votes, see the items they voted for, and take every vote back with a second click. Only that member's votes are removed, and the counts update.
-- Optional Roadmap block for post text. It is trusted site code. It shows the board for the page it sits on, and visitors can vote from it. It inserts with one fixed choice.
-- Security - shared kit file updated: server-side plugin calls run inside EmDash with no web request.
-- Security - the board and Suggest page check whether ideas are open inside EmDash itself, with no web request, so a visitor can never make the site call another address.
+Copy the kit again after you update.
+
+- New      - My votes: a signed-in member sees the items they voted for and the ideas they sent, and can take every vote back with a second click.
+- New      - Ideas opens with how many ideas are waiting, how many items are in each stage, and votes this week.
+- New      - Optional Roadmap block for post text. It is trusted site code and shows the board, with voting, inside the article.
+- Improve  - Waiting ideas have Find and show 25 at a time. Merge a duplicate searches by title and names both items before it runs.
+- Improve  - Settings is three tabs. Each stage keeps its own form, and renaming a stage keeps its items on the board.
+- Security - The board and Suggest page check whether ideas are open inside EmDash, with no web request. Shared kit 5.
 
 ## [0.1.4] - 2026-10-14
 

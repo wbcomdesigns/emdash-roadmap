@@ -1,5 +1,6 @@
-## Unreleased
+## 0.2.0
 
+- New: My votes page, Ideas stats, Find and paging on waiting ideas, and an optional Roadmap block for post text (trusted install).
 - Security: server-side calls run inside EmDash with no web request. Copy the kit again after updating.
 
 ## 0.1.4

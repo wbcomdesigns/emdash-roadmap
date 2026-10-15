@@ -27,7 +27,7 @@ export const strings = {
 	yourIdeas: "Ideas you sent",
 	erase: "Take back all my votes",
 	eraseArm: "Take them back",
-	eraseHelp: "This takes back every vote you cast. Click again to confirm.",
+	eraseHelp: "This takes back every vote you cast. You will be asked to confirm.",
 	erased: "Your votes were taken back.",
 	signInVotes: "Sign in to see your votes.",
 	backToBoard: "Back to the roadmap",

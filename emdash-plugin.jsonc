@@ -41,7 +41,8 @@
 		"votes": {
 			"indexes": [
 				"item",
-				"member_id"
+				"member_id",
+				"createdAt"
 			]
 		},
 		"tallies": {

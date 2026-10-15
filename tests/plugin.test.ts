@@ -376,6 +376,18 @@ describe("voting", () => {
 		});
 	});
 
+	it("counts this week's votes on Ideas", async () => {
+		const site = await openRoadmap();
+		const item = await addItem(site.rt, "Weekly count");
+		await site.call("vote", { id: item.id }, site.as(ana));
+		await site.call("vote", { id: item.id }, site.as(ben));
+		const page = await site.rt.admin.loadPage("/ideas");
+		const stats = page.blocks.find((block) => (block as { type: string }).type === "stats") as {
+			items: Array<{ label: string; value: string }>;
+		};
+		expect(stats.items.find((stat) => stat.label === "Votes this week")?.value).toBe("2");
+	});
+
 	it("casts one vote per member, takes it back, and recounts with storage.count", async () => {
 		const site = await openRoadmap();
 		const item = await addItem(site.rt, "Dark board");

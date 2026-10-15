@@ -8,12 +8,12 @@ import "../styles/roadmap.css";
 import { strings as S } from "../lib/roadmap-strings";
 ---
 
-<section class="wb" data-wbr-mine aria-busy="true">
+<section class="wb" data-roadmap-mine aria-busy="true">
 	<h2>{S.myVotes}</h2>
 	<p class="wb-muted">{S.myVotesHelp}</p>
-	<p class="wb-muted" data-wbr-mine-live aria-live="polite">{S.myVotesLoading}</p>
-	<div data-wbr-mine-body></div>
-	<p class="wb-status" data-wbr-mine-status role="status" hidden></p>
+	<p class="wb-muted" data-roadmap-mine-live aria-live="polite">{S.myVotesLoading}</p>
+	<div data-roadmap-mine-body></div>
+	<p class="wb-status" data-roadmap-mine-status role="status" hidden></p>
 </section>
 
 <script>
@@ -40,7 +40,7 @@ import { strings as S } from "../lib/roadmap-strings";
 			.join("");
 		const ideaBlock = ideas.length ? `<h3>${esc(S.yourIdeas)}</h3><ul class="wb-list">${ideaRows}</ul>` : "";
 		const erase = items.length
-			? `<div class="wbr-erase"><p class="wb-muted">${esc(S.eraseHelp)}</p><div class="wb-actions"><button class="wb-btn wb-btn--quiet" type="button" data-wbr-erase>${esc(S.erase)}</button></div></div>`
+			? `<div class="roadmap-erase"><p class="wb-muted">${esc(S.eraseHelp)}</p><div class="wb-actions"><button class="wb-btn wb-btn--quiet" type="button" data-roadmap-erase>${esc(S.erase)}</button></div></div>`
 			: "";
 		return `<ul class="wb-list">${rows}</ul>${ideaBlock}${erase}`;
 	}
@@ -50,8 +50,8 @@ import { strings as S } from "../lib/roadmap-strings";
 	}
 
 	function paint(root: HTMLElement, data: Payload) {
-		const body = root.querySelector<HTMLElement>("[data-wbr-mine-body]");
-		const live = root.querySelector<HTMLElement>("[data-wbr-mine-live]");
+		const body = root.querySelector<HTMLElement>("[data-roadmap-mine-body]");
+		const live = root.querySelector<HTMLElement>("[data-roadmap-mine-live]");
 		if (!body || !live) return;
 		live.textContent = "";
 		if (!data.ok) {
@@ -65,12 +65,12 @@ import { strings as S } from "../lib/roadmap-strings";
 		const items = data.items ?? [];
 		const ideas = data.ideas ?? [];
 		body.innerHTML = items.length || ideas.length ? listHtml(items, ideas) : emptyHtml();
-		bind(root);
+		bind(root, ideas);
 	}
 
-	function bind(root: HTMLElement) {
-		const button = root.querySelector<HTMLButtonElement>("[data-wbr-erase]");
-		const status = root.querySelector<HTMLElement>("[data-wbr-mine-status]");
+	function bind(root: HTMLElement, ideas: Idea[]) {
+		const button = root.querySelector<HTMLButtonElement>("[data-roadmap-erase]");
+		const status = root.querySelector<HTMLElement>("[data-roadmap-mine-status]");
 		button?.addEventListener("click", async () => {
 			if (!status) return;
 			if (button.dataset.armed !== "1") {
@@ -94,7 +94,8 @@ import { strings as S } from "../lib/roadmap-strings";
 			status.hidden = false;
 			status.dataset.tone = "success";
 			status.textContent = S.erased;
-			paint(root, { ok: true, items: [], ideas: [] });
+			// Only votes were taken back: the ideas the member sent stay listed.
+			paint(root, { ok: true, items: [], ideas });
 		});
 	}
 
@@ -104,7 +105,7 @@ import { strings as S } from "../lib/roadmap-strings";
 		root.removeAttribute("aria-busy");
 	}
 
-	document.querySelectorAll<HTMLElement>("[data-wbr-mine]").forEach((root) => {
+	document.querySelectorAll<HTMLElement>("[data-roadmap-mine]").forEach((root) => {
 		void load(root);
 	});
 </script>

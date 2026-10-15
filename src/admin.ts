@@ -28,18 +28,7 @@ const lines = (items: string[]) => items.map((text) => ({ type: "context", text 
 
 async function votesThisWeek(ctx: PluginContext): Promise<number> {
 	const since = new Date(Date.now() - WEEK_MS).toISOString();
-	let total = 0;
-	let cursor: string | undefined;
-	for (let step = 0; step < 40; step += 1) {
-		const found = await ctx.storage.votes.query({ limit: 100, cursor });
-		for (const item of found.items) {
-			const created = asString((item.data as { createdAt?: string } | undefined)?.createdAt);
-			if (created >= since) total += 1;
-		}
-		if (!found.hasMore || !found.cursor) break;
-		cursor = found.cursor;
-	}
-	return total;
+	return ctx.storage.votes.count({ createdAt: { gte: since } });
 }
 
 function saved(ctx: PluginContext, message: string) {

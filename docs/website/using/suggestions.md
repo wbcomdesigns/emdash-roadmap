@@ -38,9 +38,10 @@ In **Settings**, turn off **Allow suggestions**. The **Suggest an idea** button 
 
 In admin, open **Roadmap**, then **Ideas**.
 
-1. The top shows **Roadmap collection** and **Changelog collection** (**Ready** or **Missing**) and **Waiting**, the number of ideas waiting.
-2. The table lists each waiting idea with its **Title**, **Description** in full, and **From**. A guest shows as their name followed by "(guest)". A member shows by name.
-3. In the **Decision** column, choose **Decide**, then **Approve** or **Reject**.
+1. The top shows **Ideas waiting**, a count for each stage on the board, and **Votes this week**.
+2. **Find** looks through the title and the description. The list shows 25 ideas at a time. Use **Previous** and **Next** when there are more.
+3. The table lists each waiting idea with its **Title**, **Description** in full, and **From**. A guest shows as their name followed by "(guest)". A member shows by name.
+4. In the **Decision** column, choose **Decide**, then **Approve** or **Reject**.
 
 | Decision | What happens |
 | --- | --- |
@@ -50,7 +51,7 @@ In admin, open **Roadmap**, then **Ideas**.
 Things to know:
 
 - To tidy an idea before it goes live, open its draft in the content screens, fix the title or description, and publish it there. You see exactly what goes on the board, and the idea leaves the Ideas list by itself. **Approve** only publishes drafts nobody has edited; on an edited draft it tells you to publish from the editor instead.
-- The queue shows the 50 newest waiting ideas.
+- The list shows 25 ideas at a time, from the 50 newest waiting ideas.
 - If another admin decided the same idea first, you see "That idea is no longer waiting." and the table refreshes.
 - To fold an idea into an item you already have, use [Merge a duplicate](merge-duplicates.md) instead.
 

@@ -5,7 +5,7 @@ import { strings } from "../../lib/roadmap-strings";
 import "../../styles/wbcom-base.css";
 import "../../styles/roadmap.css";
 
-const allowIdeas = await ideasOpen(Astro.url.origin);
+const allowIdeas = await ideasOpen(Astro.locals);
 ---
 
 <Layout title={strings.suggestTitle} description={strings.suggestIntro}>

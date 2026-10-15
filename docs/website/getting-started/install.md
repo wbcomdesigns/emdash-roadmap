@@ -35,7 +35,7 @@ It creates both content types (comments on for roadmap) and the **Roadmap catego
 
 Also create a category list named `roadmap_category` (shown as **Roadmap categories**) and attach it to the roadmap content type. The board's Category filter reads it. Add your own categories in admin afterwards.
 
-Check your work on the **Ideas** screen. The **Roadmap collection** and **Changelog collection** fields should both say **Ready**. If one says **Missing**, a banner tells you to create it.
+Check your work on the **Ideas** screen. When both content types exist, you see **Ideas waiting**, a count for each stage, and **Votes this week**. If one is missing, a banner tells you to create it.
 
 ## Step 3: copy the site kit
 
@@ -44,12 +44,14 @@ The kit is in the `site-kit/` folder of the [Product Roadmap repository](https:/
 ```bash
 K=path/to/emdash-roadmap/site-kit
 
-mkdir -p src/lib src/styles src/components src/layouts src/pages/roadmap src/pages/changelog
+mkdir -p src/lib src/styles src/components src/layouts src/pages/roadmap src/pages/changelog src/pages/account
 cp $K/lib/roadmap-*.ts src/lib/
 cp $K/styles/roadmap.css src/styles/
 cp $K/components/VoteButton.astro src/components/
+cp $K/components/MyVotes.astro src/components/
 cp $K/pages/roadmap/*.astro src/pages/roadmap/
 cp $K/pages/changelog/*.astro src/pages/changelog/
+cp $K/pages/account/roadmap-votes.astro src/pages/account/
 [ -f src/layouts/RoadmapLayout.astro ] || cp $K/layouts/RoadmapLayout.astro src/layouts/
 ```
 
@@ -70,7 +72,7 @@ Open `src/layouts/RoadmapLayout.astro`. It hands every roadmap page to your site
 
 ## Step 5: add menu links
 
-In admin, open **Menus** and add links to `/roadmap/` and `/changelog/`.
+In admin, open **Menus** and add links to `/roadmap/`, `/changelog/`, and `/account/roadmap-votes/` (label it **My votes**).
 
 ## Check it worked
 
@@ -78,6 +80,28 @@ In admin, open **Menus** and add links to `/roadmap/` and `/changelog/`.
 2. Open **Roadmap**, then **Settings**, in admin and check the settings. See the [Settings reference](../settings/settings-reference.md).
 
 If the page is a 404 or the board says it could not load, see [Troubleshooting](../troubleshooting/troubleshooting.md).
+
+## For the in-text block
+
+This is optional. The registry plugin works without it.
+
+```bash
+mkdir -p src/roadmap-block
+cp -R path/to/emdash-roadmap/site-kit/blocks/. src/roadmap-block/
+```
+
+In `astro.config.mjs`:
+
+```js
+import { roadmapBlock } from "./src/roadmap-block/descriptor.mjs";
+
+emdash({
+	plugins: [roadmapBlock()],
+	// sandboxed: [roadmap] stays as it is
+});
+```
+
+Restart the site. In a post or page, type `/roadmap` and choose **Roadmap**. The choice is already filled in, so you insert it without typing. The block shows the board, and visitors can vote from it.
 
 ## After you update the plugin
 

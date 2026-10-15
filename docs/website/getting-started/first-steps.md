@@ -7,8 +7,8 @@ This walks through a working board from start to finish: one item, one vote, one
 ## 1. Check your settings
 
 1. In admin, open **Roadmap**, then **Settings**.
-2. Under **Who can take part**, leave **Allow suggestions** on and **Who can vote and suggest** on **Anyone** for now. Choose **Save who can take part**.
-3. Under **Stages**, keep Under review, Planned, In progress and Done, or rename them. See [Items and stages](../using/items-and-stages.md).
+2. Open the **Who can take part** tab. Leave **Allow suggestions** on and **Who can vote and suggest** on **Anyone** for now. Choose **Save**.
+3. Open the **Stages** tab. Keep Under review, Planned, In progress and Done, or rename them. See [Items and stages](../using/items-and-stages.md).
 
 ## 2. Add your first item
 

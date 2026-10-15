@@ -20,9 +20,9 @@ Lab is `../emdash-lab-roadmap` on port 4335. `./scripts/reset-lab.sh` then open 
 
 ## Next
 
-- #8 My votes: 0.2.0.
-- #18 in-text block: trusted install only. Prove first.
-- #30 Admin standard rebuild: next milestone. Repeater on an admin form is not proven (EMDASH-SUPPORT).
+- #30 is on branch 0.2.0, not merged. Settings uses three tabs. Each stage keeps its own form inside the Stages tab, plus Add a stage. A repeater is not used: renaming a stage must keep its items, and a repeater on an admin form is not proven.
+- #8 My votes is on the same 0.2.0 branch: `/account/roadmap-votes/`, second click, member id from the session.
+- #18 in-text block is on the same 0.2.0 branch. It is trusted site code. The block is the board for the current page, with one fixed choice and no list. The registry plugin is unchanged.
 - Findings after publish: patch only if a site owner is exposed. Otherwise a card for the next milestone.
 
 ## Do not do

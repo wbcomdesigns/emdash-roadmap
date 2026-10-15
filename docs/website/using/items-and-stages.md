@@ -32,14 +32,14 @@ Renaming a stage is safe. Items keep working, and you do not edit them one by on
 
 ## Manage stages
 
-Open **Roadmap**, then **Settings**. Each stage has its own block under **Stages**.
+Open **Roadmap**, then **Settings**, then the **Stages** tab. Each stage has its own form.
 
 | Do this | How |
 | --- | --- |
 | Rename | Change **Name** and choose **Save stage** |
 | Hide from the board | Turn off **Show on the board** and choose **Save stage** |
 | Reorder | Choose **Move up** or **Move down** |
-| Add | Fill in **New stage name**, set **Show on the board**, and choose **Add stage** |
+| Add | Fill in **New stage name**, set **Show on the board**, and choose **Add a stage** |
 | Remove | Choose **Remove** and confirm |
 
 The rules:

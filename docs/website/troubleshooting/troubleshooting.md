@@ -10,7 +10,7 @@ The plugin cannot create pages. Your developer must copy the site kit pages into
 
 1. **Is the kit current?** After you update the plugin, copy the site kit again from the version you installed. An older kit may not reach a newer plugin.
 2. **Is the plugin running?** Your site needs a sandbox runner in `astro.config.mjs`. Without one, EmDash skips sandboxed plugins when it starts.
-3. **Is the content type there?** On **Ideas**, both collection fields should say **Ready**.
+3. **Is the content type there?** On **Ideas**, a banner appears only when the roadmap or changelog content type is missing. When both exist, the banner is gone.
 
 ## The board shows but is empty
 

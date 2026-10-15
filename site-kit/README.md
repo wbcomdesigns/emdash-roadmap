@@ -8,8 +8,12 @@ The plugin is the engine. EmDash plugins cannot add pages, so copy this kit into
 2. Create the `roadmap` and `changelog` collections from the site root: `npx emdash seed $K/seed/roadmap-seed.json --no-content` (comments on for `roadmap`; existing collections are left alone; menus are never changed). `scripts/make-seed.mjs` rebuilds the file from `seed/collection.mjs`.
 3. Copy `lib/`, `styles/`, `components/` and `pages/` into your site's `src/`.
 4. Point `layouts/RoadmapLayout.astro` at your site layout if it is not `Base.astro`. Updating the kit never overwrites that file.
-5. Add menu links to `/roadmap/` and `/changelog/`.
+5. Add menu links to `/roadmap/`, `/changelog/`, and `/account/roadmap-votes/` (My votes).
 6. Open Settings in the plugin admin and check who can take part, stages, and the hourly email.
+
+## For the in-text block
+
+Copy `site-kit/blocks/` to `src/roadmap-block/` and add `roadmapBlock()` under `plugins` in `astro.config.mjs`. The install guide has the lines. The block shows the board on that page. Visitors can vote from it. The registry plugin does not need this.
 
 On a fresh lab: `./scripts/setup-lab.sh` then `./scripts/reset-lab.sh`.
 

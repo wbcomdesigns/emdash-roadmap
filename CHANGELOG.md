@@ -2,6 +2,12 @@
 
 Versions match `package.json`, the git tag and the registry release. Newest first.
 
+## [0.2.1] - 2026-10-15
+
+Copy the kit again after you update.
+
+- Fix      - The My votes component is now `RoadmapVotes.astro`. Its old name was the same as WB Polls' My votes, so copying one kit replaced the other plugin's file.
+
 ## [0.2.0] - 2026-10-15
 
 Copy the kit again after you update.

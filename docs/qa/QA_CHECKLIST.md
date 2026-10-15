@@ -10,7 +10,13 @@ Checked at route level only: G-7, G-11, prove-lab (member vote, guest vote, sugg
 
 Checked in tests only: M-6, M-7, A-4, A-8, A-9, A-10, A-12, registry id `r_76xywti6l5cbxzos`, vote aria-label with count, taxonomy label Roadmap categories.
 
-Not walked: G-5, G-8, G-12 comments thread, M-2 take-back in this pass (covered by prove-lab), M-9, M-10 (#8, 0.2.0), #18 in-text block, A-5 Stage panel expand in the live editor (route and tests cover the choice; the panel starts collapsed), second same-role member, hourly email firing on its own, VoiceOver, RTL, a second machine's registry install (kit id is unit-tested).
+Not walked: G-5, G-8, G-12 comments thread, M-2 take-back in this pass (covered by prove-lab), #18 in-text block, A-5 Stage panel expand in the live editor (route and tests cover the choice; the panel starts collapsed), second same-role member, hourly email firing on its own, VoiceOver, RTL, a second machine's registry install (kit id is unit-tested).
+
+**Walk on 2026-10-15**, unreleased 0.2.0, Fieldnote loaded into `emdash-lab-roadmap-020` on port 4338. Subscriber (role 10).
+
+Walked in a browser: Ideas stats, find, Decide, merge by title, Settings tabs including one form per stage (1440 light, 1440 dark, 390). M-9 My votes lists the item by name and stage, and an idea as "Waiting for a decision". M-10 second click takes the votes back. The board count for Calendar integration went 32 back to 31 and the button was not pressed. A guest sees "Sign in to see your votes."
+
+At 390 the Ideas table clips the Decision column. The columns stay.
 
 When you walk it, replace that line with the date, the version, and three lists: cases walked in the browser, cases checked at route level only, cases not walked. Do not claim a case you did not run.
 
@@ -92,7 +98,7 @@ Three roles, in this order: guest (private window), member (subscriber), admin. 
 
 ## Known gaps
 
-- My votes (`<MyVotes>`) is 0.2.0. M-9 and M-10 stay parked.
+- My votes is on 0.2.0. M-9 and M-10 were walked on the Fieldnote lab as a subscriber: the page lists the item by name and stage, a second click takes the votes back, and the board count drops. A guest sees the sign-in link. An idea the member sent shows as "Waiting for a decision".
 - The in-text Roadmap block (#18) needs a trusted install. The registry install is the whole product without it.
 - This plugin has no `OWNER_INVENTORY.md`, `CORE_PATHS.md`, or `ROLE_MATRIX.md`. The contract is this checklist. Only one lab login exists, so two same-role members cannot be walked.
 - Hourly email is proven in tests, not seen firing on its own on the lab.

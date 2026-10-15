@@ -8,6 +8,7 @@ Versions match `package.json`, the git tag and the registry release. Newest firs
 - Waiting ideas have a find box and show 25 at a time.
 - Merge a duplicate sits in its own section. You search by title, and the confirm step names both items.
 - Settings is three tabs. Each stage still has its own form, plus Add a stage. Renaming a stage keeps its items on the board.
+- A signed-in member can open My votes, see the items they voted for, and take every vote back with a second click. Only that member's votes are removed, and the counts update.
 
 ## [0.1.4] - 2026-10-14
 

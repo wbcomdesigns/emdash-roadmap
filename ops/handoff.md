@@ -21,7 +21,7 @@ Lab is `../emdash-lab-roadmap` on port 4335. `./scripts/reset-lab.sh` then open 
 ## Next
 
 - #30 is on branch 0.2.0, not merged. Settings uses three tabs. Each stage keeps its own form inside the Stages tab, plus Add a stage. A repeater is not used: renaming a stage must keep its items, and a repeater on an admin form is not proven.
-- #8 My votes: same 0.2.0 branch, after #30.
+- #8 My votes is on the same 0.2.0 branch: `/account/roadmap-votes/`, second click, member id from the session.
 - #18 in-text block: trusted install only. Prove first.
 - Findings after publish: patch only if a site owner is exposed. Otherwise a card for the next milestone.
 

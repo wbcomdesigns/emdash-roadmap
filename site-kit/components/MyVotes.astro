@@ -1,0 +1,110 @@
+---
+/**
+ * Items this member voted for, ideas they sent, and a two-click erase of their own votes.
+ *   <MyVotes />
+ */
+import "../styles/wbcom-base.css";
+import "../styles/roadmap.css";
+import { strings as S } from "../lib/roadmap-strings";
+---
+
+<section class="wb" data-wbr-mine aria-busy="true">
+	<h2>{S.myVotes}</h2>
+	<p class="wb-muted">{S.myVotesHelp}</p>
+	<p class="wb-muted" data-wbr-mine-live aria-live="polite">{S.myVotesLoading}</p>
+	<div data-wbr-mine-body></div>
+	<p class="wb-status" data-wbr-mine-status role="status" hidden></p>
+</section>
+
+<script>
+	import { api, esc, signInUrl } from "../lib/wbcom-kit";
+	import { phrase, strings as S } from "../lib/roadmap-strings";
+
+	type Item = { id: string; title: string; slug: string; stage: string };
+	type Idea = { title: string; status: string };
+	type Payload = { ok?: boolean; items?: Item[]; ideas?: Idea[]; error?: { code?: string } };
+
+	function emptyHtml() {
+		return `<div class="wb-empty"><p><strong>${esc(S.myVotesEmpty)}</strong></p><p class="wb-muted">${esc(S.myVotesEmptyHelp)}</p></div>`;
+	}
+
+	function listHtml(items: Item[], ideas: Idea[]) {
+		const rows = items
+			.map(
+				(item) =>
+					`<li class="wb-item"><p><a href="/roadmap/${esc(item.slug || item.id)}/">${esc(item.title)}</a></p><p class="wb-muted">${esc(item.stage)}</p></li>`,
+			)
+			.join("");
+		const ideaRows = ideas
+			.map((idea) => `<li class="wb-item"><p>${esc(idea.title)}</p><p class="wb-muted">${esc(idea.status)}</p></li>`)
+			.join("");
+		const ideaBlock = ideas.length ? `<h3>${esc(S.yourIdeas)}</h3><ul class="wb-list">${ideaRows}</ul>` : "";
+		const erase = items.length
+			? `<div class="wbr-erase"><p class="wb-muted">${esc(S.eraseHelp)}</p><div class="wb-actions"><button class="wb-btn wb-btn--quiet" type="button" data-wbr-erase>${esc(S.erase)}</button></div></div>`
+			: "";
+		return `<ul class="wb-list">${rows}</ul>${ideaBlock}${erase}`;
+	}
+
+	function signInHtml() {
+		return `<p class="wb-status">${esc(S.signInVotes)} <a href="${esc(signInUrl())}">${esc(S.signIn)}</a></p>`;
+	}
+
+	function paint(root: HTMLElement, data: Payload) {
+		const body = root.querySelector<HTMLElement>("[data-wbr-mine-body]");
+		const live = root.querySelector<HTMLElement>("[data-wbr-mine-live]");
+		if (!body || !live) return;
+		live.textContent = "";
+		if (!data.ok) {
+			if (data.error?.code === "SIGN_IN_REQUIRED") {
+				body.innerHTML = signInHtml();
+				return;
+			}
+			body.innerHTML = `<p class="wb-status" data-tone="error">${esc(phrase(data.error?.code))}</p>`;
+			return;
+		}
+		const items = data.items ?? [];
+		const ideas = data.ideas ?? [];
+		body.innerHTML = items.length || ideas.length ? listHtml(items, ideas) : emptyHtml();
+		bind(root);
+	}
+
+	function bind(root: HTMLElement) {
+		const button = root.querySelector<HTMLButtonElement>("[data-wbr-erase]");
+		const status = root.querySelector<HTMLElement>("[data-wbr-mine-status]");
+		button?.addEventListener("click", async () => {
+			if (!status) return;
+			if (button.dataset.armed !== "1") {
+				button.dataset.armed = "1";
+				button.textContent = S.eraseArm;
+				return;
+			}
+			button.setAttribute("aria-busy", "true");
+			root.setAttribute("aria-busy", "true");
+			const result = (await api("roadmap", "votes", undefined, "DELETE")) as Payload;
+			button.removeAttribute("aria-busy");
+			root.removeAttribute("aria-busy");
+			if (!result.ok) {
+				button.dataset.armed = "";
+				button.textContent = S.erase;
+				status.hidden = false;
+				status.dataset.tone = "error";
+				status.textContent = phrase(result.error?.code);
+				return;
+			}
+			status.hidden = false;
+			status.dataset.tone = "success";
+			status.textContent = S.erased;
+			paint(root, { ok: true, items: [], ideas: [] });
+		});
+	}
+
+	async function load(root: HTMLElement) {
+		const data = (await api("roadmap", "votes")) as Payload;
+		paint(root, data);
+		root.removeAttribute("aria-busy");
+	}
+
+	document.querySelectorAll<HTMLElement>("[data-wbr-mine]").forEach((root) => {
+		void load(root);
+	});
+</script>

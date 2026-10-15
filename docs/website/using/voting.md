@@ -30,8 +30,12 @@ What this means for you:
 
 - People who share one internet address, such as one office, share one vote per item.
 - With the browser code, a private window or cleared site data lets someone vote again. For votes where that matters, choose **Signed-in members only**.
-- A guest is never locked out because of the hosting. The Settings screen tells you when protection is weaker.
+- A guest is never locked out because of the hosting. See [Who can take part](../settings/settings-reference.md#who-can-take-part).
 - A guest's "Voted" mark comes from their own browser. On a different browser they see **Vote**, though their vote still counts.
+
+## My votes
+
+A signed-in member opens `/account/roadmap-votes/`. Each item is a link, with its stage in plain words. Ideas they sent are listed with a status: waiting for a decision, on the board, or not published. **Take back all my votes** asks for a second click. Guests see a sign-in link. Add a menu link labelled **My votes**.
 
 ## Limits
 

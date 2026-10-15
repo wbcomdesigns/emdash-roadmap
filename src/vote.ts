@@ -1,7 +1,8 @@
 import type { PluginContext } from "emdash/plugin";
 
 import { MEMBERS_ONLY, NO_VISITOR, RATE_LIMITED, SIGN_IN, SPAM, collectionName, rateLimited, type Member } from "./core";
-import { loadSettings } from "./settings";
+import { listRoadmapItems } from "./content";
+import { findStage, loadSettings } from "./settings";
 import { asRecord, asString, nowIso, rows } from "./util";
 import { requestIp, visitorHash, visitorWho } from "./visitor";
 
@@ -95,15 +96,61 @@ export async function handleVoteGuest(routeCtx: Route, ctx: PluginContext) {
 	return saveVote(ctx, itemId, who, { member_id: who, visitor: hash });
 }
 
+function ideaStatus(status: string): string {
+	if (status === "approved") return "On the board";
+	if (status === "rejected") return "Not published";
+	return "Waiting for a decision";
+}
+
+async function myVoteRows(ctx: PluginContext, userId: string) {
+	const all: Array<{ id: string; item: string }> = [];
+	let cursor: string | undefined;
+	for (let step = 0; step < 10; step += 1) {
+		const found = await ctx.storage.votes.query({ where: { member_id: userId }, limit: 100, cursor });
+		for (const row of rows(found)) {
+			const item = asString(row.item);
+			if (item) all.push({ id: row.id, item });
+		}
+		if (!found.hasMore || !found.cursor) break;
+		cursor = found.cursor;
+	}
+	return all;
+}
+
 /** Ids the caller voted for, so the board can mark them after a cached page loads. */
 export async function listMyVotes(routeCtx: Route, ctx: PluginContext) {
 	const user = routeCtx.user;
 	if (!user) return SIGN_IN;
-	const found = await ctx.storage.votes.query({ where: { member_id: user.id }, limit: 100 });
-	return {
-		ok: true,
-		ids: rows(found)
-			.map((row) => asString(row.item))
-			.filter(Boolean),
-	};
+	if (routeCtx.request.method === "DELETE") return eraseMyVotes(ctx, user.id);
+	const voted = await myVoteRows(ctx, user.id);
+	const ids = voted.map((row) => row.item);
+	const settings = await loadSettings(ctx);
+	const published = await listRoadmapItems(ctx);
+	const byId = new Map(published.map((item) => [item.id, item]));
+	const items = ids
+		.map((id) => byId.get(id))
+		.filter((item) => item?.published)
+		.map((item) => {
+			const stage = findStage(settings.stages, item!.stage);
+			return {
+				id: item!.id,
+				title: item!.title,
+				slug: item!.slug,
+				stage: stage?.name || item!.stage,
+			};
+		});
+	const ideaRows = rows(await ctx.storage.ideas.query({ where: { member_id: user.id }, limit: 50 }));
+	const ideas = ideaRows
+		.map((row) => ({ title: asString(row.title), status: ideaStatus(asString(row.status)) }))
+		.filter((idea) => idea.title);
+	return { ok: true, ids, items, ideas };
+}
+
+/** Drops every vote stored for this member. The member id comes from the session, never the request. */
+async function eraseMyVotes(ctx: PluginContext, userId: string) {
+	const voted = await myVoteRows(ctx, userId);
+	const items = new Set(voted.map((row) => row.item));
+	for (const row of voted) await ctx.storage.votes.delete(row.id);
+	for (const item of items) await recount(ctx, item);
+	return { ok: true, erased: voted.length };
 }

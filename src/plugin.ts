@@ -61,7 +61,7 @@ const plugin: SandboxedPlugin = {
 		},
 		votes: {
 			permission: MEMBER,
-			methods: ["GET"],
+			methods: ["GET", "DELETE"],
 			handler: listMyVotes,
 		},
 		vote_guest: {

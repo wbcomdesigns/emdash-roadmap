@@ -381,7 +381,7 @@ describe("voting", () => {
 
 		const back = (await site.call("vote", { id: item.id }, site.as(ana, "DELETE"))) as VoteOk;
 		expect(back).toEqual({ ok: true, votes: 0, voted: false });
-		expect(await site.call("votes", {}, site.as(ana, "GET"))).toEqual({ ok: true, ids: [] });
+		expect(await site.call("votes", {}, site.as(ana, "GET"))).toMatchObject({ ok: true, ids: [] });
 		expect(await site.rt.inspect.storage.get("tallies", item.id)).toMatchObject({ votes: 0 });
 	});
 
@@ -393,6 +393,29 @@ describe("voting", () => {
 		const benVotes = (await site.call("votes", { member_id: ana.id }, site.as(ben, "GET"))) as Mine;
 		expect(anaVotes.ids).toEqual([item.id]);
 		expect(benVotes.ids).toEqual([]);
+	});
+
+	it("erases only the caller's votes and recounts those items", async () => {
+		const site = await openRoadmap();
+		const shared = await addItem(site.rt, "Shared idea");
+		const onlyAna = await addItem(site.rt, "Ana only");
+		await site.call("vote", { id: shared.id }, site.as(ana));
+		await site.call("vote", { id: shared.id }, site.as(ben));
+		await site.call("vote", { id: onlyAna.id }, site.as(ana));
+		const before = (await site.call("votes", { member_id: ben.id }, site.as(ana, "GET"))) as Mine & {
+			items: Array<{ title: string; stage: string }>;
+		};
+		expect(before.ids.sort()).toEqual([onlyAna.id, shared.id].sort());
+		expect(before.items.map((item) => item.title).sort()).toEqual(["Ana only", "Shared idea"]);
+		expect(before.items.every((item) => item.stage === "Under review")).toBe(true);
+
+		const erased = await site.call("votes", { member_id: ben.id }, site.as(ana, "DELETE"));
+		expect(erased).toMatchObject({ ok: true, erased: 2 });
+		expect(await site.call("votes", {}, site.as(ana, "GET"))).toMatchObject({ ok: true, ids: [] });
+		const benLeft = (await site.call("votes", { member_id: ana.id }, site.as(ben, "GET"))) as Mine;
+		expect(benLeft.ids).toEqual([shared.id]);
+		expect(await site.rt.inspect.storage.get("tallies", shared.id)).toMatchObject({ votes: 1 });
+		expect(await site.rt.inspect.storage.get("tallies", onlyAna.id)).toMatchObject({ votes: 0 });
 	});
 
 	it("refuses a draft or a missing item, and keeps the tally equal to the vote count", async () => {

@@ -20,10 +20,8 @@ Lab is `../emdash-lab-roadmap` on port 4335. `./scripts/reset-lab.sh` then open 
 
 ## Next
 
-- #30 is on branch 0.2.0, not merged. Settings uses three tabs. Each stage keeps its own form inside the Stages tab, plus Add a stage. A repeater is not used: renaming a stage must keep its items, and a repeater on an admin form is not proven.
-- #8 My votes is on the same 0.2.0 branch: `/account/roadmap-votes/`, second click, member id from the session.
-- #18 in-text block is on the same 0.2.0 branch. It is trusted site code. The block is the board for the current page, with one fixed choice and no list. The registry plugin is unchanged.
-- Findings after publish: patch only if a site owner is exposed. Otherwise a card for the next milestone.
+- 0.2.1 is live (2026-10-15). 0.2.0 added My votes (`/account/roadmap-votes/`), Ideas stats, Find and paging on waiting ideas, Settings tabs, the optional Roadmap block, and the in-process security fix (0.1.5 folded in). 0.2.1 renamed the My votes component to `RoadmapVotes.astro` because WB Polls ships `MyVotes.astro`.
+- No open issues. Findings after a release: patch only if a site owner is exposed, otherwise a card for the next milestone.
 
 ## Do not do
 

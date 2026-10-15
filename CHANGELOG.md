@@ -4,6 +4,11 @@ Versions match `package.json`, the git tag and the registry release. Newest firs
 
 ## [Unreleased]
 
+- Ideas shows how many ideas are waiting, how many items are in each stage, and votes this week. The ready content-type fields stay hidden. A banner appears only when a content type is missing.
+- Waiting ideas have a find box and show 25 at a time.
+- Merge a duplicate sits in its own section. You search by title, and the confirm step names both items.
+- Settings is three tabs. Each stage still has its own form, plus Add a stage. Renaming a stage keeps its items on the board.
+
 ## [0.1.4] - 2026-10-14
 
 Copy `site-kit/` again after you update.

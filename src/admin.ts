@@ -22,7 +22,25 @@ type Toast = { message: string; type: "success" | "error" | "info" };
 export type BlockMap = Record<string, unknown> & { type: string };
 export type BlockResponse = { blocks: BlockMap[]; toast?: Toast };
 
+const PAGE = 25;
+const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
 const lines = (items: string[]) => items.map((text) => ({ type: "context", text }));
+
+async function votesThisWeek(ctx: PluginContext): Promise<number> {
+	const since = new Date(Date.now() - WEEK_MS).toISOString();
+	let total = 0;
+	let cursor: string | undefined;
+	for (let step = 0; step < 40; step += 1) {
+		const found = await ctx.storage.votes.query({ limit: 100, cursor });
+		for (const item of found.items) {
+			const created = asString((item.data as { createdAt?: string } | undefined)?.createdAt);
+			if (created >= since) total += 1;
+		}
+		if (!found.hasMore || !found.cursor) break;
+		cursor = found.cursor;
+	}
+	return total;
+}
 
 function saved(ctx: PluginContext, message: string) {
 	return renderSettings(ctx, { toast: { message, type: "success" } });
@@ -48,6 +66,8 @@ function parseStamped(value: unknown): { action: string; rev: string; id: string
 
 type IdeasExtra = Pick<BlockResponse, "toast"> & {
 	mergeConfirm?: { source: string; keep: string; sourceTitle: string; keepTitle: string };
+	q?: string;
+	offset?: number;
 };
 
 function withChoice(options: Array<{ label: string; value: string }>): Array<{ label: string; value: string }> {
@@ -56,14 +76,24 @@ function withChoice(options: Array<{ label: string; value: string }>): Array<{ l
 
 export async function renderIdeas(ctx: PluginContext, extra?: IdeasExtra): Promise<BlockResponse> {
 	const collections = await hasCollections(ctx);
+	const settings = await loadSettings(ctx);
 	const pending = await settlePublishedIdeas(ctx, await listPendingIdeas(ctx));
-	const items = (await listRoadmapItems(ctx)).filter((item) => item.published);
+	const allItems = await listRoadmapItems(ctx);
+	const items = allItems.filter((item) => item.published);
+	const counts = stageCounts(allItems, settings.stages);
+	const q = asString(extra?.q).trim();
+	const needle = q.toLowerCase();
+	const matched = needle
+		? pending.filter((idea) => `${idea.title} ${idea.description}`.toLowerCase().includes(needle))
+		: pending;
+	const offset = Math.max(0, extra?.offset ?? 0);
+	const pageRows = matched.slice(offset, offset + PAGE);
 	const keepOptions = withChoice(items.map((item) => ({ label: item.title, value: item.id })));
 	const sourceOptions = withChoice([
 		...pending.map((idea) => ({ label: `${idea.title} (waiting)`, value: `idea:${idea.id}:${idea.rev}` })),
 		...items.map((item) => ({ label: item.title, value: `item:${item.id}` })),
 	]);
-	const rows = pending.map((idea) => ({
+	const rows = pageRows.map((idea) => ({
 		title: idea.title,
 		description: idea.description,
 		from: whoLabel(idea),
@@ -77,33 +107,149 @@ export async function renderIdeas(ctx: PluginContext, extra?: IdeasExtra): Promi
 			],
 		},
 	}));
+	const pager: BlockMap[] = [];
+	if (offset > 0 || offset + PAGE < matched.length) {
+		const elements: Array<Record<string, unknown>> = [];
+		if (offset > 0) {
+			elements.push({
+				type: "button",
+				label: "Previous",
+				action_id: "ideas_page",
+				value: `${Math.max(0, offset - PAGE)}|${q}`,
+			});
+		}
+		if (offset + PAGE < matched.length) {
+			elements.push({
+				type: "button",
+				label: "Next",
+				action_id: "ideas_page",
+				value: `${offset + PAGE}|${q}`,
+			});
+		}
+		if (elements.length) pager.push({ type: "actions", elements });
+	}
+	const missing: BlockMap[] = [];
+	if (!collections.roadmap) {
+		missing.push({
+			type: "banner",
+			title: "Create the roadmap content type",
+			description:
+				"Copy the seed from the site kit, or create a roadmap content type with a title, a description and a stage. Comments should be on.",
+			variant: "alert",
+		});
+	}
+	if (!collections.changelog) {
+		missing.push({
+			type: "banner",
+			title: "Create the changelog content type",
+			description: "Copy the seed from the site kit, or create a changelog content type for release notes.",
+			variant: "alert",
+		});
+	}
+	const mergeBlocks: BlockMap[] = [
+		{
+			type: "context",
+			text: "Pick the item to drop and the item to keep. Votes move across, one per person.",
+		},
+		...(extra?.mergeConfirm
+			? [
+					{
+						type: "banner",
+						variant: "alert" as const,
+						title: `Merge ${extra.mergeConfirm.sourceTitle} into ${extra.mergeConfirm.keepTitle}?`,
+						description: "The first item is unpublished. Its votes move to the second. You cannot undo this.",
+					} as BlockMap,
+					{
+						type: "form",
+						block_id: "merge_confirm",
+						fields: [
+							{
+								type: "combobox",
+								action_id: "source",
+								label: "Merge this item",
+								initial_value: extra.mergeConfirm.source,
+								options: [{ label: extra.mergeConfirm.sourceTitle, value: extra.mergeConfirm.source }],
+							},
+							{
+								type: "combobox",
+								action_id: "keep",
+								label: "Into this item",
+								initial_value: extra.mergeConfirm.keep,
+								options: [{ label: extra.mergeConfirm.keepTitle, value: extra.mergeConfirm.keep }],
+							},
+						],
+						submit: {
+							label: "Merge these two",
+							action_id: "merge_items",
+							confirm: {
+								title: `Merge ${extra.mergeConfirm.sourceTitle} into ${extra.mergeConfirm.keepTitle}?`,
+								text: "The first item is unpublished. Votes move to the second.",
+								confirm: "Merge",
+								deny: "Cancel",
+							},
+						},
+					} as BlockMap,
+				]
+			: []),
+		{
+			type: "form",
+			block_id: "merge_items",
+			fields: [
+				{
+					type: "combobox",
+					action_id: "source",
+					label: "Merge this item",
+					initial_value: "",
+					placeholder: "Choose an item",
+					options: sourceOptions,
+				},
+				{
+					type: "combobox",
+					action_id: "keep",
+					label: "Into this item",
+					initial_value: "",
+					placeholder: "Choose an item",
+					options: keepOptions,
+				},
+			],
+			submit: { label: "Review merge", action_id: "merge_review" },
+		},
+	];
 	return {
 		blocks: [
 			{ type: "header", text: "Ideas" },
 			{
-				type: "fields",
-				fields: [
-					{ label: "Roadmap collection", value: collections.roadmap ? "Ready" : "Missing" },
-					{ label: "Changelog collection", value: collections.changelog ? "Ready" : "Missing" },
-					{ label: "Waiting", value: String(pending.length) },
+				type: "stats",
+				items: [
+					{ label: "Ideas waiting", value: String(pending.length) },
+					...settings.stages
+						.filter((stage) => stage.shown)
+						.map((stage) => ({ label: stage.name, value: String(counts.get(stage.id) ?? 0) })),
+					{ label: "Votes this week", value: String(await votesThisWeek(ctx)) },
 				],
 			},
-			...(!collections.roadmap
-				? [
-						{
-							type: "banner",
-							title: "Create the roadmap collection",
-							description:
-								"Copy the collection seed from the site kit, or create a roadmap collection with title, description and stage. Comments should be on.",
-							variant: "alert",
-						},
-					]
-				: []),
-			pending.length === 0
+			...missing,
+			{
+				type: "form",
+				block_id: "ideas_find",
+				fields: [
+					{
+						type: "text_input",
+						action_id: "q",
+						label: "Find",
+						initial_value: q,
+						placeholder: "Word in the title or the description",
+					},
+				],
+				submit: { label: "Find", action_id: "ideas_find" },
+			},
+			pageRows.length === 0
 				? {
 						type: "empty",
-						title: "No ideas waiting",
-						description: "Suggestions from the site wait here. Approve one to put it on the board.",
+						title: q ? "No ideas match that search" : "No ideas waiting",
+						description: q
+							? "Try a different search."
+							: "Suggestions from the site wait here. Approve one to put it on the board.",
 					}
 				: {
 						type: "table",
@@ -116,72 +262,12 @@ export async function renderIdeas(ctx: PluginContext, extra?: IdeasExtra): Promi
 						],
 						rows,
 					},
-			{ type: "header", text: "Merge a duplicate" },
-			...lines([
-				"Pick the item to drop and the item to keep. Votes move across, one per person. The dropped item is unpublished and its address redirects to the one you keep.",
-			]),
-			...(extra?.mergeConfirm
-				? [
-						{
-							type: "banner",
-							variant: "alert",
-							title: `Merge ${extra.mergeConfirm.sourceTitle} into ${extra.mergeConfirm.keepTitle}?`,
-							description: "The first item is unpublished. Its votes move to the second. You cannot undo this.",
-						} as BlockMap,
-						{
-							type: "form",
-							block_id: "merge_confirm",
-							fields: [
-								{
-									type: "select",
-									action_id: "source",
-									label: "Merge this item",
-									initial_value: extra.mergeConfirm.source,
-									options: [
-										{ label: extra.mergeConfirm.sourceTitle, value: extra.mergeConfirm.source },
-									],
-								},
-								{
-									type: "select",
-									action_id: "keep",
-									label: "Into this item",
-									initial_value: extra.mergeConfirm.keep,
-									options: [{ label: extra.mergeConfirm.keepTitle, value: extra.mergeConfirm.keep }],
-								},
-							],
-							submit: {
-								label: "Merge these two",
-								action_id: "merge_items",
-								confirm: {
-									title: `Merge ${extra.mergeConfirm.sourceTitle} into ${extra.mergeConfirm.keepTitle}?`,
-									text: "The first item is unpublished. Votes move to the second.",
-									confirm: "Merge",
-									deny: "Cancel",
-								},
-							},
-						} as BlockMap,
-					]
-				: []),
+			...pager,
 			{
-				type: "form",
-				block_id: "merge_items",
-				fields: [
-					{
-						type: "select",
-						action_id: "source",
-						label: "Merge this item",
-						initial_value: "",
-						options: sourceOptions,
-					},
-					{
-						type: "select",
-						action_id: "keep",
-						label: "Into this item",
-						initial_value: "",
-						options: keepOptions,
-					},
-				],
-				submit: { label: "Review merge", action_id: "merge_review" },
+				type: "accordion",
+				label: "Merge a duplicate",
+				default_open: Boolean(extra?.mergeConfirm),
+				blocks: mergeBlocks,
 			},
 			{
 				type: "actions",
@@ -279,108 +365,119 @@ export async function renderSettings(
 	return {
 		blocks: [
 			{ type: "header", text: "Settings" },
-			{ type: "section", text: "Each group saves on its own." },
-			{ type: "header", text: "Who can take part" },
-			...lines([
-				"Allow suggestions: when on, people can send an idea. It always waits for you to approve it.",
-				"Who can vote and suggest: anyone, or signed-in members only. Anyone is the default.",
-				"Guest identity uses a trusted visitor address when the host supplies one. On hosting that does not, it falls back to a browser cookie, which is weaker: clearing the cookie lets someone vote again.",
-			]),
 			{
-				type: "form",
-				block_id: "settings_who",
-				fields: [
+				type: "tab",
+				panels: [
 					{
-						type: "toggle",
-						action_id: "allow_ideas",
-						label: "Allow suggestions",
-						initial_value: settings.allowIdeas,
+						label: "Who can take part",
+						blocks: [
+							{
+								type: "context",
+								text: "Suggestions always wait for you to approve them. Anyone can vote, or only signed-in members.",
+							},
+							{
+								type: "form",
+								block_id: "settings_who",
+								fields: [
+									{
+										type: "toggle",
+										action_id: "allow_ideas",
+										label: "Allow suggestions",
+										initial_value: settings.allowIdeas,
+									},
+									{
+										type: "select",
+										action_id: "who",
+										label: "Who can vote and suggest",
+										initial_value: settings.who,
+										options: [
+											{ label: "Anyone", value: "anyone" },
+											{ label: "Signed-in members only", value: "members" },
+										],
+									},
+								],
+								submit: { label: "Save", action_id: "save_who" },
+							},
+						],
 					},
 					{
-						type: "select",
-						action_id: "who",
-						label: "Who can vote and suggest",
-						initial_value: settings.who,
-						options: [
-							{ label: "Anyone", value: "anyone" },
-							{ label: "Signed-in members only", value: "members" },
+						label: "Stages",
+						blocks: [
+							{
+								type: "context",
+								text: "Rename a stage and its items stay with it. On a roadmap item, pick the stage from the Stage panel. Keep at least one stage on the board.",
+							},
+							...settings.stages.flatMap((stage, index) =>
+								stageRow(stage, counts.get(stage.id) ?? 0, index === 0, index === settings.stages.length - 1),
+							),
+							{
+								type: "form",
+								block_id: "stage_add",
+								fields: [
+									{ type: "text_input", action_id: "name", label: "New stage name" },
+									{
+										type: "toggle",
+										action_id: "shown",
+										label: "Show on the board",
+										initial_value: true,
+									},
+								],
+								submit: { label: "Add a stage", action_id: "add_stage" },
+							},
+							{
+								type: "form",
+								block_id: "stage_move",
+								fields: [
+									{
+										type: "select",
+										action_id: "item",
+										label: "Move an item",
+										options: items.length
+											? items.map((item) => ({ label: item.title, value: item.id }))
+											: [{ label: "No items yet", value: "" }],
+									},
+									{
+										type: "select",
+										action_id: "stage",
+										label: "To this stage",
+										options: settings.stages.map((stage) => ({ label: stage.name, value: stage.id })),
+									},
+								],
+								submit: { label: "Move item", action_id: "move_item" },
+							},
+						],
+					},
+					{
+						label: "Email",
+						blocks: [
+							{
+								type: "context",
+								text: mailReady
+									? "One short notice an hour, with no idea text and no link. Notices go to the address below."
+									: "One short notice an hour, with no idea text and no link. Enter an address or the notice stays off.",
+							},
+							{
+								type: "form",
+								block_id: "settings_email",
+								fields: [
+									{
+										type: "toggle",
+										action_id: "notify",
+										label: "Email me when ideas are waiting",
+										initial_value: settings.notify,
+									},
+									{
+										type: "text_input",
+										action_id: "notify_to",
+										label: "Send that email to",
+										initial_value: settings.notifyTo,
+									},
+								],
+								submit: { label: "Save", action_id: "save_email" },
+							},
 						],
 					},
 				],
-				submit: { label: "Save who can take part", action_id: "save_who" },
-			},
-			{ type: "divider" },
-			{ type: "header", text: "Stages" },
-			...lines([
-				"Add, rename, reorder or hide stages. A hidden stage keeps its items off the board.",
-				"On a roadmap item, pick the stage from the Stage panel. You can also move an item from the list below.",
-				"A stage that still has items cannot be removed until those items move.",
-			]),
-			...settings.stages.flatMap((stage, index) =>
-				stageRow(stage, counts.get(stage.id) ?? 0, index === 0, index === settings.stages.length - 1),
-			),
-			{
-				type: "form",
-				block_id: "stage_add",
-				fields: [
-					{ type: "text_input", action_id: "name", label: "New stage name" },
-					{
-						type: "toggle",
-						action_id: "shown",
-						label: "Show on the board",
-						initial_value: true,
-					},
-				],
-				submit: { label: "Add stage", action_id: "add_stage" },
-			},
-			{
-				type: "form",
-				block_id: "stage_move",
-				fields: [
-					{
-						type: "select",
-						action_id: "item",
-						label: "Move an item",
-						options: items.length
-							? items.map((item) => ({ label: item.title, value: item.id }))
-							: [{ label: "No items yet", value: "" }],
-					},
-					{
-						type: "select",
-						action_id: "stage",
-						label: "To this stage",
-						options: settings.stages.map((stage) => ({ label: stage.name, value: stage.id })),
-					},
-				],
-				submit: { label: "Move item", action_id: "move_item" },
-			},
-			{ type: "divider" },
-			{ type: "header", text: "Email" },
-			...lines([
-				"Email me when ideas are waiting: one short notice an hour. The notice has no idea text and no link.",
-				"Needs a mail provider on the site. The official Resend plugin is the usual setup.",
-				mailReady
-					? "Notices go to the address below."
-					: "Enter an address or the notice stays off, even when the switch is on.",
-			]),
-			{
-				type: "form",
-				block_id: "settings_email",
-				fields: [
-					{
-						type: "toggle",
-						action_id: "notify",
-						label: "Email me when ideas are waiting",
-						initial_value: settings.notify,
-					},
-					{
-						type: "text_input",
-						action_id: "notify_to",
-						label: "Send that email to",
-						initial_value: settings.notifyTo,
-					},
-				],
-				submit: { label: "Save email", action_id: "save_email" },
 			},
 		],
 		toast: extra?.toast,
@@ -551,6 +648,7 @@ export async function handleAdmin(input: unknown, ctx: PluginContext): Promise<B
 		if (action === "save_email") return saveEmail(ctx, values);
 		if (action === "add_stage") return handleAddStage(ctx, settings, values);
 		if (action === "move_item") return handleMoveItem(ctx, settings, values);
+		if (action === "ideas_find") return renderIdeas(ctx, { q: asString(values.q) });
 		if (action === "merge_review") return handleMergeReview(ctx, values);
 		if (action === "merge_items") return handleMerge(ctx, values);
 		if (action.startsWith("save_stage:")) return handleStageSave(ctx, settings, action.slice(11), values);
@@ -559,6 +657,10 @@ export async function handleAdmin(input: unknown, ctx: PluginContext): Promise<B
 	if (type === "block_action") {
 		const settings = await loadSettings(ctx);
 		if (action === "idea_mod") return handleIdeaMod(ctx, raw.value);
+		if (action === "ideas_page") {
+			const [offset = "0", ...rest] = asString(raw.value).split("|");
+			return renderIdeas(ctx, { q: rest.join("|"), offset: Number(offset) || 0 });
+		}
 		if (action.startsWith("stage_up:")) return handleMoveStage(ctx, settings, action.slice(9), "up");
 		if (action.startsWith("stage_down:")) return handleMoveStage(ctx, settings, action.slice(11), "down");
 		if (action.startsWith("stage_remove:")) return handleRemoveStage(ctx, settings, action.slice(13));

@@ -56,6 +56,10 @@ describe("health and collections", () => {
 			collection: false,
 			changelog: false,
 		});
+		const ideas = textOf(await admin(site.call, { type: "page_load", page: "/ideas" }));
+		expect(ideas).toContain("Create the roadmap content type");
+		expect(ideas).toContain("Create the changelog content type");
+		expect(ideas).not.toContain("collection");
 	});
 
 	it("reports both collections once they exist and shows them on Ideas", async () => {
@@ -67,9 +71,10 @@ describe("health and collections", () => {
 		});
 		const page = await site.rt.admin.loadPage("/ideas");
 		const text = textOf(page);
-		expect(text).toContain("Roadmap collection");
-		expect(text).toContain("Changelog collection");
-		expect(text).toContain("Ready");
+		expect(text).toContain("Ideas waiting");
+		expect(text).toContain("Votes this week");
+		expect(text).not.toContain("Roadmap collection");
+		expect(text).not.toContain("Changelog collection");
 		expect(page.blocks.map((block) => block.type)).toContain("empty");
 	});
 });
@@ -109,10 +114,24 @@ describe("stages", () => {
 		expect(textOf(added)).toContain("Declined");
 		expect(textOf(added)).toContain("Hidden from the board");
 
-		const declined = added.blocks
-			.filter((block) => block.type === "form" && String(block.block_id).startsWith("stage_"))
+		const forms: Array<Record<string, unknown>> = [];
+		const walk = (blocks: unknown) => {
+			if (!Array.isArray(blocks)) return;
+			for (const block of blocks) {
+				if (!block || typeof block !== "object") continue;
+				const row = block as Record<string, unknown>;
+				if (row.type === "form") forms.push(row);
+				walk(row.blocks);
+				if (Array.isArray(row.panels)) {
+					for (const panel of row.panels) walk((panel as { blocks?: unknown }).blocks);
+				}
+			}
+		};
+		walk(added.blocks);
+		const declined = forms
+			.filter((block) => String(block.block_id).startsWith("stage_"))
 			.map((block) => String(block.block_id).slice("stage_".length))
-			.find((id) => !["under-review", "planned", "in-progress", "done"].includes(id));
+			.find((id) => !["under-review", "planned", "in-progress", "done", "add", "move"].includes(id));
 		expect(declined).toBeTruthy();
 
 		const moved = await admin(site.call, {

@@ -35,7 +35,7 @@ It creates both content types (comments on for roadmap) and the **Roadmap catego
 
 Also create a category list named `roadmap_category` (shown as **Roadmap categories**) and attach it to the roadmap content type. The board's Category filter reads it. Add your own categories in admin afterwards.
 
-Check your work on the **Ideas** screen. The **Roadmap collection** and **Changelog collection** fields should both say **Ready**. If one says **Missing**, a banner tells you to create it.
+Check your work on the **Ideas** screen. When both content types exist, you see **Ideas waiting**, a count for each stage, and **Votes this week**. If one is missing, a banner tells you to create it.
 
 ## Step 3: copy the site kit
 

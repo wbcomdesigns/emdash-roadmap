@@ -6,7 +6,7 @@ When two items or ideas ask for the same thing, merge them. Votes move to the it
 
 ## Merge two items
 
-1. In admin, open **Roadmap**, then **Ideas**, and find **Merge a duplicate**.
+1. In admin, open **Roadmap**, then **Ideas**, and open **Merge a duplicate**.
 2. In **Merge this item**, pick the one to drop. The list has waiting ideas, marked "(waiting)", and published items.
 3. In **Into this item**, pick the one to keep. This list has published items only.
 4. Choose **Review merge**.

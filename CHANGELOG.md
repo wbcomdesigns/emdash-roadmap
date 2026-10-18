@@ -31,7 +31,7 @@ kit="$(mktemp -d)" &&
 - Fix      - The Stage panel no longer puts a form inside the editor's form.
 - Fix      - Roadmap pages line up with the site header and footer on the blog template at every width.
 - Fix      - Buttons and selected chips use the theme's own brand colours, readable in dark mode (shared kit styles 4).
-- Compat   - Checked on EmDash 1.3.1. The 0.2.2 kit also works with the 0.2.1 engine.
+- Compat   - Checked on EmDash 1.3.1. The 0.2.2 kit works with the 0.2.1 engine, and the 0.2.1 kit shows its sign-in line on the 0.2.2 engine.
 
 ## [0.2.1] - 2026-10-15
 

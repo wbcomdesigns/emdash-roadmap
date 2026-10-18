@@ -1,6 +1,7 @@
 import { api, esc, signInUrl, type ApiResult } from "./wbcom-kit";
 import { phrase, strings } from "./roadmap-strings";
 import { SIGN_IN_CODES, refusalCode } from "./roadmap-vote";
+import { visitorToken } from "./roadmap-visitor";
 
 export function bindSuggestForm(): void {
 	const form = document.getElementById("roadmap-suggest") as HTMLFormElement | null;
@@ -47,6 +48,8 @@ async function send(form: HTMLFormElement): Promise<void> {
 		description: String(data.get("description") || ""),
 		name: String(data.get("name") || ""),
 		website: String(data.get("website") || ""),
+		// Ignored by the 0.2.2 engine; the 0.2.1 engine keys a guest by it (see visitorToken).
+		visitor: visitorToken(),
 	};
 	const member = await api("roadmap", "suggest", body);
 	const result =

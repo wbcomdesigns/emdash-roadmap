@@ -11,8 +11,8 @@
 #
 # Safe to run again after every plugin update. It replaces Roadmap's own kit files, never replaces
 # a newer shared Wbcom file another plugin copied, never touches src/layouts/RoadmapLayout.astro
-# once it exists, and keeps a dated backup of the wording file only when you edited it yourself
-# (its hash is not one of a released version's, listed in site-kit/lib/roadmap-strings.sums).
+# once it exists, and keeps a dated backup of any kit file you edited yourself (its hash is not
+# one a released version shipped for that path, listed in site-kit/kit.sums).
 set -euo pipefail
 
 PLUGIN="$(cd "$(dirname "$0")/.." && pwd)"
@@ -39,11 +39,20 @@ notes=()
 # copy is missing or has a lower number on its first line ("wbcom-shared: N"; none counts as 0).
 shared_version() { local v; v="$(sed -n '1s/.*wbcom-shared: *\([0-9]*\).*/\1/p' "$1" 2>/dev/null)"; echo "${v:-0}"; }
 
-# The site's strings file is untouched when its hash is one a released version shipped.
-released_strings() {
-	local hash
+# A site file is untouched when its hash is one a released version shipped for that path
+# (site-kit/kit.sums). Anything else is the owner's edit and is backed up before it is replaced.
+released_file() {
+	local hash rel="$2"
 	hash="$( (shasum -a 256 "$1" 2>/dev/null || sha256sum "$1") | cut -d" " -f1)"
-	grep -qx "$hash" "$KIT/lib/roadmap-strings.sums"
+	grep -qxF "$hash  $rel" "$KIT/kit.sums"
+}
+
+backups=()
+back_up() {
+	local backup="$1.bak-$today"
+	[[ -e "$backup" ]] && backup="$1.bak-$today-$(date +%H%M%S)"
+	cp "$1" "$backup"
+	backups+=("${backup#"$SITE/"}")
 }
 
 copy_file() {
@@ -61,10 +70,8 @@ copy_file() {
 			notes+=("Upgraded ${to#"$SITE/"} from wbcom-shared $have to $want. Other Wbcom plugins on this site use it too; it only ever adds.")
 		fi
 	fi
-	if [[ "$name" == roadmap-strings.ts && -f "$to" ]] && ! cmp -s "$from" "$to" && ! released_strings "$to"; then
-		local backup="$to.bak-$today"
-		cp "$to" "$backup"
-		notes+=("Your wording file had your own changes. Your copy is saved as ${backup#"$SITE/"}; move your changes back into ${to#"$SITE/"}.")
+	if [[ "$name" != wbcom-base.css && "$name" != wbcom-kit.ts && -f "$to" ]] && ! cmp -s "$from" "$to" && ! released_file "$to" "${to#"$SITE/"}"; then
+		back_up "$to"
 	fi
 	cp "$from" "$to"
 }
@@ -91,8 +98,11 @@ if [[ "$layout_state" == new && ! -f "$SITE/src/layouts/Base.astro" ]]; then
 fi
 
 # Optional in-text board block (a trusted install only). Nothing uses it until astro.config.mjs does.
-mkdir -p "$SITE/src/roadmap-block"
-cp -R "$KIT/blocks/." "$SITE/src/roadmap-block/"
+while IFS= read -r -d '' file; do
+	rel="${file#"$KIT/blocks/"}"
+	mkdir -p "$(dirname "$SITE/src/roadmap-block/$rel")"
+	copy_file "$file" "$SITE/src/roadmap-block/$rel"
+done < <(find "$KIT/blocks" -type f -print0)
 
 # The roadmap and changelog content types: one seed file, applied without content or menus.
 mkdir -p "$SITE/.emdash"
@@ -126,7 +136,11 @@ Product Roadmap kit $(sed -n 's/.*"version": *"\([^"]*\)".*/\1/p' "$PLUGIN/packa
 DONE
 
 for note in "${notes[@]+"${notes[@]}"}"; do echo "  Note: $note"; done
-[[ ${#notes[@]} -gt 0 ]] && echo
+if [[ ${#backups[@]} -gt 0 ]]; then
+	echo "  Backed up (you had changed these; copy your changes back into the new files):"
+	for backup in "${backups[@]}"; do echo "    $backup"; done
+fi
+[[ ${#notes[@]} -gt 0 || ${#backups[@]} -gt 0 ]] && echo
 
 cat <<DONE
 Left for you:

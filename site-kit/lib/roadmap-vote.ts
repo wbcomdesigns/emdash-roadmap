@@ -1,6 +1,6 @@
 import { api, esc, pluginFetch, signInUrl, type ApiResult } from "./wbcom-kit";
 import { phrase, strings, voteCountLabel } from "./roadmap-strings";
-import { readVotes, rememberVote } from "./roadmap-visitor";
+import { readVotes, rememberVote, visitorToken } from "./roadmap-visitor";
 
 let bound = false;
 
@@ -128,9 +128,10 @@ async function sendVote(id: string, voted: boolean): Promise<ApiResult> {
 		? await api("roadmap", `vote?id=${encodeURIComponent(id)}`, undefined, "DELETE")
 		: await api("roadmap", "vote", { id });
 	if (member.ok || (member.error?.code && member.error.code !== "SIGN_IN_REQUIRED")) return member;
+	const visitor = visitorToken();
 	return voted
-		? api("roadmap", `vote_guest?id=${encodeURIComponent(id)}`, undefined, "DELETE")
-		: api("roadmap", "vote_guest", { id });
+		? api("roadmap", `vote_guest?id=${encodeURIComponent(id)}&visitor=${encodeURIComponent(visitor)}`, undefined, "DELETE")
+		: api("roadmap", "vote_guest", { id, visitor });
 }
 
 function paint(button: HTMLButtonElement, voted: boolean, votes: number): void {

@@ -52,7 +52,7 @@ After the install, a **Roadmap** group with **Ideas** and **Settings** appears i
 | --- | --- |
 | Pages | `src/pages/roadmap/` (board, one item, suggest an idea), `src/pages/changelog/`, `src/pages/account/roadmap-votes.astro` (Roadmap votes) |
 | Kit files | `src/lib/`, `src/styles/`, `src/components/`, including the two shared Wbcom files. A newer shared copy from another Wbcom plugin is kept; an older one is upgraded, and the script says which |
-| Wording | `src/lib/roadmap-strings.ts`. An untouched file from any release is replaced. If you edited it yourself, your copy is kept as `roadmap-strings.ts.bak-YYYYMMDD` first and the script says so |
+| Your edits | Any kit file you edited yourself (wording in `src/lib/roadmap-strings.ts`, a page, a component, the styles) is kept as `<file>.bak-YYYYMMDD` before the new one replaces it, and the script lists the backups. An untouched file from any release is replaced without a word |
 | Layout | `src/layouts/RoadmapLayout.astro`, copied only the first time. Later runs never overwrite it |
 | Content types | `.emdash/roadmap-seed.json`, then `npx emdash seed .emdash/roadmap-seed.json --no-content` (Node 22.16 or later). It creates the **roadmap** and **changelog** content types and the **Roadmap categories** taxonomy, and leaves anything you already have alone. It never changes your menus |
 | Optional block | `src/roadmap-block/`, unused until you add it to `astro.config.mjs` (see below) |

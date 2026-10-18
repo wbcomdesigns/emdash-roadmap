@@ -87,4 +87,45 @@ describe("scripts/add-to-site.sh", () => {
 		const now = createHash("sha256").update(readFileSync(join(kit, "roadmap-strings.ts"))).digest("hex");
 		assert.equal(sums.at(-1), now, "add the new hash to site-kit/lib/roadmap-strings.sums");
 	});
+
+	it("backs up any edited kit file, with a time suffix on a second run the same day, and lists the backups", () => {
+		run(fakeSite());
+		const page = join(site, "src/pages/roadmap/index.astro");
+		writeFileSync(page, "<p>my own board</p>\n");
+		const first = run(site);
+		writeFileSync(page, "<p>my board again</p>\n");
+		const second = run(site);
+		const backups = readdirSync(join(site, "src/pages/roadmap")).filter((name) => name.startsWith("index.astro.bak-")).sort();
+		assert.equal(backups.length, 2);
+		assert.match(backups[0], /^index\.astro\.bak-\d{8}$/);
+		assert.match(backups[1], /^index\.astro\.bak-\d{8}-\d{6}$/);
+		assert.ok(first.includes(`src/pages/roadmap/${backups[0]}`));
+		assert.ok(second.includes(`src/pages/roadmap/${backups[1]}`));
+		assert.ok(first.includes("Backed up"));
+	});
+
+	it("replaces untouched files from an older release without a backup", () => {
+		run(fakeSite());
+		const root = new URL("../..", import.meta.url).pathname;
+		for (const [kit, at] of [["site-kit/pages/roadmap/index.astro", "src/pages/roadmap/index.astro"], ["site-kit/components/VoteButton.astro", "src/components/VoteButton.astro"]]) {
+			writeFileSync(join(site, at), execFileSync("git", ["show", `v0.2.1:${kit}`], { cwd: root }));
+		}
+		const out = run(site);
+		assert.doesNotMatch(out, /Backed up/);
+	});
+
+	it("lists every file the script copies in kit.sums at its current hash", () => {
+		const root = new URL("../..", import.meta.url).pathname;
+		const sums = new Set(readFileSync(join(root, "site-kit/kit.sums"), "utf8").trim().split("\n"));
+		run(fakeSite());
+		const missing = [];
+		const walk = (dir) => readdirSync(dir, { withFileTypes: true }).flatMap((e) => (e.isDirectory() ? walk(join(dir, e.name)) : [join(dir, e.name)]));
+		for (const file of walk(join(site, "src"))) {
+			const rel = file.slice(site.length + 1);
+			if (/wbcom-(kit\.ts|base\.css)$|RoadmapLayout\.astro$|Base\.astro$/.test(rel)) continue;
+			const hash = createHash("sha256").update(readFileSync(file)).digest("hex");
+			if (!sums.has(`${hash}  ${rel}`)) missing.push(rel);
+		}
+		assert.deepEqual(missing, [], "run node scripts/make-kit-sums.mjs");
+	});
 });

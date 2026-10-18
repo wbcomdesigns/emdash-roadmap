@@ -299,11 +299,16 @@ export async function renderIdeas(ctx: PluginContext, extra?: IdeasExtra): Promi
 				type: "stats",
 				items: [
 					{ label: "Ideas waiting", value: String(pending.length) },
-					...settings.stages
-						.filter((stage) => stage.shown)
-						.map((stage) => ({ label: stage.name, value: String(counts.get(stage.id) ?? 0) })),
 					{ label: "Votes this week", value: String(await votesThisWeek(ctx)) },
 				],
+			},
+			// Stage counts in a fields block: a stats row does not wrap, so one tile per stage ran
+			// off the page on a phone and at 768 (a board can have up to 20 stages).
+			{
+				type: "fields",
+				fields: settings.stages
+					.filter((stage) => stage.shown)
+					.map((stage) => ({ label: `${stage.name} (on the board)`, value: String(counts.get(stage.id) ?? 0) })),
 			},
 			...missing,
 			{

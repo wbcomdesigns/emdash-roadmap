@@ -2,7 +2,7 @@ import type { PluginContext } from "emdash/plugin";
 
 import { CHANGELOG, ROADMAP, collectionName, hasCollection } from "./core";
 import { findStage, loadSettings, type Stage } from "./settings";
-import { asNumber, asRecord, asString, rows } from "./util";
+import { allRows, asNumber, asRecord, asString } from "./util";
 
 export const BOARD_MAX = 100;
 
@@ -95,9 +95,10 @@ export function stageCounts(items: RoadmapItem[], stages: Stage[]): Map<string, 
 	return counts;
 }
 
+/** One tally per item. Paged: a storage query returns 100 rows at most, and items can pass 100. */
 async function votesMap(ctx: PluginContext): Promise<Map<string, number>> {
-	const found = await ctx.storage.tallies.query({ limit: BOARD_MAX });
-	return new Map(rows(found).map((row) => [row.id, asNumber(row.votes) ?? 0]));
+	const found = await allRows(ctx.storage.tallies, {}, MAX_PAGES * 2);
+	return new Map(found.map((row) => [row.id, asNumber(row.votes) ?? 0]));
 }
 
 async function inCategory(ctx: PluginContext, id: string, collection: string, wanted: string): Promise<boolean> {

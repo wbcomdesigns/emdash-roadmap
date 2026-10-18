@@ -51,6 +51,13 @@ async function itemSource(site: Awaited<ReturnType<typeof openSite>>, id: string
 	return found[1]!;
 }
 
+function stageCount(page: { blocks: Array<Record<string, unknown>> }, stage: string): string | undefined {
+	const fields = page.blocks.find((block) => block.type === "fields" && JSON.stringify(block).includes("(on the board)")) as
+		| { fields: Array<{ label: string; value: string }> }
+		| undefined;
+	return fields?.fields.find((field) => field.label === `${stage} (on the board)`)?.value;
+}
+
 function textOf(page: { blocks: unknown }): string {
 	return JSON.stringify(page.blocks);
 }
@@ -841,8 +848,7 @@ describe("stage source of truth", () => {
 		const site = await openRoadmap();
 		await addItem(site.rt, "Typo stage", "Planed");
 		const page = await admin(site.call, { type: "page_load", page: "/ideas" });
-		const stats = page.blocks.find((block) => block.type === "stats") as unknown as { items: Array<{ label: string; value: string }> };
-		expect(stats.items.find((stat) => stat.label === "Under review")?.value).toBe("1");
+		expect(stageCount(page, "Under review")).toBe("1");
 		const board = (await site.call("board")) as { columns: Array<{ name: string; items: unknown[] }> };
 		expect(board.columns[0]!.items).toHaveLength(1);
 	});
@@ -1038,7 +1044,7 @@ describe("0.2.2 install-pass findings", () => {
 		const page = await admin(site.call, { type: "page_load", page: "/ideas" });
 		const stats = page.blocks.find((block) => block.type === "stats") as unknown as { items: Array<{ label: string; value: string }> };
 		expect(stats.items.find((stat) => stat.label === "Ideas waiting")?.value).toBe("1");
-		expect(stats.items.find((stat) => stat.label === "Under review")?.value).toBe("1");
+		expect(stageCount(page, "Under review")).toBe("1");
 	});
 
 	it("checks the stamp on every merge, for items and ideas", async () => {
@@ -1077,4 +1083,54 @@ describe("0.2.2 install-pass findings", () => {
 		const again = textOf(await admin(site.call, { type: "block_action", action_id: "kit_again", page: "/ideas" }));
 		expect(again).toContain("Set up visitor pages");
 	});
+});
+
+describe("storage pages of 100", () => {
+	it("merges two items with more than 100 votes each, losing none and counting each voter once", async () => {
+		const site = await openRoadmap();
+		const keep = await addItem(site.rt, "Big keep");
+		const drop = await addItem(site.rt, "Big drop");
+		const put = (item: string, who: string) =>
+			site.rt.fixtures.plugin.storage("votes", `${item}:${who}`, {
+				item,
+				member_id: who,
+				createdAt: "2026-10-01T00:00:00.000Z",
+				visitor: "",
+			});
+		for (let n = 0; n < 160; n += 1) await put(keep.id, `m${n}`);
+		for (let n = 100; n < 270; n += 1) await put(drop.id, `m${n}`);
+		const merged = await admin(site.call, {
+			type: "form_submit",
+			action_id: "merge_items",
+			page: "/ideas",
+			values: { source: await itemSource(site, drop.id), keep: keep.id },
+		});
+		expect(merged.toast?.type).toBe("success");
+		const votes = await site.rt.inspect.storage.list<{ item: string; member_id: string }>("votes");
+		const onKeep = votes.filter((row) => row.data.item === keep.id);
+		expect(onKeep).toHaveLength(270);
+		expect(new Set(onKeep.map((row) => row.data.member_id)).size).toBe(270);
+		expect(votes.filter((row) => row.data.item === drop.id)).toHaveLength(0);
+		const board = (await site.call("board")) as { columns: Array<{ items: Array<{ id: string; votes: number }> }> };
+		expect(board.columns.flatMap((column) => column.items).find((row) => row.id === keep.id)?.votes).toBe(270);
+	}, 120_000);
+
+	it("clears more than 100 old guest votes in one hourly run", async () => {
+		const site = await openRoadmap();
+		const item = await addItem(site.rt, "Many guests");
+		const old = new Date(Date.now() - 31 * 24 * 60 * 60 * 1000).toISOString();
+		for (let n = 0; n < 130; n += 1) {
+			const hash = n.toString(16).padStart(64, "a");
+			await site.rt.fixtures.plugin.storage("votes", `${item.id}:v-${hash}`, {
+				item: item.id,
+				member_id: `v-${hash}`,
+				createdAt: old,
+				visitor: hash,
+			});
+		}
+		await site.rt.transport.invokeHook("cron", { name: "notify", data: {}, scheduledAt: new Date().toISOString() });
+		const votes = await site.rt.inspect.storage.list<{ visitor: string }>("votes");
+		expect(votes).toHaveLength(130);
+		expect(votes.every((row) => row.data.visitor === "")).toBe(true);
+	}, 120_000);
 });

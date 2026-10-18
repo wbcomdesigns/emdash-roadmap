@@ -3,7 +3,7 @@ import type { PluginContext } from "emdash/plugin";
 import { collectionName } from "./core";
 import { getItem, itemStamp, publishNow, unpublishNow } from "./content";
 import { firstStage, loadSettings } from "./settings";
-import { asRecord, asString, rows } from "./util";
+import { STORAGE_PAGE, allRows, asRecord, asString, rows } from "./util";
 import { recount, voteRowId } from "./vote";
 
 export type IdeaRow = {
@@ -152,8 +152,8 @@ function personKey(row: Record<string, unknown>): string {
 }
 
 export async function moveVotes(ctx: PluginContext, fromId: string, toId: string): Promise<void> {
-	const source = rows(await ctx.storage.votes.query({ where: { item: fromId }, limit: 500 }));
-	const target = rows(await ctx.storage.votes.query({ where: { item: toId }, limit: 500 }));
+	const source = await allRows(ctx.storage.votes, { item: fromId });
+	const target = await allRows(ctx.storage.votes, { item: toId });
 	const kept = new Set(target.map(personKey).filter(Boolean));
 	for (const row of source) {
 		const who = personKey(row);
@@ -234,7 +234,9 @@ async function sha256Hex(text: string): Promise<string> {
 
 /** How long a guest's salted address stays on a row: it stops repeat votes inside this window. */
 export const GUEST_HASH_DAYS = 30;
-const FORGET_BATCH = 100;
+const FORGET_BATCH = STORAGE_PAGE;
+/** Batches per hourly run. A row done drops out of the query, so each batch reads the next ones. */
+const FORGET_ROUNDS = 20;
 
 /**
  * Hourly: drop the salted visitor hash from guest votes and guest ideas older than the window.
@@ -242,32 +244,23 @@ const FORGET_BATCH = 100;
  */
 export async function forgetOldGuests(ctx: PluginContext, now = Date.now()): Promise<{ votes: number; ideas: number }> {
 	const before = new Date(now - GUEST_HASH_DAYS * 24 * 60 * 60 * 1000).toISOString();
+	const old = { visitor: { gt: "" }, createdAt: { lt: before } };
 	let votes = 0;
-	const oldVotes = rows(await ctx.storage.votes.query({ where: { visitor: { gt: "" }, createdAt: { lt: before } }, limit: FORGET_BATCH }));
-	for (const row of oldVotes) {
-		if (!asString(row.visitor)) continue;
-		const item = asString(row.item);
-		// Same old row, same new key: a run that stops halfway and runs again cannot count it twice.
-		const anon = `g-${await sha256Hex(row.id)}`;
-		await ctx.storage.votes.put(voteRowId(item, anon), {
-			item,
-			member_id: anon,
-			createdAt: asString(row.createdAt),
-			visitor: "",
-		});
-		await ctx.storage.votes.delete(row.id);
-		votes += 1;
+	for (let round = 0; round < FORGET_ROUNDS; round += 1) {
+		const batch = rows(await ctx.storage.votes.query({ where: old, limit: FORGET_BATCH }));
+		if (!batch.length) break;
+		for (const row of batch) votes += await forgetVote(ctx, row);
+		if (batch.length < FORGET_BATCH) break;
 	}
 	let ideas = 0;
-	const oldIdeas = rows(await ctx.storage.ideas.query({ where: { visitor: { gt: "" }, createdAt: { lt: before } }, limit: FORGET_BATCH }));
-	for (const row of oldIdeas) {
-		if (!asString(row.visitor)) continue;
-		// Touches only these two fields, and only while the hash is still the one read here.
-		const done = await ctx.storage.ideas.updateIf(row.id, {
-			where: { visitor: asString(row.visitor) },
-			set: { visitor: "", guest: true },
-		});
-		if (done.applied) ideas += 1;
+	for (let round = 0; round < FORGET_ROUNDS; round += 1) {
+		const batch = rows(await ctx.storage.ideas.query({ where: old, limit: FORGET_BATCH }));
+		if (!batch.length) break;
+		let done = 0;
+		for (const row of batch) done += await forgetIdea(ctx, row);
+		ideas += done;
+		// Nothing applied: the rest changed under us; the next hourly run takes them.
+		if (batch.length < FORGET_BATCH || done === 0) break;
 	}
 	// Rate-limit counters carry the same hash in their key. Drop the ones whose hour is over.
 	for (const entry of await ctx.kv.list("rate:").catch(() => [])) {
@@ -275,4 +268,29 @@ export async function forgetOldGuests(ctx: PluginContext, now = Date.now()): Pro
 		if (now - start > 60 * 60 * 1000) await ctx.kv.delete(entry.key).catch(() => false);
 	}
 	return { votes, ideas };
+}
+
+async function forgetVote(ctx: PluginContext, row: { id: string } & Record<string, unknown>): Promise<number> {
+	if (!asString(row.visitor)) return 0;
+	const item = asString(row.item);
+	// Same old row, same new key: a run that stops halfway and runs again cannot count it twice.
+	const anon = `g-${await sha256Hex(row.id)}`;
+	await ctx.storage.votes.put(voteRowId(item, anon), {
+		item,
+		member_id: anon,
+		createdAt: asString(row.createdAt),
+		visitor: "",
+	});
+	await ctx.storage.votes.delete(row.id);
+	return 1;
+}
+
+async function forgetIdea(ctx: PluginContext, row: { id: string } & Record<string, unknown>): Promise<number> {
+	if (!asString(row.visitor)) return 0;
+	// Touches only these two fields, and only while the hash is still the one read here.
+	const done = await ctx.storage.ideas.updateIf(row.id, {
+		where: { visitor: asString(row.visitor) },
+		set: { visitor: "", guest: true },
+	});
+	return done.applied ? 1 : 0;
 }

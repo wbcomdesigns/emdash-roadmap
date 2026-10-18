@@ -9,7 +9,7 @@ import { ensureNotifyTask, notifyOwners } from "./notify";
 import { loadSettings, seedDefaults } from "./settings";
 import { handleSuggest, handleSuggestGuest } from "./suggest";
 import { handleVote, handleVoteGuest, listMyVotes } from "./vote";
-import { requestIp } from "./visitor";
+import { requestGuest } from "./visitor";
 
 const plugin: SandboxedPlugin = {
 	hooks: {
@@ -56,7 +56,7 @@ const plugin: SandboxedPlugin = {
 					allowIdeas: settings.allowIdeas,
 					who: settings.who,
 					// Guests can vote and suggest only when the host gives the visitor's address.
-					guestWrites: settings.who === "anyone" && requestIp(routeCtx) !== null,
+					guestWrites: settings.who === "anyone" && requestGuest(routeCtx) !== null,
 				};
 			},
 		},
@@ -86,7 +86,7 @@ const plugin: SandboxedPlugin = {
 			handler: handleSuggestGuest,
 		},
 		admin: {
-			handler: async (routeCtx, ctx) => handleAdmin(routeCtx.input, ctx, requestIp(routeCtx) !== null),
+			handler: async (routeCtx, ctx) => handleAdmin(routeCtx.input, ctx, requestGuest(routeCtx) !== null),
 		},
 		editor_stage: {
 			handler: async (routeCtx, ctx) => handleEditorPanel(routeCtx, ctx),

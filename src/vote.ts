@@ -4,7 +4,7 @@ import { GUEST_UNAVAILABLE, MEMBERS_ONLY, NO_VISITOR, RATE_LIMITED, SIGN_IN, SPA
 import { listRoadmapItems } from "./content";
 import { findStage, loadSettings } from "./settings";
 import { asRecord, asString, nowIso, rows } from "./util";
-import { requestIp, visitorHash, visitorWho } from "./visitor";
+import { requestGuest, visitorHash, visitorWho } from "./visitor";
 
 export const NOT_FOUND = {
 	ok: false,
@@ -80,9 +80,9 @@ export async function handleVoteGuest(routeCtx: Route, ctx: PluginContext) {
 	const settings = await loadSettings(ctx);
 	if (settings.who === "members") return MEMBERS_ONLY;
 	// No visitor address from the host: guests cannot be told apart, so they cannot write (#51).
-	const ip = requestIp(routeCtx);
-	if (!ip) return GUEST_UNAVAILABLE;
-	const hash = await visitorHash(ctx, ip);
+	const guest = requestGuest(routeCtx);
+	if (!guest) return GUEST_UNAVAILABLE;
+	const hash = await visitorHash(ctx, guest);
 	const who = visitorWho(hash);
 	const itemId = asString(raw.id);
 	const method = routeCtx.request.method;

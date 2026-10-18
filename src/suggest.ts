@@ -16,7 +16,7 @@ import {
 } from "./core";
 import { firstStage, loadSettings } from "./settings";
 import { asRecord, asString, nowIso, plainText } from "./util";
-import { requestIp, visitorHash } from "./visitor";
+import { requestGuest, visitorHash } from "./visitor";
 
 export const TITLE_MAX = 120;
 export const DESC_MAX = 4000;
@@ -90,10 +90,10 @@ export async function handleSuggestGuest(routeCtx: Route, ctx: PluginContext) {
 	const settings = await loadSettings(ctx);
 	if (!settings.allowIdeas) return IDEAS_CLOSED;
 	if (settings.who === "members") return MEMBERS_ONLY;
-	const ip = requestIp(routeCtx);
-	if (!ip) return GUEST_UNAVAILABLE;
+	const guest = requestGuest(routeCtx);
+	if (!guest) return GUEST_UNAVAILABLE;
 	if (!idea.name) return NAME_REQUIRED;
-	const hash = await visitorHash(ctx, ip);
+	const hash = await visitorHash(ctx, guest);
 	if (await rateLimited(ctx, `suggest:v-${hash}`)) return RATE_LIMITED;
 	return createIdea(ctx, idea.title, idea.description, {
 		memberId: "",

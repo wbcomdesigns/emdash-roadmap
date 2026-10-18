@@ -15,7 +15,7 @@ Stop the dev server and start it again. **Registry** now shows in the admin menu
 
 **3. You need Node 22.16 or later** for the `npx emdash seed` step.
 
-Checked on EmDash 1.3.0 with the `blog` template, Node and Cloudflare.
+Checked on EmDash 1.3.0 with the `blog` template on Node. The Cloudflare lines follow EmDash's own guide; we have not run them on a Cloudflare site yet.
 
 ## Install
 
@@ -72,7 +72,7 @@ If a page is a 404 or the board says it could not load, see [Troubleshooting](..
 
 ## Guests and the visitor address
 
-Guests can vote and suggest only when your host tells EmDash the visitor's address. On Cloudflare that is automatic. On any other host, add `trustedProxyHeaders` to `emdash({ ... })` in `astro.config.mjs`, naming the header your proxy sets, for example `trustedProxyHeaders: ["x-forwarded-for"],`. Only do this when the site really sits behind a proxy that sets that header, or visitors could make up their own address.
+Guests can vote and suggest only when your host tells EmDash the visitor's address. EmDash fills it in on Cloudflare (EmDash's own docs; not yet run by us on Cloudflare). On any other host, add `trustedProxyHeaders` to `emdash({ ... })` in `astro.config.mjs`, naming the header your proxy sets, for example `trustedProxyHeaders: ["x-forwarded-for"],`. Only do this when the site really sits behind a proxy that sets that header, or visitors could make up their own address.
 
 Without it, guests see a sign-in link instead of the vote result and the suggest form, members take part as usual, and Admin, Roadmap, Settings says that guests cannot take part on this host.
 

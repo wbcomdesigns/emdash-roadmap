@@ -45,7 +45,7 @@ A guest left **Your name** empty on the suggest form. Signed-in members do not n
 
 ## Guests see a sign-in link instead of voting
 
-"Sign in to vote or suggest on this site." means your hosting does not tell EmDash the visitor's address, so guests cannot be told apart. Admin, Roadmap, Settings says the same. On Cloudflare this does not happen. On another host, set `trustedProxyHeaders` in the site config: see [Install](../getting-started/install.md#guests-and-the-visitor-address). Members are not affected.
+"Sign in to vote or suggest on this site." means your hosting does not tell EmDash the visitor's address, so guests cannot be told apart. Admin, Roadmap, Settings says the same. On Cloudflare, EmDash fills the address in. On another host, set `trustedProxyHeaders` in the site config: see [Install](../getting-started/install.md#guests-and-the-visitor-address). Members are not affected.
 
 ## A 401 in the browser console
 

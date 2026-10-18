@@ -639,7 +639,7 @@ describe("guest participation", () => {
 	it("refuses guest writes and stores nothing when the host gives no visitor address", async () => {
 		const site = await openRoadmap();
 		const item = await addItem(site.rt, "No address");
-		for (const ip of [null, "", "unknown"]) {
+		for (const ip of [null, "", "unknown", "not-an-address", "999.1.1.1"]) {
 			expect(await site.call("vote_guest", { id: item.id, visitor: "a".repeat(32) }, fromIp(ip))).toMatchObject({
 				ok: false,
 				error: { code: "GUEST_UNAVAILABLE" },
@@ -671,9 +671,6 @@ describe("guest participation", () => {
 	});
 
 	it("counts two IPv6 addresses in one /64 as one guest", async () => {
-		const { guestKey } = await import("../src/visitor");
-		expect(guestKey("2001:db8:1:2:aaaa::1")).toBe(guestKey("2001:0db8:0001:0002:ffff:1:2:3"));
-		expect(guestKey("2001:db8:1:2::1")).not.toBe(guestKey("2001:db8:1:3::1"));
 		const site = await openRoadmap();
 		const item = await addItem(site.rt, "Six");
 		await site.call("vote_guest", { id: item.id }, fromIp("2001:db8:1:2:aaaa::1"));

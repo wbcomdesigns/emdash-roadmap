@@ -1,5 +1,7 @@
 import type { PluginContext } from "emdash/plugin";
 
+import { guestKey } from "./visitor-key";
+
 type Ctx = Pick<PluginContext, "kv">;
 
 const SALT = "visitor-salt";
@@ -20,31 +22,20 @@ async function salt(ctx: Ctx): Promise<string> {
 }
 
 /**
- * The visitor's address as EmDash gives it: on Cloudflare, or when the site sets
- * trustedProxyHeaders. Null on any other host, and then guests cannot write (owner, 2026-10-16).
+ * The guest's key from the address EmDash gives the route: on Cloudflare, or when the site sets
+ * trustedProxyHeaders. Null on any other host, or for an address that does not parse; then
+ * guests cannot write (owner, 2026-10-16). One key per IPv4 address or IPv6 /64.
  */
-export function requestIp(routeCtx: { requestMeta?: unknown }): string | null {
+export function requestGuest(routeCtx: { requestMeta?: unknown }): string | null {
 	const meta = routeCtx.requestMeta as { ip?: string | null } | undefined;
 	const ip = typeof meta?.ip === "string" ? meta.ip.trim() : "";
 	if (!ip || ip.toLowerCase() === "unknown") return null;
-	return ip;
+	return guestKey(ip);
 }
 
-/** One guest per IPv4 address, and one per IPv6 /64, so rotating addresses inside a /64 is one guest. */
-export function guestKey(ip: string): string {
-	if (!ip.includes(":")) return ip;
-	const bare = ip.replace(/^\[|\]$/g, "").split("%")[0]!.toLowerCase();
-	const [head = "", tail = ""] = bare.split("::");
-	const left = head ? head.split(":") : [];
-	const right = tail ? tail.split(":") : [];
-	const fill = bare.includes("::") ? Array(Math.max(0, 8 - left.length - right.length)).fill("0") : [];
-	const groups = [...left, ...fill, ...right].map((group) => (group.replace(/^0+/, "") || "0"));
-	return `${groups.slice(0, 4).join(":")}::/64`;
-}
-
-/** Salted hash of the guest's address. Never the address itself. */
-export async function visitorHash(ctx: Ctx, ip: string): Promise<string> {
-	return sha256(`${await salt(ctx)}|ip|${guestKey(ip)}`);
+/** Salted hash of the guest key. Never the address itself. */
+export async function visitorHash(ctx: Ctx, guest: string): Promise<string> {
+	return sha256(`${await salt(ctx)}|ip|${guest}`);
 }
 
 export function visitorWho(hash: string): string {

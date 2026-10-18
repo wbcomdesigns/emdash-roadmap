@@ -7,6 +7,12 @@ let bound = false;
 /** Refusals that mean "sign in to do this", from this engine release and the one before (0.2.1 sent NO_VISITOR). */
 export const SIGN_IN_CODES = new Set(["SIGN_IN_REQUIRED", "MEMBERS_ONLY", "GUEST_UNAVAILABLE", "NO_VISITOR"]);
 
+/** The wording key for a refusal: 0.2.2 engines send MEMBERS_ONLY with reason GUEST_UNAVAILABLE. */
+export function refusalCode(result: ApiResult): string {
+	const error = result.error as { code?: string; reason?: string } | undefined;
+	return error?.reason === "GUEST_UNAVAILABLE" ? "GUEST_UNAVAILABLE" : error?.code || "FAILED";
+}
+
 export function voteAriaLabel(voted: boolean, title: string, votes: number): string {
 	const action = voted ? strings.voted : strings.vote;
 	const count = voteCountLabel(votes);
@@ -40,6 +46,7 @@ async function markMine(): Promise<void> {
 	for (const button of buttons) {
 		button.removeAttribute("aria-busy");
 		button.disabled = guestBlocked;
+		if (guestBlocked) button.setAttribute("aria-disabled", "true");
 	}
 	if (guestBlocked) showStatus({ ok: false, error: { code: "GUEST_UNAVAILABLE" } });
 	for (const button of document.querySelectorAll<HTMLButtonElement>("[data-vote]")) {
@@ -145,7 +152,7 @@ function showNote(text: string): void {
 }
 
 function showStatus(result: ApiResult): void {
-	const code = result.error?.code || "FAILED";
+	const code = refusalCode(result);
 	const box = document.getElementById("roadmap-status");
 	if (!box) return;
 	box.hidden = false;

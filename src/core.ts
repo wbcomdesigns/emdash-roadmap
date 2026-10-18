@@ -15,9 +15,13 @@ export const RATE_LIMITED = {
 };
 export const MEMBERS_ONLY = { ok: false, error: { code: "MEMBERS_ONLY", message: "Sign in to continue." } };
 export const SPAM = { ok: false, error: { code: "SPAM", message: "That request was not accepted." } };
+/**
+ * No usable visitor address: the guest is sent to sign in. The code is MEMBERS_ONLY because every
+ * kit since 0.1 maps it to the sign-in path; the reason lets the 0.2.2 kit use its own wording.
+ */
 export const GUEST_UNAVAILABLE = {
 	ok: false,
-	error: { code: "GUEST_UNAVAILABLE", message: "Sign in to vote or suggest on this site." },
+	error: { code: "MEMBERS_ONLY", reason: "GUEST_UNAVAILABLE", message: "Sign in to vote or suggest on this site." },
 };
 export const NO_VISITOR = { ok: false, error: { code: "NO_VISITOR", message: "Could not identify this visitor." } };
 export const IDEAS_CLOSED = { ok: false, error: { code: "IDEAS_CLOSED", message: "Suggestions are closed." } };

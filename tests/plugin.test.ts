@@ -649,11 +649,11 @@ describe("guest participation", () => {
 		for (const ip of [null, "", "unknown", "not-an-address", "999.1.1.1"]) {
 			expect(await site.call("vote_guest", { id: item.id, visitor: "a".repeat(32) }, fromIp(ip))).toMatchObject({
 				ok: false,
-				error: { code: "GUEST_UNAVAILABLE" },
+				error: { code: "MEMBERS_ONLY", reason: "GUEST_UNAVAILABLE" },
 			});
 			expect(
 				await site.call("suggest_guest", { title: "Sneaky", name: "Sam", visitor: "a".repeat(32) }, fromIp(ip)),
-			).toMatchObject({ ok: false, error: { code: "GUEST_UNAVAILABLE" } });
+			).toMatchObject({ ok: false, error: { code: "MEMBERS_ONLY", reason: "GUEST_UNAVAILABLE" } });
 		}
 		expect(await site.rt.inspect.storage.list("votes")).toHaveLength(0);
 		expect(await site.rt.inspect.storage.list("ideas")).toHaveLength(0);
@@ -943,6 +943,18 @@ describe("0.1.1 owner findings", () => {
 	it("computes the registry plugin id used on a real site", async () => {
 		const { registryPluginId } = await import("../site-kit/lib/wbcom-kit");
 		expect(await registryPluginId("roadmap")).toBe("r_76xywti6l5cbxzos");
+	});
+
+	it("maps the guest refusal of either engine to the sign-in wording", async () => {
+		const { refusalCode, SIGN_IN_CODES } = await import("../site-kit/lib/roadmap-vote");
+		const { phrase } = await import("../site-kit/lib/roadmap-strings");
+		const now = refusalCode({ ok: false, error: { code: "MEMBERS_ONLY", reason: "GUEST_UNAVAILABLE" } as never });
+		expect(now).toBe("GUEST_UNAVAILABLE");
+		expect(phrase(now)).toBe("Sign in to vote or suggest on this site.");
+		const old = refusalCode({ ok: false, error: { code: "NO_VISITOR" } });
+		expect(SIGN_IN_CODES.has(old)).toBe(true);
+		expect(phrase(old)).toBe("Sign in to vote or suggest on this site.");
+		expect(refusalCode({ ok: false, error: { code: "MEMBERS_ONLY" } })).toBe("MEMBERS_ONLY");
 	});
 
 	it("puts the vote count in the button name", async () => {

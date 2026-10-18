@@ -1,6 +1,6 @@
 import { api, esc, signInUrl, type ApiResult } from "./wbcom-kit";
 import { phrase, strings } from "./roadmap-strings";
-import { SIGN_IN_CODES } from "./roadmap-vote";
+import { SIGN_IN_CODES, refusalCode } from "./roadmap-vote";
 
 export function bindSuggestForm(): void {
 	const form = document.getElementById("roadmap-suggest") as HTMLFormElement | null;
@@ -69,7 +69,7 @@ function show(form: HTMLFormElement, result: ApiResult, closed: boolean): void {
 		return;
 	}
 	box.dataset.tone = "error";
-	const code = result.error?.code || "FAILED";
+	const code = refusalCode(result);
 	if (code === "IDEAS_CLOSED") {
 		box.textContent = strings.suggestClosed;
 		form.querySelectorAll("input, textarea, button").forEach((el) => {

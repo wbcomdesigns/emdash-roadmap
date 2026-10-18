@@ -110,6 +110,12 @@
 	gap: 0.4rem;
 }
 
+/* A guest who cannot vote on this host: the buttons read as off, the sign-in line above is the next step. */
+.wb-vote[aria-disabled="true"] {
+	opacity: 0.5;
+	cursor: not-allowed;
+}
+
 .wb-vote[aria-pressed="true"] {
 	background: var(--wb-btn-bg);
 	border-color: transparent;

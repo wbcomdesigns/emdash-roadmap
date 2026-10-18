@@ -2,7 +2,15 @@ import type { PluginContext } from "emdash/plugin";
 
 import { EMAIL_RE } from "./core";
 import { countInStage, hasCollections, listRoadmapItems, patchStage, stageCounts } from "./content";
-import { approveIdea, listPendingIdeas, mergeItems, rejectIdea, settlePublishedIdeas } from "./ideas";
+import {
+	approveIdea,
+	listPendingIdeas,
+	mergeItems,
+	mergeSourceValue,
+	parseMergeSource,
+	rejectIdea,
+	settlePublishedIdeas,
+} from "./ideas";
 import { ensureNotifyTask } from "./notify";
 import {
 	addStage,
@@ -20,7 +28,7 @@ import { asBoolean, asRecord, asString } from "./util";
 
 type Toast = { message: string; type: "success" | "error" | "info" };
 export type BlockMap = Record<string, unknown> & { type: string };
-export type BlockResponse = { blocks: BlockMap[]; toast?: Toast };
+export type BlockResponse = { blocks: BlockMap[]; toast?: Toast; refresh?: true };
 
 const PAGE = 25;
 const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
@@ -39,8 +47,8 @@ function failed(ctx: PluginContext, message: string) {
 	return renderSettings(ctx, { toast: { message, type: "error" } });
 }
 
-function whoLabel(idea: { name: string; visitor: string; member_id: string }): string {
-	if (idea.visitor) return idea.name ? `${idea.name} (guest)` : "Guest";
+function whoLabel(idea: { name: string; visitor: string; guest: boolean }): string {
+	if (idea.visitor || idea.guest) return idea.name ? `${idea.name} (guest)` : "Guest";
 	return idea.name || "Member";
 }
 
@@ -51,6 +59,66 @@ function stamped(action: string, id: string, rev: string): string {
 function parseStamped(value: unknown): { action: string; rev: string; id: string } {
 	const [action = "", rev = "", ...rest] = asString(value).split("|");
 	return { action, rev, id: rest.join("|") };
+}
+
+const KIT_DONE = "kit_pages_done";
+const REPO_URL = "https://github.com/wbcomdesigns/emdash-roadmap";
+
+/**
+ * The "Set up visitor pages" card. A registry plugin cannot add pages, so until the site kit is
+ * copied every roadmap address is the site's 404. The card gives the command for the version that
+ * is installed (never main), until the owner says the pages are set up; then one line to the guide.
+ */
+export async function kitBlocks(ctx: PluginContext): Promise<BlockMap[]> {
+	const tag = `v${ctx.plugin.version}`;
+	const guide = {
+		type: "link",
+		label: "Install guide",
+		target: { kind: "external", url: `${REPO_URL}/blob/${tag}/docs/website/getting-started/install.md` },
+	};
+	if ((await ctx.kv.get<string>(KIT_DONE)) === "1") {
+		return [
+			{
+				type: "context",
+				text: `Visitor pages come from the Roadmap site kit. After each plugin update, copy the kit for ${tag} again.`,
+			},
+			{ type: "actions", elements: [guide] },
+		];
+	}
+	return [
+		{
+			type: "banner",
+			title: "Set up visitor pages",
+			description:
+				"Installing Product Roadmap adds this admin, not pages on your site. The visitor pages come from the Roadmap site kit. Until you copy it, the addresses below show your site's 404 page.",
+			variant: "default",
+		},
+		{
+			type: "context",
+			text: `From your site's root folder, run this line. It copies the kit for the version you have installed (${tag}).`,
+		},
+		{
+			type: "code",
+			language: "bash",
+			// A fresh mktemp folder, never a fixed /tmp path someone else could create first; the
+			// script runs only when the clone worked.
+			code: `kit="$(mktemp -d)" && git clone --branch ${tag} --depth 1 ${REPO_URL} "$kit/emdash-roadmap" && "$kit/emdash-roadmap/scripts/add-to-site.sh" .`,
+		},
+		{
+			type: "fields",
+			fields: [
+				{ label: "Board", value: "/roadmap/" },
+				{ label: "One item", value: "/roadmap/<item>/" },
+				{ label: "Suggest an idea", value: "/roadmap/suggest/" },
+				{ label: "Changelog", value: "/changelog/" },
+				{ label: "My votes", value: "/account/roadmap-votes/" },
+			],
+		},
+		{
+			type: "actions",
+			elements: [guide, { type: "button", action_id: "kit_done", label: "Visitor pages are set up", style: "primary" }],
+		},
+	];
 }
 
 type IdeasExtra = Pick<BlockResponse, "toast"> & {
@@ -69,7 +137,8 @@ export async function renderIdeas(ctx: PluginContext, extra?: IdeasExtra): Promi
 	const pending = await settlePublishedIdeas(ctx, await listPendingIdeas(ctx));
 	const allItems = await listRoadmapItems(ctx);
 	const items = allItems.filter((item) => item.published);
-	const counts = stageCounts(allItems, settings.stages);
+	// Stage counts are what the board shows. A waiting idea is a draft: it counts as waiting only.
+	const counts = stageCounts(items, settings.stages);
 	const q = asString(extra?.q).trim();
 	const needle = q.toLowerCase();
 	const matched = needle
@@ -79,8 +148,11 @@ export async function renderIdeas(ctx: PluginContext, extra?: IdeasExtra): Promi
 	const pageRows = matched.slice(offset, offset + PAGE);
 	const keepOptions = withChoice(items.map((item) => ({ label: item.title, value: item.id })));
 	const sourceOptions = withChoice([
-		...pending.map((idea) => ({ label: `${idea.title} (waiting)`, value: `idea:${idea.id}:${idea.rev}` })),
-		...items.map((item) => ({ label: item.title, value: `item:${item.id}` })),
+		...pending.map((idea) => ({
+			label: `${idea.title} (waiting)`,
+			value: mergeSourceValue({ kind: "idea", id: idea.id, stamp: idea.rev }),
+		})),
+		...items.map((item) => ({ label: item.title, value: mergeSourceValue({ kind: "item", id: item.id, stamp: item.stamp }) })),
 	]);
 	const rows = pageRows.map((idea) => ({
 		title: idea.title,
@@ -207,6 +279,7 @@ export async function renderIdeas(ctx: PluginContext, extra?: IdeasExtra): Promi
 	return {
 		blocks: [
 			{ type: "header", text: "Ideas" },
+			...(await kitBlocks(ctx)),
 			{
 				type: "stats",
 				items: [
@@ -342,10 +415,15 @@ function stageRow(stage: Stage, count: number, first: boolean, last: boolean): B
 	];
 }
 
+// Whether the host gives EmDash the visitor's address, read from the admin's own request. The same
+// for every request on one host, so the latest request's answer is the answer.
+let hostGivesIp = true;
+
 export async function renderSettings(
 	ctx: PluginContext,
 	extra?: Pick<BlockResponse, "toast">,
 ): Promise<BlockResponse> {
+	const visitorIp = hostGivesIp;
 	await ensureNotifyTask(ctx);
 	const settings = await loadSettings(ctx);
 	const items = await listRoadmapItems(ctx);
@@ -364,6 +442,18 @@ export async function renderSettings(
 								type: "context",
 								text: "Suggestions always wait for you to approve them. Anyone can vote, or only signed-in members.",
 							},
+							...(!visitorIp && settings.who === "anyone"
+								? [
+										{
+											type: "banner",
+											variant: "alert",
+											title: "Guests cannot vote or suggest on this host",
+											description:
+												"Guests need a host that tells EmDash the visitor's address: Cloudflare, or trustedProxyHeaders in the site config. Until then, guests see a sign-in link and members take part as usual.",
+										},
+										{ type: "actions", elements: [guestGuide(ctx)] },
+									]
+								: []),
 							{
 								type: "form",
 								block_id: "settings_who",
@@ -473,6 +563,17 @@ export async function renderSettings(
 	};
 }
 
+function guestGuide(ctx: PluginContext) {
+	return {
+		type: "link",
+		label: "How to turn on guest voting",
+		target: {
+			kind: "external",
+			url: `${REPO_URL}/blob/v${ctx.plugin.version}/docs/website/getting-started/install.md#guests-and-the-visitor-address`,
+		},
+	};
+}
+
 async function saveWho(ctx: PluginContext, values: Record<string, unknown>): Promise<BlockResponse> {
 	await ctx.settings.set("allow_ideas", asBoolean(values.allow_ideas));
 	await ctx.settings.set("who", asString(values.who) === "members" ? "members" : "anyone");
@@ -577,54 +678,35 @@ async function handleIdeaMod(ctx: PluginContext, value: unknown): Promise<BlockR
 	return renderIdeas(ctx, { toast: { message: "Unknown decision.", type: "error" } });
 }
 
-function mergeTitles(
-	sourceRaw: string,
-	keep: string,
-	pending: Array<{ id: string; title: string }>,
-	items: Array<{ id: string; title: string }>,
-): { sourceTitle: string; keepTitle: string } | null {
-	const ideaMatch = sourceRaw.match(/^idea:([^:]+):/);
-	const itemMatch = sourceRaw.match(/^item:(.+)$/);
-	const sourceId = ideaMatch?.[1] || itemMatch?.[1] || sourceRaw;
-	const sourceTitle =
-		pending.find((idea) => idea.id === sourceId)?.title || items.find((item) => item.id === sourceId)?.title || "";
-	const keepTitle = items.find((item) => item.id === keep)?.title || "";
-	if (!sourceTitle || !keepTitle) return null;
-	return { sourceTitle, keepTitle };
-}
-
 async function handleMergeReview(ctx: PluginContext, values: Record<string, unknown>): Promise<BlockResponse> {
 	const source = asString(values.source);
 	const keep = asString(values.keep);
-	if (!source || !keep) {
+	const from = parseMergeSource(source);
+	if (!from || !keep) {
 		return renderIdeas(ctx, { toast: { message: "Choose both items.", type: "error" } });
 	}
 	const pending = await listPendingIdeas(ctx);
 	const items = (await listRoadmapItems(ctx)).filter((item) => item.published);
-	const names = mergeTitles(source, keep, pending, items);
-	if (!names) {
+	const sourceTitle =
+		(from.kind === "idea" ? pending : items).find((row) => row.id === from.id)?.title || "";
+	const keepTitle = items.find((item) => item.id === keep)?.title || "";
+	if (!sourceTitle || !keepTitle) {
 		return renderIdeas(ctx, { toast: { message: "Choose both items.", type: "error" } });
 	}
-	const sourceId = source.match(/^idea:([^:]+):/)?.[1] || source.match(/^item:(.+)$/)?.[1] || source;
-	if (sourceId === keep) {
+	if (from.id === keep) {
 		return renderIdeas(ctx, { toast: { message: "Pick two different items.", type: "error" } });
 	}
-	return renderIdeas(ctx, { mergeConfirm: { source, keep, ...names } });
+	return renderIdeas(ctx, { mergeConfirm: { source, keep, sourceTitle, keepTitle } });
 }
 
 async function handleMerge(ctx: PluginContext, values: Record<string, unknown>): Promise<BlockResponse> {
-	const sourceRaw = asString(values.source);
-	const keep = asString(values.keep);
-	const ideaMatch = sourceRaw.match(/^idea:([^:]+):(.*)$/);
-	const itemMatch = sourceRaw.match(/^item:(.+)$/);
-	const sourceId = ideaMatch?.[1] || itemMatch?.[1] || sourceRaw;
-	const rev = ideaMatch?.[2] || "";
-	const result = await mergeItems(ctx, sourceId, keep, rev);
+	const result = await mergeItems(ctx, parseMergeSource(asString(values.source)), asString(values.keep));
 	if (!result.ok) return renderIdeas(ctx, { toast: { message: result.error, type: "error" } });
 	return renderIdeas(ctx, { toast: { message: "Merged. Votes moved to the item you kept.", type: "success" } });
 }
 
-export async function handleAdmin(input: unknown, ctx: PluginContext): Promise<BlockResponse> {
+export async function handleAdmin(input: unknown, ctx: PluginContext, visitorIp = true): Promise<BlockResponse> {
+	hostGivesIp = visitorIp;
 	const raw = asRecord(input);
 	const type = asString(raw.type);
 	const page = asString(raw.page);
@@ -645,6 +727,10 @@ export async function handleAdmin(input: unknown, ctx: PluginContext): Promise<B
 
 	if (type === "block_action") {
 		const settings = await loadSettings(ctx);
+		if (action === "kit_done") {
+			await ctx.kv.set(KIT_DONE, "1");
+			return renderIdeas(ctx, { toast: { message: "Noted. The install guide stays linked here.", type: "success" } });
+		}
 		if (action === "idea_mod") return handleIdeaMod(ctx, raw.value);
 		if (action === "ideas_page") {
 			const [offset = "0", ...rest] = asString(raw.value).split("|");

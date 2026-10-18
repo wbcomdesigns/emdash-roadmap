@@ -13,7 +13,13 @@ export type RoadmapItem = {
 	stage: string;
 	published: boolean;
 	createdAt: string;
+	/** Changes whenever the item is saved. Ties an admin decision to the item the admin saw. */
+	stamp: string;
 };
+
+export function itemStamp(item: { version?: number; updatedAt?: string | null }): string {
+	return `${item.version ?? ""}~${item.updatedAt ?? ""}`;
+}
 
 export type BoardCard = {
 	id: string;
@@ -50,6 +56,7 @@ async function listByStatus(
 				stage: asString(data.stage),
 				published: item.status === "published",
 				createdAt: item.publishedAt || item.createdAt || "",
+				stamp: itemStamp(item),
 			});
 		}
 		if (!page.hasMore || !page.cursor) break;

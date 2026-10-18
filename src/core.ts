@@ -15,6 +15,10 @@ export const RATE_LIMITED = {
 };
 export const MEMBERS_ONLY = { ok: false, error: { code: "MEMBERS_ONLY", message: "Sign in to continue." } };
 export const SPAM = { ok: false, error: { code: "SPAM", message: "That request was not accepted." } };
+export const GUEST_UNAVAILABLE = {
+	ok: false,
+	error: { code: "GUEST_UNAVAILABLE", message: "Sign in to vote or suggest on this site." },
+};
 export const NO_VISITOR = { ok: false, error: { code: "NO_VISITOR", message: "Could not identify this visitor." } };
 export const IDEAS_CLOSED = { ok: false, error: { code: "IDEAS_CLOSED", message: "Suggestions are closed." } };
 export const INVALID = { ok: false, error: { code: "INVALID", message: "Check the form and try again." } };

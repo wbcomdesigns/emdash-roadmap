@@ -2,11 +2,11 @@ import type { PluginContext } from "emdash/plugin";
 
 import {
 	FAILED,
+	GUEST_UNAVAILABLE,
 	IDEAS_CLOSED,
 	INVALID,
 	MEMBERS_ONLY,
 	NAME_REQUIRED,
-	NO_VISITOR,
 	RATE_LIMITED,
 	SIGN_IN,
 	SPAM,
@@ -54,6 +54,7 @@ async function createIdea(ctx: PluginContext, title: string, description: string
 		rev: crypto.randomUUID(),
 		createdAt: nowIso(),
 		visitor: author.visitor,
+		guest: Boolean(author.visitor),
 		name: author.name,
 	});
 	return { ok: true, id: created.id, code: "THANKS" as const };
@@ -66,7 +67,6 @@ function readIdea(input: unknown) {
 		description: plainText(raw.description, DESC_MAX),
 		name: plainText(raw.name, NAME_MAX),
 		honeypot: asString(raw.website) || asString(raw.honeypot),
-		visitor: asString(raw.visitor),
 	};
 }
 
@@ -90,9 +90,10 @@ export async function handleSuggestGuest(routeCtx: Route, ctx: PluginContext) {
 	const settings = await loadSettings(ctx);
 	if (!settings.allowIdeas) return IDEAS_CLOSED;
 	if (settings.who === "members") return MEMBERS_ONLY;
+	const ip = requestIp(routeCtx);
+	if (!ip) return GUEST_UNAVAILABLE;
 	if (!idea.name) return NAME_REQUIRED;
-	const hash = await visitorHash(ctx, requestIp(routeCtx), idea.visitor);
-	if (!hash) return NO_VISITOR;
+	const hash = await visitorHash(ctx, ip);
 	if (await rateLimited(ctx, `suggest:v-${hash}`)) return RATE_LIMITED;
 	return createIdea(ctx, idea.title, idea.description, {
 		memberId: "",

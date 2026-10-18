@@ -21,7 +21,7 @@ function entryOf(routeCtx: RouteCtx): { collection: string; id: string } | null 
 async function renderPanel(
 	ctx: Ctx,
 	entry: { collection: string; id: string },
-	extra?: Pick<BlockResponse, "toast">,
+	extra?: Pick<BlockResponse, "toast"> & { refresh?: boolean },
 ): Promise<BlockResponse> {
 	if (entry.collection !== ROADMAP) {
 		return {
@@ -54,32 +54,36 @@ async function renderPanel(
 
 	const settings = await loadSettings(ctx);
 	const current = findStage(settings.stages, asString(asRecord(item.data).stage));
+	const label = (stage: { name: string; shown: boolean }) => (stage.shown === false ? `${stage.name} (hidden)` : stage.name);
+	// Buttons, not a form: the panel sits inside the editor's own form, and a form inside a form is
+	// invalid HTML. This panel is the one place to move an item; the board follows at once.
 	return {
 		blocks: [
-			{ type: "header", text: "Stage" },
 			{
-				type: "context",
-				text: "Pick a stage. The board uses this as soon as you save it here.",
+				type: "fields",
+				fields: [{ label: "Stage now", value: current ? label(current) : settings.stages[0]?.name || "" }],
 			},
-			{
-				type: "form",
-				block_id: "stage",
-				fields: [
-					{
-						type: "select",
-						action_id: "stage",
-						label: "Stage",
-						initial_value: current?.id || settings.stages[0]?.id || "",
-						options: settings.stages.map((stage) => ({
-							label: stage.shown === false ? `${stage.name} (hidden)` : stage.name,
-							value: stage.id,
-						})),
-					},
-				],
-				submit: { action_id: "set_stage", label: "Save stage" },
-			},
+			// A move republishes the item, which would also publish edits nobody has reviewed.
+			...(item.draftRevisionId
+				? [{ type: "context", text: "This item has unpublished edits. Publish or discard them, then move it here." }]
+				: [
+						{ type: "context", text: "Move this item to another stage. The board changes at once." },
+						{
+							type: "actions",
+							elements: settings.stages
+								.filter((stage) => stage.id !== current?.id)
+								.map((stage) => ({
+									type: "button",
+									label: `Move to ${label(stage)}`,
+									// Unique per button: the admin keys elements by action_id.
+									action_id: `set_stage:${stage.id}`,
+									value: stage.id,
+								})),
+						},
+					]),
 		],
 		toast: extra?.toast,
+		...(extra?.refresh ? { refresh: true as const } : {}),
 	};
 }
 
@@ -95,10 +99,12 @@ async function saveStage(ctx: Ctx, entry: { collection: string; id: string }, ra
 	}
 	if (result.state === "busy") {
 		return renderPanel(ctx, entry, {
-			toast: { message: "This item has unpublished edits. Finish or discard them first.", type: "error" },
+			toast: { message: "This item has unpublished edits. Publish or discard them, then move it.", type: "error" },
 		});
 	}
-	return renderPanel(ctx, entry, { toast: { message: `Moved to ${stage.name}.`, type: "success" } });
+	// refresh: the editor reloads the entry, so its own Stage box shows the new stage and a later
+	// Save of the entry cannot put the old one back.
+	return renderPanel(ctx, entry, { toast: { message: `Moved to ${stage.name}.`, type: "success" }, refresh: true });
 }
 
 export async function handleEditorPanel(routeCtx: RouteCtx, ctx: Ctx): Promise<BlockResponse> {
@@ -117,8 +123,9 @@ export async function handleEditorPanel(routeCtx: RouteCtx, ctx: Ctx): Promise<B
 	}
 
 	const raw = asRecord(routeCtx.input);
-	if (asString(raw.type) === "form_submit" && asString(raw.action_id) === "set_stage") {
-		return saveStage(ctx, entry, asString(asRecord(raw.values).stage));
+	const action = asString(raw.action_id);
+	if (asString(raw.type) === "block_action" && action.startsWith("set_stage:")) {
+		return saveStage(ctx, entry, action.slice("set_stage:".length));
 	}
 	return renderPanel(ctx, entry);
 }

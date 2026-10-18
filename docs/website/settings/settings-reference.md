@@ -15,7 +15,7 @@ Saved with **Save** on the **Who can take part** tab. You see "Who can take part
 | Allow suggestions | When on, people can send an idea. It always waits for your approval. When off, the Suggest an idea button leaves the board and the suggest page says suggestions are closed | On |
 | Who can vote and suggest | **Anyone**, or **Signed-in members only**. Guests who try under members only are asked to sign in | Anyone |
 
-Guest votes are counted as described in [Voting](../using/voting.md#how-a-guest-vote-is-counted).
+Guest votes are counted as described in [Voting](../using/voting.md#how-a-guest-vote-is-counted). When your hosting gives EmDash no visitor address, this tab shows "Guests cannot vote or suggest on this host" with a link to the fix, and guests get a sign-in link even with **Anyone** selected.
 
 ## Stages
 

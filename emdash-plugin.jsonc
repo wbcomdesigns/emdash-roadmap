@@ -42,7 +42,8 @@
 			"indexes": [
 				"item",
 				"member_id",
-				"createdAt"
+				"createdAt",
+				"visitor"
 			]
 		},
 		"tallies": {
@@ -54,7 +55,8 @@
 			"indexes": [
 				"status",
 				"member_id",
-				"createdAt"
+				"createdAt",
+				"visitor"
 			]
 		}
 	},

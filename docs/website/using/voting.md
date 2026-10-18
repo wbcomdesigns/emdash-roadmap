@@ -24,13 +24,14 @@ A signed-in member always votes as themselves, whichever setting you pick.
 
 ## How a guest vote is counted
 
-A guest has no account, so Product Roadmap needs another way to count one vote per person. It uses the visitor's internet address when your hosting passes it on. It stores only a scrambled form of the address, never the address itself. If your hosting does not pass the address on, it falls back to a random code saved in the visitor's browser.
+A guest has no account, so Product Roadmap counts one vote per internet address (for IPv6, per /64 network, so one home's rotating addresses count once). It stores only a salted, scrambled form of the address, never the address itself, and clears even that from a vote after 30 days. The vote stays.
+
+Your hosting has to tell EmDash the visitor's address: Cloudflare does, and any other host does once the site sets `trustedProxyHeaders` (see [Install](../getting-started/install.md#guests-and-the-visitor-address)). Without it, guests cannot vote or suggest: they see "Sign in to vote or suggest on this site." with a **Sign in** link, and members take part as usual.
 
 What this means for you:
 
 - People who share one internet address, such as one office, share one vote per item.
-- With the browser code, a private window or cleared site data lets someone vote again. For votes where that matters, choose **Signed-in members only**.
-- A guest is never locked out because of the hosting. See [Who can take part](../settings/settings-reference.md#who-can-take-part).
+- After 30 days a guest's vote no longer carries their address, so the same guest could vote on that item again. For votes where that matters, choose **Signed-in members only**.
 - A guest's "Voted" mark comes from their own browser. On a different browser they see **Vote**, though their vote still counts.
 
 ## My votes

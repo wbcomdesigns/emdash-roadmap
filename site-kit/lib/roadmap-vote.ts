@@ -1,6 +1,6 @@
 import { api, esc, pluginFetch, signInUrl, type ApiResult } from "./wbcom-kit";
 import { phrase, strings, voteCountLabel } from "./roadmap-strings";
-import { readVotes, rememberVote, visitorToken } from "./roadmap-visitor";
+import { readVotes, rememberVote } from "./roadmap-visitor";
 
 let bound = false;
 
@@ -112,15 +112,9 @@ async function sendVote(id: string, voted: boolean): Promise<ApiResult> {
 		? await api("roadmap", `vote?id=${encodeURIComponent(id)}`, undefined, "DELETE")
 		: await api("roadmap", "vote", { id });
 	if (member.ok || (member.error?.code && member.error.code !== "SIGN_IN_REQUIRED")) return member;
-	const visitor = visitorToken();
 	return voted
-		? api(
-				"roadmap",
-				`vote_guest?id=${encodeURIComponent(id)}&visitor=${encodeURIComponent(visitor)}`,
-				undefined,
-				"DELETE",
-			)
-		: api("roadmap", "vote_guest", { id, visitor });
+		? api("roadmap", `vote_guest?id=${encodeURIComponent(id)}`, undefined, "DELETE")
+		: api("roadmap", "vote_guest", { id });
 }
 
 function paint(button: HTMLButtonElement, voted: boolean, votes: number): void {
@@ -139,7 +133,7 @@ function showStatus(result: ApiResult): void {
 	if (!box) return;
 	box.hidden = false;
 	box.dataset.tone = "error";
-	if (code === "SIGN_IN_REQUIRED" || code === "MEMBERS_ONLY") {
+	if (code === "SIGN_IN_REQUIRED" || code === "MEMBERS_ONLY" || code === "GUEST_UNAVAILABLE") {
 		box.innerHTML = `${esc(phrase(code))} <a href="${esc(signInUrl())}">${esc(strings.signIn)}</a>`;
 		return;
 	}

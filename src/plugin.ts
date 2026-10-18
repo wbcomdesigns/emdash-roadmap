@@ -4,10 +4,12 @@ import { handleAdmin } from "./admin";
 import { loadBoard } from "./content";
 import { handleEditorPanel } from "./editor";
 import { CHANGELOG, MEMBER, ROADMAP, hasCollection } from "./core";
+import { forgetOldGuests } from "./ideas";
 import { ensureNotifyTask, notifyOwners } from "./notify";
 import { loadSettings, seedDefaults } from "./settings";
 import { handleSuggest, handleSuggestGuest } from "./suggest";
 import { handleVote, handleVoteGuest, listMyVotes } from "./vote";
+import { requestIp } from "./visitor";
 
 const plugin: SandboxedPlugin = {
 	hooks: {
@@ -25,7 +27,9 @@ const plugin: SandboxedPlugin = {
 		},
 		cron: {
 			handler: async (event, ctx) => {
-				if (event.name === "notify") await notifyOwners(ctx);
+				if (event.name !== "notify") return;
+				await notifyOwners(ctx);
+				await forgetOldGuests(ctx);
 			},
 		},
 	},
@@ -37,7 +41,7 @@ const plugin: SandboxedPlugin = {
 		},
 		health: {
 			public: true,
-			handler: async (_routeCtx, ctx) => {
+			handler: async (routeCtx, ctx) => {
 				const settings = await loadSettings(ctx);
 				const [roadmap, changelog] = await Promise.all([
 					hasCollection(ctx, ROADMAP),
@@ -51,6 +55,8 @@ const plugin: SandboxedPlugin = {
 					changelog,
 					allowIdeas: settings.allowIdeas,
 					who: settings.who,
+					// Guests can vote and suggest only when the host gives the visitor's address.
+					guestWrites: settings.who === "anyone" && requestIp(routeCtx) !== null,
 				};
 			},
 		},
@@ -80,7 +86,7 @@ const plugin: SandboxedPlugin = {
 			handler: handleSuggestGuest,
 		},
 		admin: {
-			handler: async (routeCtx, ctx) => handleAdmin(routeCtx.input, ctx),
+			handler: async (routeCtx, ctx) => handleAdmin(routeCtx.input, ctx, requestIp(routeCtx) !== null),
 		},
 		editor_stage: {
 			handler: async (routeCtx, ctx) => handleEditorPanel(routeCtx, ctx),

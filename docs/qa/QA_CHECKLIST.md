@@ -47,6 +47,8 @@ Three roles, in this order: guest (private window), member (subscriber), admin. 
 | G-10 | Setting anyone: suggest an idea signed out with a name | Thanks message. It waits in the admin queue |
 | G-11 | Setting members: call `vote_guest` and `suggest_guest` directly | Refused |
 | G-12 | Open an idea page | EmDash comments show below the description, following the site's own comment settings |
+| G-13 | Host gives no visitor address (no Cloudflare, no trustedProxyHeaders): vote, then open Suggest | Vote says "Sign in to vote or suggest on this site." with Sign in. Suggest shows the sign-in box, no form. Nothing stored |
+| G-14 | Same site with trustedProxyHeaders and the header set: vote twice from one address, then from two addresses in one IPv6 /64 | One vote each time; the /64 pair counts once |
 | G-94 | Change three phrases in the wording file (a button, an empty state, an error), rebuild | Each change shows everywhere that phrase is used. No English left on screen that is not in the file |
 
 ## Member (subscriber role)
@@ -63,6 +65,7 @@ Three roles, in this order: guest (private window), member (subscriber), admin. 
 | M-8 | Use the board on a phone | Tabs switch columns. No sideways scroll |
 | M-9 | Open My votes | Voted items by name, own ideas with status |
 | M-10 | Delete my votes (two clicks) | List empties. Counts drop |
+| M-11 | Host gives no visitor address: member votes and suggests | Both work as usual |
 
 ## Admin
 
@@ -82,6 +85,11 @@ Three roles, in this order: guest (private window), member (subscriber), admin. 
 | A-12 | Twenty ideas waiting, hourly task runs twice; then switch email off | One email, no idea text and no link. Switch off sends none |
 | A-13 | Guest suggests "Bulk edit tagz"; admin fixes the draft title to "Bulk edit tags" and saves; Approve | The board shows "Bulk edit tags". An untouched idea approves with its own text |
 | A-14 | Hide the first stage, then approve an idea | It lands in the first shown stage and is on the board |
+| A-15 | Fresh install, open Ideas | Set up visitor pages card with the mktemp clone command for the installed tag and the five addresses. Visitor pages are set up leaves one line and the guide link |
+| A-16 | Host gives no visitor address, open Settings, Who can take part | Banner "Guests cannot vote or suggest on this host" and the guide link |
+| A-17 | Open a published item, Stage panel, Move to Planned; then edit the description and save | Board moves at once, the form Stage box shows Planned, Save gives no conflict, the stage stays. No form-in-form error in the console |
+| A-18 | One suggested idea waiting | Ideas waiting 1; Under review counts only the board |
+| A-19 | Run add-to-site.sh on a fresh blog site, then again after editing roadmap-strings.ts and RoadmapLayout.astro | Every page renders after a restart; second run keeps the layout and backs up the wording file |
 
 ## Presentation, every screen
 

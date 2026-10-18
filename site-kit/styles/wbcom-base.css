@@ -1,4 +1,4 @@
-/* wbcom-shared: 3 */
+/* wbcom-shared: 4 */
 /*
  * Wbcom EmDash kit base. Shared by every Wbcom plugin kit: keep this file identical across
  * plugins and change it in emdash-plugin-starter first.
@@ -39,8 +39,12 @@
 	--wb-border: var(--color-border, light-dark(#e0e0e0, #333333));
 	--wb-surface: var(--color-surface, light-dark(#f7f7f7, #1c1c1c));
 	--wb-brand: var(--color-brand, light-dark(#0066cc, #4d9fff));
-	--wb-btn-bg: light-dark(var(--wb-brand), color-mix(in srgb, var(--wb-brand) 52%, #000000));
-	--wb-on-brand: #ffffff;
+	/* Buttons use the theme's own brand pair (version 4). Version 3 darkened the brand by half in
+	   dark mode and always put white text on it, so a theme with a light brand colour in dark mode
+	   (the EmDash blog template: #fafafa) got white on mid-grey, about 3.6:1. The fallbacks pass
+	   4.5:1 with white text. */
+	--wb-btn-bg: var(--color-brand, light-dark(#0066cc, #1d5fb8));
+	--wb-on-brand: var(--color-on-brand, #ffffff);
 	--wb-star: light-dark(#b45309, #f5a623);
 	--wb-ok-bg: light-dark(#ecfdf5, #052e16);
 	--wb-ok-fg: light-dark(#166534, #86efac);

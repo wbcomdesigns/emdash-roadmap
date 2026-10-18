@@ -2,6 +2,23 @@
 
 Versions match `package.json`, the git tag and the registry release. Newest first.
 
+## [0.2.2] - 2026-10-19
+
+Guests can now vote and suggest only when your host tells EmDash the visitor's address. Copy the kit again after you update.
+
+- Security - Guest votes and suggestions are refused when the host gives EmDash no visitor address (any host but Cloudflare, unless the site sets trustedProxyHeaders), and guests see a sign-in link instead.
+- Security - A guest is one guest per IPv4 address or IPv6 /64, and a browser-sent code no longer counts as a guest.
+- Security - The hourly task clears the salted visitor hash from guest votes and ideas after 30 days, and every merge checks that the item has not changed since the page loaded.
+- New      - Ideas opens with a Set up visitor pages card that gives the kit command for the installed version, until you mark the pages as set up.
+- New      - One command copies the whole kit into a site, layout included, and creates the content types: scripts/add-to-site.sh.
+- Improve  - The Stage panel is the one place to move an item: one button per stage, and the editor's own Stage box follows at once.
+- Improve  - Settings says plainly when guests cannot take part on this host, with a link to the fix.
+- Improve  - Install steps start with the shared Before you install block, use the release tag, name Admin, Menus and Admin, Roadmap, Settings, and are checked on EmDash 1.3.0.
+- Fix      - Ideas no longer counts a waiting idea in Under review as well as in Ideas waiting.
+- Fix      - The Stage panel no longer puts a form inside the editor's form.
+- Fix      - Roadmap pages line up with the site header and footer on the blog template.
+- Fix      - Buttons and selected chips use the theme's own brand colours, readable in dark mode (shared kit styles 4).
+
 ## [0.2.1] - 2026-10-15
 
 Copy the kit again after you update.

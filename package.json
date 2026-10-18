@@ -1,6 +1,6 @@
 {
 	"name": "@wbcomdesigns/emdash-roadmap",
-	"version": "0.2.1",
+	"version": "0.2.2",
 	"private": true,
 	"type": "module",
 	"packageManager": "npm@10.9.8",
@@ -24,7 +24,7 @@
 		"validate": "emdash-plugin validate",
 		"build": "emdash-plugin build",
 		"typecheck": "tsc --noEmit",
-		"test": "emdash-plugin validate && tsc --noEmit && vitest run",
+		"test": "emdash-plugin validate && tsc --noEmit && vitest run && node --test tests/node/add-to-site.check.mjs",
 		"bundle": "emdash-plugin bundle",
 		"publish": "emdash-plugin publish"
 	},

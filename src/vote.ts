@@ -1,6 +1,6 @@
 import type { PluginContext } from "emdash/plugin";
 
-import { MEMBERS_ONLY, NO_VISITOR, RATE_LIMITED, SIGN_IN, SPAM, collectionName, rateLimited, type Member } from "./core";
+import { GUEST_UNAVAILABLE, MEMBERS_ONLY, NO_VISITOR, RATE_LIMITED, SIGN_IN, SPAM, collectionName, rateLimited, type Member } from "./core";
 import { listRoadmapItems } from "./content";
 import { findStage, loadSettings } from "./settings";
 import { asRecord, asString, nowIso, rows } from "./util";
@@ -79,8 +79,10 @@ export async function handleVoteGuest(routeCtx: Route, ctx: PluginContext) {
 	if (asString(raw.website) || asString(raw.honeypot)) return SPAM;
 	const settings = await loadSettings(ctx);
 	if (settings.who === "members") return MEMBERS_ONLY;
-	const hash = await visitorHash(ctx, requestIp(routeCtx), asString(raw.visitor));
-	if (!hash) return NO_VISITOR;
+	// No visitor address from the host: guests cannot be told apart, so they cannot write (#51).
+	const ip = requestIp(routeCtx);
+	if (!ip) return GUEST_UNAVAILABLE;
+	const hash = await visitorHash(ctx, ip);
 	const who = visitorWho(hash);
 	const itemId = asString(raw.id);
 	const method = routeCtx.request.method;

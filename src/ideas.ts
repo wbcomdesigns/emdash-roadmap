@@ -1,10 +1,10 @@
 import type { PluginContext } from "emdash/plugin";
 
 import { collectionName } from "./core";
-import { getItem, publishNow, unpublishNow } from "./content";
+import { getItem, itemStamp, publishNow, unpublishNow } from "./content";
 import { firstStage, loadSettings } from "./settings";
 import { asRecord, asString, rows } from "./util";
-import { recount } from "./vote";
+import { recount, voteRowId } from "./vote";
 
 export type IdeaRow = {
 	id: string;
@@ -15,6 +15,8 @@ export type IdeaRow = {
 	member_id: string;
 	name: string;
 	visitor: string;
+	/** Sent by a guest. Stays true after the hourly task clears the visitor hash. */
+	guest: boolean;
 	createdAt: string;
 };
 
@@ -28,6 +30,7 @@ export function ideaFrom(row: { id: string } & Record<string, unknown>): IdeaRow
 		member_id: asString(row.member_id),
 		name: asString(row.name),
 		visitor: asString(row.visitor),
+		guest: row.guest === true || Boolean(asString(row.visitor)),
 		createdAt: asString(row.createdAt),
 	};
 }
@@ -157,29 +160,88 @@ export async function moveVotes(ctx: PluginContext, fromId: string, toId: string
 	await recount(ctx, toId);
 }
 
+export type MergeSource = { kind: "idea" | "item"; id: string; stamp: string };
+
+/** Admin form values carry what the admin saw: "idea|<id>|<rev>" or "item|<id>|<stamp>". */
+export function mergeSourceValue(source: MergeSource): string {
+	return `${source.kind}|${source.id}|${source.stamp}`;
+}
+
+export function parseMergeSource(value: string): MergeSource | null {
+	const [kind = "", id = "", ...rest] = value.split("|");
+	if ((kind !== "idea" && kind !== "item") || !id) return null;
+	return { kind, id, stamp: rest.join("|") };
+}
+
+const CHANGED = { ok: false as const, error: "That item changed after this page loaded. Check it and try again." };
+
 export async function mergeItems(
 	ctx: PluginContext,
-	sourceId: string,
+	from: MergeSource | null,
 	keepId: string,
-	rev = "",
 ): Promise<{ ok: true } | { ok: false; error: string }> {
-	if (!sourceId || !keepId) return { ok: false, error: "Pick two different items." };
+	if (!from || !keepId) return { ok: false, error: "Pick two different items." };
+	const sourceId = from.id;
 	if (sourceId === keepId) return { ok: false, error: "Pick a different item to keep." };
+	// Every merge carries the stamp of what the admin saw, for an idea and for an item alike.
+	if (!from.stamp) return CHANGED;
 	const idea = await loadIdea(ctx, sourceId);
-	if (idea?.status === "pending" && rev && idea.rev !== rev) {
+	if (from.kind === "idea" && (idea?.status !== "pending" || idea.rev !== from.stamp)) {
 		return { ok: false, error: "That idea changed after this page loaded." };
 	}
 	const source = await getItem(ctx, sourceId);
 	const keep = await getItem(ctx, keepId);
 	if (!source || !keep) return { ok: false, error: "One of those items is no longer there." };
+	if (from.kind === "item" && itemStamp(source) !== from.stamp) return CHANGED;
 	if (keep.status !== "published") return { ok: false, error: "Keep a published item." };
 	await moveVotes(ctx, sourceId, keepId);
 	if (source.status === "published") await unpublishNow(ctx, sourceId);
-	const from = `/${(await collectionName(ctx))}/${source.slug || sourceId}`;
-	const to = `/${(await collectionName(ctx))}/${keep.slug || keepId}`;
-	if (ctx.redirects?.create && source.slug && keep.slug && from !== to) {
-		await ctx.redirects.create({ source: from, destination: to, type: 301 }).catch(() => undefined);
+	const fromPath = `/${(await collectionName(ctx))}/${source.slug || sourceId}`;
+	const toPath = `/${(await collectionName(ctx))}/${keep.slug || keepId}`;
+	if (ctx.redirects?.create && source.slug && keep.slug && fromPath !== toPath) {
+		await ctx.redirects.create({ source: fromPath, destination: toPath, type: 301 }).catch(() => undefined);
 	}
 	if (idea) await writeIdea(ctx, idea, { status: "merged" });
 	return { ok: true };
+}
+
+/** How long a guest's salted address stays on a row: it stops repeat votes inside this window. */
+export const GUEST_HASH_DAYS = 30;
+const FORGET_BATCH = 100;
+
+/**
+ * Hourly: drop the salted visitor hash from guest votes and guest ideas older than the window.
+ * The vote and the idea stay. A vote row is keyed by the hash, so it moves to an anonymous key.
+ */
+export async function forgetOldGuests(ctx: PluginContext, now = Date.now()): Promise<{ votes: number; ideas: number }> {
+	const before = new Date(now - GUEST_HASH_DAYS * 24 * 60 * 60 * 1000).toISOString();
+	let votes = 0;
+	const oldVotes = rows(await ctx.storage.votes.query({ where: { visitor: { gt: "" }, createdAt: { lt: before } }, limit: FORGET_BATCH }));
+	for (const row of oldVotes) {
+		if (!asString(row.visitor)) continue;
+		const item = asString(row.item);
+		const anon = `g-${crypto.randomUUID()}`;
+		await ctx.storage.votes.put(voteRowId(item, anon), {
+			item,
+			member_id: anon,
+			createdAt: asString(row.createdAt),
+			visitor: "",
+		});
+		await ctx.storage.votes.delete(row.id);
+		votes += 1;
+	}
+	let ideas = 0;
+	const oldIdeas = rows(await ctx.storage.ideas.query({ where: { visitor: { gt: "" }, createdAt: { lt: before } }, limit: FORGET_BATCH }));
+	for (const row of oldIdeas) {
+		if (!asString(row.visitor)) continue;
+		const { id, ...rest } = row;
+		await ctx.storage.ideas.put(id, { ...rest, visitor: "", guest: true });
+		ideas += 1;
+	}
+	// Rate-limit counters carry the same hash in their key. Drop the ones whose hour is over.
+	for (const entry of await ctx.kv.list("rate:").catch(() => [])) {
+		const start = Number(String(entry.value ?? "").split("|")[0]) || 0;
+		if (now - start > 60 * 60 * 1000) await ctx.kv.delete(entry.key).catch(() => false);
+	}
+	return { votes, ideas };
 }

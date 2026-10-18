@@ -120,7 +120,9 @@ async function onClick(event: Event): Promise<void> {
 	}
 	rememberVote(id, Boolean(result.voted));
 	paint(button, Boolean(result.voted), Number(result.votes) || 0);
-	if (result.code === "NO_VOTE_TO_TAKE_BACK") showNote(strings.voteForgotten);
+	if (result.code === "NO_VOTE_TO_TAKE_BACK") {
+		showNote(result.reason === "forgotten_guest" ? strings.voteForgotten : strings.voteAlreadyRemoved);
+	}
 }
 
 async function sendVote(id: string, voted: boolean): Promise<ApiResult> {

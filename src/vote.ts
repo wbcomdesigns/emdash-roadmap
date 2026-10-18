@@ -50,12 +50,27 @@ async function saveVote(ctx: PluginContext, itemId: string, who: string, extra: 
 	return { ok: true, votes: await recount(ctx, itemId), voted: true } satisfies VoteOk;
 }
 
+/** The key a guest vote moves to once the 30-day cleanup drops its hash. Same old row, same key. */
+export async function anonymousVoteId(itemId: string, oldRowId: string): Promise<string> {
+	const bytes = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(oldRowId));
+	const hex = [...new Uint8Array(bytes)].map((byte) => byte.toString(16).padStart(2, "0")).join("").slice(0, 40);
+	return voteRowId(itemId, `g-${hex}`);
+}
+
 async function dropVote(ctx: PluginContext, itemId: string, who: string) {
 	const id = voteRowId(itemId, who);
-	// Nothing to take back: never voted, or a guest vote older than 30 days that no longer carries
-	// the guest's address (forgetOldGuests). Say so plainly; the kit then stops showing Voted.
+	// Nothing to take back. Say which case plainly; the kit then stops showing Voted.
+	// forgotten_guest: the vote is older than 30 days and no longer carries the guest's address.
+	// already_removed: taken back before (another tab, another device), or never cast.
 	if (!(await ctx.storage.votes.exists(id))) {
-		return { ok: true, votes: await recount(ctx, itemId), voted: false, code: "NO_VOTE_TO_TAKE_BACK" as const };
+		const forgotten = who.startsWith("v-") && (await ctx.storage.votes.exists(await anonymousVoteId(itemId, id)));
+		return {
+			ok: true,
+			votes: await recount(ctx, itemId),
+			voted: false,
+			code: "NO_VOTE_TO_TAKE_BACK" as const,
+			reason: forgotten ? ("forgotten_guest" as const) : ("already_removed" as const),
+		};
 	}
 	await ctx.storage.votes.delete(id);
 	return { ok: true, votes: await recount(ctx, itemId), voted: false } satisfies VoteOk;

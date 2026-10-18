@@ -1,7 +1,7 @@
 import type { SandboxedPlugin } from "emdash/plugin";
 
 import { handleAdmin } from "./admin";
-import { keepStoredStage, loadBoard } from "./content";
+import { keepPanelStage, loadBoard } from "./content";
 import { handleEditorPanel } from "./editor";
 import { CHANGELOG, MEMBER, ROADMAP, hasCollection } from "./core";
 import { forgetOldGuests } from "./ideas";
@@ -26,7 +26,7 @@ const plugin: SandboxedPlugin = {
 			},
 		},
 		"content:beforeSave": {
-			handler: async (event, ctx) => keepStoredStage(ctx, event),
+			handler: async (event, ctx) => keepPanelStage(ctx, event),
 		},
 		cron: {
 			handler: async (event, ctx) => {

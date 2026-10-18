@@ -4,7 +4,7 @@ import { collectionName } from "./core";
 import { getItem, itemStamp, publishNow, unpublishNow } from "./content";
 import { firstStage, loadSettings } from "./settings";
 import { STORAGE_PAGE, allRows, asRecord, asString, rows } from "./util";
-import { recount, voteRowId } from "./vote";
+import { anonymousVoteId, recount } from "./vote";
 
 export type IdeaRow = {
 	id: string;
@@ -120,12 +120,17 @@ export async function approveIdea(
 		const now = await loadIdea(ctx, id);
 		if (now?.status === "approved") await writeIdea(ctx, now, { status: "pending" });
 	};
-	await ctx.content.update(await collectionName(ctx), id, {
-		...item.data,
-		title: asString(asRecord(item.data).title) || idea.title,
-		description: asString(asRecord(item.data).description) || idea.description,
-		stage: stage.name,
-	});
+	try {
+		await ctx.content.update(await collectionName(ctx), id, {
+			...item.data,
+			title: asString(asRecord(item.data).title) || idea.title,
+			description: asString(asRecord(item.data).description) || idea.description,
+			stage: stage.name,
+		});
+	} catch {
+		await back();
+		return { ok: false, error: "Could not save the idea. It is back in the list; try again." };
+	}
 	if (!(await publishNow(ctx, id).catch(() => false))) {
 		await back();
 		return { ok: false, error: "Could not publish. Open the item in content admin and publish it there." };
@@ -227,11 +232,6 @@ export async function mergeItems(
 	return { ok: true };
 }
 
-async function sha256Hex(text: string): Promise<string> {
-	const bytes = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(text));
-	return [...new Uint8Array(bytes)].map((byte) => byte.toString(16).padStart(2, "0")).join("").slice(0, 40);
-}
-
 /** How long a guest's salted address stays on a row: it stops repeat votes inside this window. */
 export const GUEST_HASH_DAYS = 30;
 const FORGET_BATCH = STORAGE_PAGE;
@@ -270,18 +270,20 @@ export async function forgetOldGuests(ctx: PluginContext, now = Date.now()): Pro
 	return { votes, ideas };
 }
 
-async function forgetVote(ctx: PluginContext, row: { id: string } & Record<string, unknown>): Promise<number> {
+export async function forgetVote(ctx: PluginContext, row: { id: string } & Record<string, unknown>): Promise<number> {
 	if (!asString(row.visitor)) return 0;
 	const item = asString(row.item);
+	// Delete first and write the anonymous row only if this run deleted the old one: a guest who
+	// takes the vote back at the same moment wins, and the vote does not come back.
+	if (!(await ctx.storage.votes.delete(row.id))) return 0;
 	// Same old row, same new key: a run that stops halfway and runs again cannot count it twice.
-	const anon = `g-${await sha256Hex(row.id)}`;
-	await ctx.storage.votes.put(voteRowId(item, anon), {
+	const anon = await anonymousVoteId(item, row.id);
+	await ctx.storage.votes.put(anon, {
 		item,
-		member_id: anon,
+		member_id: anon.slice(item.length + 1),
 		createdAt: asString(row.createdAt),
 		visitor: "",
 	});
-	await ctx.storage.votes.delete(row.id);
 	return 1;
 }
 

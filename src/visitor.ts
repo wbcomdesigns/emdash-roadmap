@@ -42,18 +42,33 @@ export function visitorWho(hash: string): string {
 	return `v-${hash}`;
 }
 
-const ADDRESS_KEY = "guest:address";
+const ADDRESS_KEY = "guest:address-seen";
+const DAY_MS = 24 * 60 * 60 * 1000;
+const STEP_MS = 60 * 60 * 1000;
+
+type AddressSeen = { with?: number; without?: number };
 
 /**
- * Remember whether the last guest write carried a usable visitor address ("yes" or "no"), written
- * only when it changes. Settings reads it to tell the owner whether guests can take part.
+ * When a guest write last came with a usable visitor address, and when one last came without.
+ * Each time is rounded to the hour and written only when that changes, so a busy site does not
+ * write on every request.
  */
-export async function noteGuestAddress(ctx: Ctx, usable: boolean): Promise<void> {
-	const next = usable ? "yes" : "no";
-	if ((await ctx.kv.get<string>(ADDRESS_KEY)) !== next) await ctx.kv.set(ADDRESS_KEY, next);
+export async function noteGuestAddress(ctx: Ctx, usable: boolean, now = Date.now()): Promise<void> {
+	const seen = (await ctx.kv.get<AddressSeen>(ADDRESS_KEY)) ?? {};
+	const field = usable ? "with" : "without";
+	const hour = Math.floor(now / STEP_MS) * STEP_MS;
+	if (seen[field] === hour) return;
+	await ctx.kv.set(ADDRESS_KEY, { ...seen, [field]: hour });
 }
 
-export async function guestAddressSeen(ctx: Ctx): Promise<"yes" | "no" | null> {
-	const seen = await ctx.kv.get<string>(ADDRESS_KEY);
-	return seen === "yes" || seen === "no" ? seen : null;
+/**
+ * "no" only when no guest write in the last 24 hours had a usable address and at least one lacked
+ * it, so one stray request never flips the Settings notice. null: no guest write in that time.
+ */
+export async function guestAddressSeen(ctx: Ctx, now = Date.now()): Promise<"yes" | "no" | null> {
+	const seen = (await ctx.kv.get<AddressSeen>(ADDRESS_KEY)) ?? {};
+	const recent = (at?: number) => typeof at === "number" && now - at < DAY_MS + STEP_MS;
+	if (recent(seen.with)) return "yes";
+	if (recent(seen.without)) return "no";
+	return null;
 }

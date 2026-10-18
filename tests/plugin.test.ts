@@ -735,14 +735,14 @@ describe("guest participation", () => {
 		const item = await addItem(site.rt, "Banner item");
 		const settings = async () => JSON.stringify(await site.call("admin", { type: "page_load", page: "/settings" }, fromIp(null)));
 		// Before any guest request: a neutral line, no alarm.
-		expect(await settings()).toContain("This shows here after the first guest vote or idea");
-		expect(await settings()).not.toContain("Guests cannot vote or suggest on this host");
+		expect(await settings()).toContain("Whether it does shows here after guests vote or send ideas");
+		expect(await settings()).not.toContain("Guests cannot vote here");
 		await site.call("vote_guest", { id: item.id }, fromIp(null));
-		expect(await settings()).toContain("Guests cannot vote or suggest on this host");
+		expect(await settings()).toContain("Guests cannot vote here");
 		await site.call("vote_guest", { id: item.id }, guest);
 		const after = await settings();
-		expect(after).not.toContain("Guests cannot vote or suggest on this host");
-		expect(after).not.toContain("This shows here after the first guest vote or idea");
+		expect(after).not.toContain("Guests cannot vote here");
+		expect(after).not.toContain("Whether it does shows here after guests vote or send ideas");
 	});
 
 	it("answers plainly when a guest takes back a vote that is not there", async () => {
@@ -825,23 +825,30 @@ describe("guarded decisions", () => {
 });
 
 describe("stage source of truth", () => {
-	it("keeps the stage the panel set when a stale editor form saves", async () => {
+	it("turns away only a stale form after a panel move, and says why; a typed stage is saved", async () => {
 		const site = await openRoadmap();
 		const item = await addItem(site.rt, "Stale form", "Under review");
-		const before = await site.rt.transport.invokeHook("content:beforeSave", {
-			collection: "roadmap", isNew: false, id: item.id, content: { title: "Stale form", stage: "Planned" },
-		});
-		// Never moved by the plugin: the form decides.
-		expect((before as { stage?: string } | undefined)?.stage ?? "Planned").toBe("Planned");
+		const save = (stage: string) =>
+			site.rt.transport.invokeHook("content:beforeSave", {
+				collection: "roadmap", isNew: false, id: item.id, content: { title: "Stale form", stage },
+			});
+		// Never moved by the panel: whatever the form says is saved.
+		expect(await save("Planned")).toBeUndefined();
 		await site.rt.admin.actEditorPanel("stage", "roadmap", item.id, "set_stage:done", { value: "done" });
-		const kept = await site.rt.transport.invokeHook("content:beforeSave", {
-			collection: "roadmap", isNew: false, id: item.id, content: { title: "Stale form", stage: "Under review" },
+		// (a) A form opened before the move still says Under review: refused, with the reason.
+		expect(await save("Under review")).toMatchObject({
+			__emdashSandboxHookResult: true,
+			error: { code: "SAVE_REJECTED", reason: expect.stringContaining("moved this item to Done") },
 		});
-		expect(kept).toMatchObject({ stage: "Done", title: "Stale form" });
+		// The form caught up: saved, nothing changed.
+		expect(await save("Done")).toBeUndefined();
+		// (b) A stage the owner types is saved as typed, and the record is dropped.
+		expect(await save("In progress")).toBeUndefined();
+		expect(await save("Under review")).toBeUndefined();
 		const other = await site.rt.transport.invokeHook("content:beforeSave", {
 			collection: "posts", isNew: false, id: item.id, content: { stage: "Under review" },
 		});
-		expect((other as { stage?: string } | undefined)?.stage ?? "Under review").toBe("Under review");
+		expect(other).toBeUndefined();
 	});
 
 	it("counts an item with an unknown stage in the first column, like the board", async () => {
@@ -1145,4 +1152,82 @@ describe("storage pages of 100", () => {
 		expect(votes).toHaveLength(130);
 		expect(votes.every((row) => row.data.visitor === "")).toBe(true);
 	}, 120_000);
+});
+
+describe("round 3 checks", () => {
+	const fromIp = (ip: string | null, method = "POST") => ({ method, meta: { ip, userAgent: null, referer: null, geo: null } });
+
+	it("puts a failed approve back in the queue when the content save throws", async () => {
+		const { approveIdea } = await import("../src/ideas");
+		const ideas = new Map<string, Record<string, unknown>>([
+			["i1", { title: "Idea", description: "", status: "pending", rev: "r1", member_id: "ana", visitor: "", name: "", createdAt: "" }],
+		]);
+		const ctx = {
+			settings: { get: async () => null },
+			storage: {
+				ideas: {
+					get: async (id: string) => ideas.get(id) ?? null,
+					updateIf: async (id: string, args: { where: Record<string, unknown>; set: Record<string, unknown> }) => {
+						const row = ideas.get(id);
+						if (!row || Object.entries(args.where).some(([k, v]) => row[k] !== v)) return { applied: false };
+						ideas.set(id, { ...row, ...args.set });
+						return { applied: true, data: ideas.get(id) };
+					},
+				},
+			},
+			content: {
+				get: async () => ({ id: "i1", status: "draft", data: { title: "Idea" }, draftRevisionId: null }),
+				update: async () => {
+					throw new Error("validation failed");
+				},
+			},
+		};
+		const result = await approveIdea(ctx as never, "i1", "r1");
+		expect(result).toMatchObject({ ok: false, error: expect.stringContaining("back in the list") });
+		expect(ideas.get("i1")?.status).toBe("pending");
+	});
+
+	it("does not bring back a guest vote taken back while the cleanup ran", async () => {
+		const { forgetVote } = await import("../src/ideas");
+		const puts: string[] = [];
+		// The cleanup read this row, then the guest took the vote back: the delete finds nothing.
+		const ctx = { storage: { votes: { delete: async () => false, put: async (id: string) => void puts.push(id) } } };
+		const done = await forgetVote(ctx as never, { id: "item1:v-abc", item: "item1", visitor: "abc", createdAt: "" });
+		expect(done).toBe(0);
+		expect(puts).toHaveLength(0);
+		// Without the race the vote moves to its anonymous key.
+		const ok = { storage: { votes: { delete: async () => true, put: async (id: string) => void puts.push(id) } } };
+		expect(await forgetVote(ok as never, { id: "item1:v-abc", item: "item1", visitor: "abc", createdAt: "" })).toBe(1);
+		expect(puts[0]).toMatch(/^item1:g-[a-f0-9]{40}$/);
+	});
+
+	it("says which vote cannot be taken back: forgotten guest or already taken back", async () => {
+		const site = await openRoadmap();
+		const item = await addItem(site.rt, "Reasons");
+		await site.call("vote", { id: item.id }, site.as(ana));
+		await site.call("vote", { id: item.id }, site.as(ana, "DELETE"));
+		expect(await site.call("vote", { id: item.id }, site.as(ana, "DELETE"))).toMatchObject({
+			code: "NO_VOTE_TO_TAKE_BACK", reason: "already_removed", votes: 0, voted: false,
+		});
+		await site.call("vote_guest", { id: item.id }, fromIp("198.51.100.31"));
+		const old = new Date(Date.now() - 31 * 24 * 60 * 60 * 1000).toISOString();
+		const [row] = await site.rt.inspect.storage.list<Record<string, unknown>>("votes");
+		await site.rt.fixtures.plugin.storage("votes", row!.id, { ...row!.data, createdAt: old });
+		await site.rt.transport.invokeHook("cron", { name: "notify", data: {}, scheduledAt: new Date().toISOString() });
+		expect(await site.call("vote_guest", { id: item.id }, fromIp("198.51.100.31", "DELETE"))).toMatchObject({
+			code: "NO_VOTE_TO_TAKE_BACK", reason: "forgotten_guest", votes: 1,
+		});
+		expect(await site.call("vote_guest", { id: item.id }, fromIp("198.51.100.99", "DELETE"))).toMatchObject({
+			reason: "already_removed",
+		});
+	});
+
+	it("keeps Settings quiet after one stray request without an address", async () => {
+		const site = await openRoadmap();
+		const item = await addItem(site.rt, "Stray");
+		await site.call("vote_guest", { id: item.id }, fromIp("198.51.100.40"));
+		await site.call("vote_guest", { id: item.id }, fromIp(null));
+		const page = JSON.stringify(await site.call("admin", { type: "page_load", page: "/settings" }, fromIp(null)));
+		expect(page).not.toContain("Guests cannot vote here");
+	});
 });

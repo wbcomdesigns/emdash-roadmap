@@ -18,6 +18,7 @@ export const strings = {
 	voted: "Voted",
 	voteCountOne: "1 vote",
 	voteCountMany: "{n} votes",
+	voteAlreadyRemoved: "That vote was already taken back.",
 	voteForgotten: "That vote is older than 30 days, so it can no longer be taken back. It still counts.",
 	signIn: "Sign in",
 	myVotes: "Roadmap votes",

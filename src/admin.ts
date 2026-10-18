@@ -575,7 +575,7 @@ function guestAddressBlocks(ctx: PluginContext, who: string, address: "yes" | "n
 		return [
 			{
 				type: "context",
-				text: "Guests can vote and suggest only when your host gives EmDash the visitor's address. This shows here after the first guest vote or idea.",
+				text: "Guests can vote and suggest only when your host gives EmDash the visitor's address. Whether it does shows here after guests vote or send ideas.",
 			},
 			{ type: "actions", elements: [guestGuide(ctx)] },
 		];
@@ -584,9 +584,9 @@ function guestAddressBlocks(ctx: PluginContext, who: string, address: "yes" | "n
 		{
 			type: "banner",
 			variant: "alert",
-			title: "Guests cannot vote or suggest on this host",
+			title: "Guests cannot vote here",
 			description:
-				"The last guest request came without a visitor address, so guests see a sign-in link. Members take part as usual. The guide says how to fix it.",
+				"In the last 24 hours no guest request came with a visitor address, so guests see a sign-in link. Members take part as usual. The guide says how to fix it.",
 		},
 		{ type: "actions", elements: [guestGuide(ctx)] },
 	];

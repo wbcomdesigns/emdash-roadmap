@@ -1,7 +1,7 @@
 import type { PluginContext } from "emdash/plugin";
 
 import type { BlockResponse } from "./admin";
-import { getItem, patchStage, stageKey } from "./content";
+import { currentStage, getItem, patchStage } from "./content";
 import { ROADMAP } from "./core";
 import { findStage, loadSettings } from "./settings";
 import { asRecord, asString } from "./util";
@@ -53,9 +53,10 @@ async function renderPanel(
 	}
 
 	const settings = await loadSettings(ctx);
-	// The stage the plugin last set wins: it is what the next save and publish will carry.
-	const stored = asString(await ctx.kv.get<string>(stageKey(entry.id)));
-	const current = findStage(settings.stages, stored || asString(asRecord(item.data).stage));
+	// Read from the entry: the unpublished changes if there are any, otherwise the live item.
+	const now = await currentStage(ctx, { ...item, id: entry.id });
+	const current = findStage(settings.stages, now.stage);
+	const live = findStage(settings.stages, now.live);
 	const label = (stage: { name: string; shown: boolean }) => (stage.shown === false ? `${stage.name} (hidden)` : stage.name);
 	// Buttons, not a form: the panel sits inside the editor's own form, and a form inside a form is
 	// invalid HTML. This panel is the one place to move an item.
@@ -63,7 +64,15 @@ async function renderPanel(
 		blocks: [
 			{
 				type: "fields",
-				fields: [{ label: "Stage now", value: current ? label(current) : settings.stages[0]?.name || "" }],
+				fields: [
+					{
+						label: now.inDraft ? "Stage in the unpublished changes" : "Stage now",
+						value: current ? label(current) : now.stage || settings.stages[0]?.name || "",
+					},
+					...(now.inDraft && now.live !== now.stage
+						? [{ label: "On the board now", value: live ? label(live) : now.live }]
+						: []),
+				],
 			},
 			{
 				type: "context",

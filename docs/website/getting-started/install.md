@@ -33,7 +33,7 @@ Checked on EmDash 1.3.1 with the `blog` template on Node. The Cloudflare lines f
 
    (`mktemp -d` makes a fresh folder only you can write to, and `&&` runs the script only when the clone worked. Never clone into a fixed `/tmp/<name>`: on a shared machine someone else can create it first.)
 
-   The script copies the kit, never replaces a newer shared file another Wbcom plugin already copied, keeps a backup of the wording file only when you changed it yourself, creates the content types the plugin needs (if any), and prints the exact lines to paste into your templates, with the file names.
+   The script copies the kit, never replaces a newer shared file another Wbcom plugin already copied, keeps a backup of any kit file you changed yourself (and lists it), creates the content types the plugin needs (if any), and prints the exact lines to paste into your templates, with the file names.
 3. Paste the lines it printed. Restart the dev server.
 4. Add the menu links it printed in Admin, Menus.
 5. Open the plugin in the admin and follow its first screen.
@@ -42,7 +42,7 @@ After every plugin update, run step 2 again with the new tag.
 
 ## What the permissions are for
 
-Product Roadmap asks to read, write and publish your content, read your content types and categories, create redirects, and send email. It needs them to list items, save suggested ideas as drafts, publish an idea you approve, redirect a merged item, and send the hourly notice.
+Product Roadmap asks to read, write and publish your content, read content revisions (so the Stage panel can show the stage in unpublished changes), read your content types and categories, create redirects, and send email. It needs them to list items, save suggested ideas as drafts, publish an idea you approve, redirect a merged item, and send the hourly notice.
 
 After the install, a **Roadmap** group with **Ideas** and **Settings** appears in the admin menu.
 
@@ -77,15 +77,15 @@ If a page is a 404 or the board says it could not load, see [Troubleshooting](..
 
 ## Guests and the visitor address
 
-EmDash gives a plugin the visitor's address only on Cloudflare, or when the site sets `trustedProxyHeaders` in `astro.config.mjs`. Without an address, guests are asked to sign in before they can vote or post, so one person cannot vote many times.
+EmDash gives a plugin the visitor's address only on Cloudflare, or when the site sets `trustedProxyHeaders` inside `emdash({ ... })` in `astro.config.mjs` (for example `trustedProxyHeaders: ["x-real-ip"],`). Without an address, guests are asked to sign in before they can vote or post, so one person cannot vote many times.
 
 Set `trustedProxyHeaders` only to a header that **your proxy writes itself and replaces** on every request. EmDash reads the first address in that header. Many proxies **add** to `X-Forwarded-For` instead of replacing it (nginx `$proxy_add_x_forwarded_for`, most load balancers), so the first address is whatever the visitor typed, and a guest could vote again and again. Behind nginx, set `proxy_set_header X-Real-IP $remote_addr;` and use `trustedProxyHeaders: ["x-real-ip"]`. Behind another proxy, use the header it overwrites with the connecting address. If you are not sure, leave it unset: members can still take part.
 
-Without an address, guests see "Sign in to vote or suggest on this site." with a **Sign in** link instead of active vote buttons and the suggest form. Members take part as usual. Admin, Roadmap, Settings says so after the first guest request.
+Without an address, guests see "Sign in to vote or suggest on this site." with a **Sign in** link instead of active vote buttons and the suggest form. Members take part as usual. Admin, Roadmap, Settings says so when no guest request in the last 24 hours came with an address.
 
 ## Move an item to another stage
 
-Open the item in Admin, Content, Roadmap, and use the **Stage** panel on the right: one button per stage. The panel is the one place to set the stage. A stage it set stays, even if you then save a form that still shows the old stage. Visitors see the move on the board within about two minutes (the board is cached briefly). If the item has unpublished changes (the editor saves them as you type), the move goes into those changes and shows on the board when you publish.
+Open the item in Admin, Content, Roadmap, and use the **Stage** panel on the right: one button per stage. The panel is the one place to set the stage. An editor page opened before a move cannot undo it (saving it is refused, with a message), and a stage you type and save on purpose is kept. Visitors see the move on the board within about two minutes (the board is cached briefly). If the item has unpublished changes, the move goes into those changes and shows on the board when you publish.
 
 ## The in-text block (optional)
 

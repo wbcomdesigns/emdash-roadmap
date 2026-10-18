@@ -188,15 +188,31 @@ export async function unpublishNow(ctx: PluginContext, id: string): Promise<bool
 	return true;
 }
 
-/** Where the plugin keeps the stage it last set on an item. It wins over the editor form (keepStoredStage). */
+/** The last Stage panel move on an item: {from, to}. Guards against an older editor form only. */
 export function stageKey(id: string): string {
 	return `stage:${id}`;
 }
 
+type StageMove = { from: string; to: string };
+
 /**
- * Change the stage on an item and keep a published item live. The stage is recorded first, so
- * the content:beforeSave hook lets this write through and puts it back on any later save made
- * from an editor form that still shows the old stage.
+ * The item's stage as the next publish would show it: the unpublished changes if there are any,
+ * otherwise the live entry. Read from the entry every time, never from the plugin's own record.
+ */
+export async function currentStage(ctx: PluginContext, item: { id: string; data: unknown; draftRevisionId?: string | null }): Promise<{ stage: string; inDraft: boolean; live: string }> {
+	const live = asString(asRecord(item.data).stage);
+	if (!item.draftRevisionId || !ctx.content?.getRevision) return { stage: live, inDraft: false, live };
+	const collection = await collectionName(ctx);
+	const draft = await ctx.content.getRevision(collection, item.id, item.draftRevisionId).catch(() => null);
+	const stage = draft ? asString(asRecord(draft.data).stage) : live;
+	return { stage: stage || live, inDraft: Boolean(draft), live };
+}
+
+/**
+ * Change the stage on an item. Published with no unpublished changes: the change goes live at
+ * once. With unpublished changes: only the stage in that draft changes, and it goes live when the
+ * owner publishes. Either way the move is recorded as {from, to} so keepPanelStage can turn away an
+ * editor form that was opened before the move and still holds the old stage.
  */
 export async function patchStage(
 	ctx: PluginContext,
@@ -206,10 +222,10 @@ export async function patchStage(
 	const collection = await collectionName(ctx);
 	const item = await ctx.content?.get?.(collection, id).catch(() => null);
 	if (!item || !ctx.content?.update) return { state: "missing" };
-	await ctx.kv.set(stageKey(id), stage);
-	// Unpublished edits (the editor autosaves as you type): change only the stage in that draft and
-	// leave publishing to the owner, so nothing they have not reviewed goes live.
-	if ((item as { draftRevisionId?: string | null }).draftRevisionId) {
+	const from = (await currentStage(ctx, item)).stage;
+	// Recorded before the write, so the hook sees this move when the plugin's own update saves.
+	if (from && from !== stage) await ctx.kv.set(stageKey(id), { from, to: stage } satisfies StageMove);
+	if (item.draftRevisionId) {
 		await ctx.content.update(collection, id, { stage });
 		return { state: "draft" };
 	}
@@ -221,18 +237,34 @@ export async function patchStage(
 	return { state: "done" };
 }
 
+export const STALE_STAGE_REASON = (to: string) =>
+	`The Stage panel moved this item to ${to} after this page was opened. To keep that, set the Stage box to ${to} and save again, or reload the page. To change the stage, use the Stage panel.`;
+
 /**
- * content:beforeSave: on a roadmap item the plugin has moved, the stage it set is the stage.
- * An editor form opened before the move still holds the old stage; saving it must not move the
- * item back. Items the plugin never moved keep whatever the form says.
+ * content:beforeSave. Only one save is turned away: one that still carries the stage an item had
+ * before its last Stage panel move, while the item still has the stage that move set (the form was
+ * opened before the move). The owner is told why. Every other stage, typed in the form or sent
+ * through the API, is saved as it is, and the record is dropped. A discarded draft or a restored
+ * revision changes the item's stage, so the record is dropped then too.
  */
-export async function keepStoredStage(
+export async function keepPanelStage(
 	ctx: PluginContext,
 	event: { collection: string; isNew: boolean; id?: string; content: Record<string, unknown> },
-): Promise<Record<string, unknown> | void> {
-	if (event.isNew || !event.id || event.collection !== (await collectionName(ctx))) return;
-	if (!("stage" in event.content)) return;
-	const stored = await ctx.kv.get<string>(stageKey(event.id));
-	if (!stored || event.content.stage === stored) return;
-	return { ...event.content, stage: stored };
+): Promise<Record<string, unknown> | { __emdashSandboxHookResult: true; version: 1; error: { code: "SAVE_REJECTED"; reason: string } } | void> {
+	if (event.isNew || !event.id || !("stage" in event.content)) return;
+	if (event.collection !== (await collectionName(ctx))) return;
+	const move = await ctx.kv.get<StageMove>(stageKey(event.id));
+	if (!move?.to) return;
+	const incoming = asString(event.content.stage);
+	if (incoming === move.to) return;
+	const item = await ctx.content?.get?.(event.collection, event.id).catch(() => null);
+	const now = item ? (await currentStage(ctx, item)).stage : "";
+	if (incoming === move.from && now === move.to) {
+		return {
+			__emdashSandboxHookResult: true,
+			version: 1,
+			error: { code: "SAVE_REJECTED", reason: STALE_STAGE_REASON(move.to) },
+		};
+	}
+	await ctx.kv.delete(stageKey(event.id));
 }

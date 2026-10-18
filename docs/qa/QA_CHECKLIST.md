@@ -86,7 +86,7 @@ Three roles, in this order: guest (private window), member (subscriber), admin. 
 | A-13 | Guest suggests "Bulk edit tagz"; admin fixes the draft title to "Bulk edit tags" and saves; Approve | The board shows "Bulk edit tags". An untouched idea approves with its own text |
 | A-14 | Hide the first stage, then approve an idea | It lands in the first shown stage and is on the board |
 | A-15 | Fresh install, open Ideas | Set up visitor pages card with the mktemp clone command for the installed tag and the five addresses. Visitor pages are set up leaves one line and the guide link |
-| A-16 | Host gives no visitor address, open Settings, Who can take part | Banner "Guests cannot vote or suggest on this host" and the guide link |
+| A-16 | Host gives no visitor address, a guest votes, open Settings, Who can take part | Banner "Guests cannot vote here" with the guide link. One stray request without an address after a guest request with one does not show it |
 | A-17 | Open a published item, Stage panel, Move to Planned; then edit the description and save | Board moves at once, the form Stage box shows Planned, Save gives no conflict, the stage stays. No form-in-form error in the console |
 | A-18 | One suggested idea waiting | Ideas waiting 1; Under review counts only the board |
 | A-19 | Run add-to-site.sh on a fresh blog site, then again after editing roadmap-strings.ts and RoadmapLayout.astro | Every page renders after a restart; second run keeps the layout and backs up the wording file |

@@ -1,6 +1,6 @@
 ## 0.2.2
 
-Guests vote and suggest only when the host gives EmDash the visitor's address. Copy the kit again after you update:
+New permission: Read content revisions (the Stage panel shows the stage in unpublished changes). Guests vote and suggest only when the host gives EmDash the visitor's address. Copy the kit again after you update:
 
 ```bash
 kit="$(mktemp -d)" &&
@@ -13,8 +13,8 @@ kit="$(mktemp -d)" &&
 
 - Security: no guest writes without a visitor address; one guest per IPv4 or IPv6 /64; guest hashes cleared after 30 days; guarded decisions.
 - New: Set up visitor pages card; scripts/add-to-site.sh copies the whole kit.
-- Improve: the Stage panel is the one place to set the stage; Roadmap votes label.
-- Fix: Ideas counts, nested form, page alignment, dark mode buttons.
+- Improve: Stage panel is the one place to set the stage.
+- Fix: Ideas counts, nested form, alignment, dark mode.
 
 ## 0.2.1
 

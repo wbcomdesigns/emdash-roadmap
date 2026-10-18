@@ -4,7 +4,7 @@ Versions match `package.json`, the git tag and the registry release. Newest firs
 
 ## [0.2.2] - 2026-10-19
 
-Guests can now vote and suggest only when your host tells EmDash the visitor's address. Copy the kit again after you update:
+New permission: "Read content revisions" (content:revisions:read), so the Stage panel can show the stage in an item's unpublished changes. Your admin asks you to approve it when you update. Guests can now vote and suggest only when your host tells EmDash the visitor's address. Copy the kit again after you update:
 
 ```bash
 kit="$(mktemp -d)" &&
@@ -21,13 +21,13 @@ kit="$(mktemp -d)" &&
 - Security - Approve, reject, merge and the cleanup use guarded writes, and every merge checks that the item has not changed since the page loaded.
 - New      - Ideas opens with a Set up visitor pages card that gives the kit command for the installed version, with a way to show it again later.
 - New      - One command copies the whole kit into a site, layout included, and creates the content types: scripts/add-to-site.sh.
-- Improve  - The Stage panel is the one place to move an item: one button per stage, and a stage it set survives a later save of an older form.
+- Improve  - The Stage panel is the one place to move an item: one button per stage. A form opened before a move cannot undo it and says why; a stage typed and saved on purpose is kept.
 - Improve  - A move on an item with unpublished changes goes into those changes, so nothing unreviewed goes live.
 - Improve  - On a host with no visitor address, guests see the sign-in line up front, and Settings says so after the first guest request.
 - Improve  - The wording file is backed up only when you edited it yourself, and the script says when it upgrades a shared Wbcom file.
 - Improve  - The member votes page and menu label are now Roadmap votes, so they sit apart from WB Polls' My votes.
 - Fix      - Ideas no longer counts a waiting idea in Under review, and counts an item with an unknown stage in the first column like the board.
-- Fix      - Taking back a guest vote that is no longer there says so, instead of showing Voted.
+- Fix      - Taking back a vote that is no longer there says why (already taken back, or a guest vote older than 30 days), instead of showing Voted.
 - Fix      - The Stage panel no longer puts a form inside the editor's form.
 - Fix      - Roadmap pages line up with the site header and footer on the blog template at every width.
 - Fix      - Buttons and selected chips use the theme's own brand colours, readable in dark mode (shared kit styles 4).

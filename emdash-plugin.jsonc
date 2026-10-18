@@ -33,6 +33,7 @@
 		"content:publish",
 		"schema:read",
 		"taxonomies:read",
+		"redirects:read",
 		"redirects:write",
 		"email:send"
 	],

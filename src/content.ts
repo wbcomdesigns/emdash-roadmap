@@ -85,8 +85,10 @@ export function countInStage(items: RoadmapItem[], stage: Stage): number {
 export function stageCounts(items: RoadmapItem[], stages: Stage[]): Map<string, number> {
 	const counts = new Map<string, number>();
 	for (const stage of stages) counts.set(stage.id, 0);
+	// Same rule as the board: an item whose stage matches no stage counts in the first column shown.
+	const first = stages.find((stage) => stage.shown);
 	for (const item of items) {
-		const stage = findStage(stages, item.stage);
+		const stage = findStage(stages, item.stage) ?? first;
 		if (!stage) continue;
 		counts.set(stage.id, (counts.get(stage.id) ?? 0) + 1);
 	}
@@ -185,20 +187,51 @@ export async function unpublishNow(ctx: PluginContext, id: string): Promise<bool
 	return true;
 }
 
-/** Change the stage on an item and keep a published item live. */
+/** Where the plugin keeps the stage it last set on an item. It wins over the editor form (keepStoredStage). */
+export function stageKey(id: string): string {
+	return `stage:${id}`;
+}
+
+/**
+ * Change the stage on an item and keep a published item live. The stage is recorded first, so
+ * the content:beforeSave hook lets this write through and puts it back on any later save made
+ * from an editor form that still shows the old stage.
+ */
 export async function patchStage(
 	ctx: PluginContext,
 	id: string,
 	stage: string,
-): Promise<{ state: "done" } | { state: "busy" | "missing" }> {
+): Promise<{ state: "done" | "draft" | "missing" }> {
 	const collection = await collectionName(ctx);
 	const item = await ctx.content?.get?.(collection, id).catch(() => null);
 	if (!item || !ctx.content?.update) return { state: "missing" };
-	if ((item as { draftRevisionId?: string | null }).draftRevisionId) return { state: "busy" };
+	await ctx.kv.set(stageKey(id), stage);
+	// Unpublished edits (the editor autosaves as you type): change only the stage in that draft and
+	// leave publishing to the owner, so nothing they have not reviewed goes live.
+	if ((item as { draftRevisionId?: string | null }).draftRevisionId) {
+		await ctx.content.update(collection, id, { stage });
+		return { state: "draft" };
+	}
 	await ctx.content.update(collection, id, { ...item.data, stage });
 	if (item.status === "published" && ctx.content.getVersioned && ctx.content.publish) {
 		const versioned = await ctx.content.getVersioned(collection, id);
 		if (versioned) await ctx.content.publish(collection, id, { _rev: versioned._rev });
 	}
 	return { state: "done" };
+}
+
+/**
+ * content:beforeSave: on a roadmap item the plugin has moved, the stage it set is the stage.
+ * An editor form opened before the move still holds the old stage; saving it must not move the
+ * item back. Items the plugin never moved keep whatever the form says.
+ */
+export async function keepStoredStage(
+	ctx: PluginContext,
+	event: { collection: string; isNew: boolean; id?: string; content: Record<string, unknown> },
+): Promise<Record<string, unknown> | void> {
+	if (event.isNew || !event.id || event.collection !== (await collectionName(ctx))) return;
+	if (!("stage" in event.content)) return;
+	const stored = await ctx.kv.get<string>(stageKey(event.id));
+	if (!stored || event.content.stage === stored) return;
+	return { ...event.content, stage: stored };
 }

@@ -1,5 +1,6 @@
 import { api, esc, signInUrl, type ApiResult } from "./wbcom-kit";
 import { phrase, strings } from "./roadmap-strings";
+import { SIGN_IN_CODES } from "./roadmap-vote";
 
 export function bindSuggestForm(): void {
 	const form = document.getElementById("roadmap-suggest") as HTMLFormElement | null;
@@ -76,7 +77,7 @@ function show(form: HTMLFormElement, result: ApiResult, closed: boolean): void {
 		});
 		return;
 	}
-	if (code === "SIGN_IN_REQUIRED" || code === "MEMBERS_ONLY" || code === "GUEST_UNAVAILABLE") {
+	if (SIGN_IN_CODES.has(code)) {
 		box.innerHTML = `${esc(phrase(code))} <a href="${esc(signInUrl())}">${esc(strings.signIn)}</a>`;
 		return;
 	}

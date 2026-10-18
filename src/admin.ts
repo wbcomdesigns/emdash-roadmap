@@ -2,6 +2,7 @@ import type { PluginContext } from "emdash/plugin";
 
 import { EMAIL_RE } from "./core";
 import { countInStage, hasCollections, listRoadmapItems, patchStage, stageCounts } from "./content";
+import { guestAddressSeen } from "./visitor";
 import {
 	approveIdea,
 	listPendingIdeas,
@@ -69,20 +70,32 @@ const REPO_URL = "https://github.com/wbcomdesigns/emdash-roadmap";
  * copied every roadmap address is the site's 404. The card gives the command for the version that
  * is installed (never main), until the owner says the pages are set up; then one line to the guide.
  */
+/** The kit command on six lines of 52 characters or fewer: an admin code block neither wraps nor scrolls. */
+export function kitCommand(tag: string): string {
+	return [
+		'kit="$(mktemp -d)" &&',
+		"  git clone --depth 1 \\",
+		`    --branch ${tag} \\`,
+		"    https://github.com/wbcomdesigns/emdash-roadmap \\",
+		'    "$kit/emdash-roadmap" &&',
+		'  "$kit/emdash-roadmap/scripts/add-to-site.sh" .',
+	].join("\n");
+}
+
 export async function kitBlocks(ctx: PluginContext): Promise<BlockMap[]> {
 	const tag = `v${ctx.plugin.version}`;
-	const guide = {
-		type: "link",
-		label: "Install guide",
-		target: { kind: "external", url: `${REPO_URL}/blob/${tag}/docs/website/getting-started/install.md` },
-	};
+	const guideUrl = `${REPO_URL}/blob/${tag}/docs/website/getting-started/install.md`;
+	const guide = { type: "link", label: "Install guide", target: { kind: "external", url: guideUrl } };
 	if ((await ctx.kv.get<string>(KIT_DONE)) === "1") {
 		return [
 			{
 				type: "context",
 				text: `Visitor pages come from the Roadmap site kit. After each plugin update, copy the kit for ${tag} again.`,
 			},
-			{ type: "actions", elements: [guide] },
+			{
+				type: "actions",
+				elements: [guide, { type: "button", action_id: "kit_again", label: "Show the setup steps again" }],
+			},
 		];
 	}
 	return [
@@ -95,14 +108,16 @@ export async function kitBlocks(ctx: PluginContext): Promise<BlockMap[]> {
 		},
 		{
 			type: "context",
-			text: `From your site's root folder, run this line. It copies the kit for the version you have installed (${tag}).`,
+			text: `From your site's root folder, run this command. It copies the kit for the version you have installed (${tag}).`,
 		},
+		// A fresh mktemp folder, never a fixed /tmp path someone else could create first; the
+		// script runs only when the clone worked.
+		{ type: "code", language: "bash", code: kitCommand(tag) },
 		{
-			type: "code",
-			language: "bash",
-			// A fresh mktemp folder, never a fixed /tmp path someone else could create first; the
-			// script runs only when the clone worked.
-			code: `kit="$(mktemp -d)" && git clone --branch ${tag} --depth 1 ${REPO_URL} "$kit/emdash-roadmap" && "$kit/emdash-roadmap/scripts/add-to-site.sh" .`,
+			type: "actions",
+			elements: [
+				{ type: "link", label: "Copy it from the install guide on a phone", target: { kind: "external", url: guideUrl } },
+			],
 		},
 		{
 			type: "fields",
@@ -111,7 +126,7 @@ export async function kitBlocks(ctx: PluginContext): Promise<BlockMap[]> {
 				{ label: "One item", value: "/roadmap/<item>/" },
 				{ label: "Suggest an idea", value: "/roadmap/suggest/" },
 				{ label: "Changelog", value: "/changelog/" },
-				{ label: "My votes", value: "/account/roadmap-votes/" },
+				{ label: "Roadmap votes", value: "/account/roadmap-votes/" },
 			],
 		},
 		{
@@ -415,15 +430,11 @@ function stageRow(stage: Stage, count: number, first: boolean, last: boolean): B
 	];
 }
 
-// Whether the host gives EmDash the visitor's address, read from the admin's own request. The same
-// for every request on one host, so the latest request's answer is the answer.
-let hostGivesIp = true;
-
 export async function renderSettings(
 	ctx: PluginContext,
 	extra?: Pick<BlockResponse, "toast">,
 ): Promise<BlockResponse> {
-	const visitorIp = hostGivesIp;
+	const address = await guestAddressSeen(ctx);
 	await ensureNotifyTask(ctx);
 	const settings = await loadSettings(ctx);
 	const items = await listRoadmapItems(ctx);
@@ -442,18 +453,7 @@ export async function renderSettings(
 								type: "context",
 								text: "Suggestions always wait for you to approve them. Anyone can vote, or only signed-in members.",
 							},
-							...(!visitorIp && settings.who === "anyone"
-								? [
-										{
-											type: "banner",
-											variant: "alert",
-											title: "Guests cannot vote or suggest on this host",
-											description:
-												"Guests need a host that tells EmDash the visitor's address: Cloudflare, or trustedProxyHeaders in the site config. Until then, guests see a sign-in link and members take part as usual.",
-										},
-										{ type: "actions", elements: [guestGuide(ctx)] },
-									]
-								: []),
+							...guestAddressBlocks(ctx, settings.who, address),
 							{
 								type: "form",
 								block_id: "settings_who",
@@ -563,6 +563,30 @@ export async function renderSettings(
 	};
 }
 
+/** What Settings says about guests and the visitor address, from what the last guest write carried. */
+function guestAddressBlocks(ctx: PluginContext, who: string, address: "yes" | "no" | null): BlockMap[] {
+	if (who !== "anyone" || address === "yes") return [];
+	if (address === null) {
+		return [
+			{
+				type: "context",
+				text: "Guests can vote and suggest only when your host gives EmDash the visitor's address. This shows here after the first guest vote or idea.",
+			},
+			{ type: "actions", elements: [guestGuide(ctx)] },
+		];
+	}
+	return [
+		{
+			type: "banner",
+			variant: "alert",
+			title: "Guests cannot vote or suggest on this host",
+			description:
+				"The last guest request came without a visitor address, so guests see a sign-in link. Members take part as usual. The guide says how to fix it.",
+		},
+		{ type: "actions", elements: [guestGuide(ctx)] },
+	];
+}
+
 function guestGuide(ctx: PluginContext) {
 	return {
 		type: "link",
@@ -657,8 +681,8 @@ async function handleMoveItem(
 	if (!id || !stage) return failed(ctx, "Pick an item and a stage.");
 	const result = await patchStage(ctx, id, stage.name);
 	if (result.state === "missing") return failed(ctx, "That item is no longer there.");
-	if (result.state === "busy") {
-		return failed(ctx, "That item has unpublished edits. Publish or discard them, then move it.");
+	if (result.state === "draft") {
+		return saved(ctx, `Moved to ${stage.name} in the item's unpublished changes. Publish them to show it on the board.`);
 	}
 	return saved(ctx, `Moved to ${stage.name}.`);
 }
@@ -705,8 +729,7 @@ async function handleMerge(ctx: PluginContext, values: Record<string, unknown>):
 	return renderIdeas(ctx, { toast: { message: "Merged. Votes moved to the item you kept.", type: "success" } });
 }
 
-export async function handleAdmin(input: unknown, ctx: PluginContext, visitorIp = true): Promise<BlockResponse> {
-	hostGivesIp = visitorIp;
+export async function handleAdmin(input: unknown, ctx: PluginContext): Promise<BlockResponse> {
 	const raw = asRecord(input);
 	const type = asString(raw.type);
 	const page = asString(raw.page);
@@ -730,6 +753,10 @@ export async function handleAdmin(input: unknown, ctx: PluginContext, visitorIp 
 		if (action === "kit_done") {
 			await ctx.kv.set(KIT_DONE, "1");
 			return renderIdeas(ctx, { toast: { message: "Noted. The install guide stays linked here.", type: "success" } });
+		}
+		if (action === "kit_again") {
+			await ctx.kv.delete(KIT_DONE);
+			return renderIdeas(ctx);
 		}
 		if (action === "idea_mod") return handleIdeaMod(ctx, raw.value);
 		if (action === "ideas_page") {

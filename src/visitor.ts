@@ -41,3 +41,19 @@ export async function visitorHash(ctx: Ctx, guest: string): Promise<string> {
 export function visitorWho(hash: string): string {
 	return `v-${hash}`;
 }
+
+const ADDRESS_KEY = "guest:address";
+
+/**
+ * Remember whether the last guest write carried a usable visitor address ("yes" or "no"), written
+ * only when it changes. Settings reads it to tell the owner whether guests can take part.
+ */
+export async function noteGuestAddress(ctx: Ctx, usable: boolean): Promise<void> {
+	const next = usable ? "yes" : "no";
+	if ((await ctx.kv.get<string>(ADDRESS_KEY)) !== next) await ctx.kv.set(ADDRESS_KEY, next);
+}
+
+export async function guestAddressSeen(ctx: Ctx): Promise<"yes" | "no" | null> {
+	const seen = await ctx.kv.get<string>(ADDRESS_KEY);
+	return seen === "yes" || seen === "no" ? seen : null;
+}

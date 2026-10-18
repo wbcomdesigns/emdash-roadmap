@@ -4,7 +4,7 @@ import { GUEST_UNAVAILABLE, MEMBERS_ONLY, NO_VISITOR, RATE_LIMITED, SIGN_IN, SPA
 import { listRoadmapItems } from "./content";
 import { findStage, loadSettings } from "./settings";
 import { asRecord, asString, nowIso, rows } from "./util";
-import { requestGuest, visitorHash, visitorWho } from "./visitor";
+import { noteGuestAddress, requestGuest, visitorHash, visitorWho } from "./visitor";
 
 export const NOT_FOUND = {
 	ok: false,
@@ -51,7 +51,13 @@ async function saveVote(ctx: PluginContext, itemId: string, who: string, extra: 
 }
 
 async function dropVote(ctx: PluginContext, itemId: string, who: string) {
-	await ctx.storage.votes.delete(voteRowId(itemId, who));
+	const id = voteRowId(itemId, who);
+	// Nothing to take back: never voted, or a guest vote older than 30 days that no longer carries
+	// the guest's address (forgetOldGuests). Say so plainly; the kit then stops showing Voted.
+	if (!(await ctx.storage.votes.exists(id))) {
+		return { ok: true, votes: await recount(ctx, itemId), voted: false, code: "NO_VOTE_TO_TAKE_BACK" as const };
+	}
+	await ctx.storage.votes.delete(id);
 	return { ok: true, votes: await recount(ctx, itemId), voted: false } satisfies VoteOk;
 }
 
@@ -81,6 +87,7 @@ export async function handleVoteGuest(routeCtx: Route, ctx: PluginContext) {
 	if (settings.who === "members") return MEMBERS_ONLY;
 	// No visitor address from the host: guests cannot be told apart, so they cannot write (#51).
 	const guest = requestGuest(routeCtx);
+	await noteGuestAddress(ctx, guest !== null);
 	if (!guest) return GUEST_UNAVAILABLE;
 	const hash = await visitorHash(ctx, guest);
 	const who = visitorWho(hash);

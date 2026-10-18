@@ -4,20 +4,34 @@ Versions match `package.json`, the git tag and the registry release. Newest firs
 
 ## [0.2.2] - 2026-10-19
 
-Guests can now vote and suggest only when your host tells EmDash the visitor's address. Copy the kit again after you update.
+Guests can now vote and suggest only when your host tells EmDash the visitor's address. Copy the kit again after you update:
+
+```bash
+kit="$(mktemp -d)" &&
+  git clone --depth 1 \
+    --branch v0.2.2 \
+    https://github.com/wbcomdesigns/emdash-roadmap \
+    "$kit/emdash-roadmap" &&
+  "$kit/emdash-roadmap/scripts/add-to-site.sh" .
+```
 
 - Security - Guest votes and suggestions are refused when the host gives EmDash no visitor address (any host but Cloudflare, unless the site sets trustedProxyHeaders), and guests see a sign-in link instead.
-- Security - A guest is one guest per IPv4 address or IPv6 /64, and a browser-sent code no longer counts as a guest.
-- Security - The hourly task clears the salted visitor hash from guest votes and ideas after 30 days, and every merge checks that the item has not changed since the page loaded.
-- New      - Ideas opens with a Set up visitor pages card that gives the kit command for the installed version, until you mark the pages as set up.
+- Security - A guest is one guest per IPv4 address or IPv6 /64, IPv4 written as IPv6 counts as the same guest, and a browser-sent code no longer counts as a guest.
+- Security - After 30 days the hourly task clears the salted visitor hash from guest votes and ideas; the vote stays, and the guest may vote again.
+- Security - Approve, reject, merge and the cleanup use guarded writes, and every merge checks that the item has not changed since the page loaded.
+- New      - Ideas opens with a Set up visitor pages card that gives the kit command for the installed version, with a way to show it again later.
 - New      - One command copies the whole kit into a site, layout included, and creates the content types: scripts/add-to-site.sh.
-- Improve  - The Stage panel is the one place to move an item: one button per stage, and the editor's own Stage box follows at once.
-- Improve  - Settings says plainly when guests cannot take part on this host, with a link to the fix.
-- Improve  - Install steps start with the shared Before you install block, use the release tag, name Admin, Menus and Admin, Roadmap, Settings, and are checked on EmDash 1.3.0.
-- Fix      - Ideas no longer counts a waiting idea in Under review as well as in Ideas waiting.
+- Improve  - The Stage panel is the one place to move an item: one button per stage, and a stage it set survives a later save of an older form.
+- Improve  - A move on an item with unpublished changes goes into those changes, so nothing unreviewed goes live.
+- Improve  - On a host with no visitor address, guests see the sign-in line up front, and Settings says so after the first guest request.
+- Improve  - The wording file is backed up only when you edited it yourself, and the script says when it upgrades a shared Wbcom file.
+- Improve  - The member votes page and menu label are now Roadmap votes, so they sit apart from WB Polls' My votes.
+- Fix      - Ideas no longer counts a waiting idea in Under review, and counts an item with an unknown stage in the first column like the board.
+- Fix      - Taking back a guest vote that is no longer there says so, instead of showing Voted.
 - Fix      - The Stage panel no longer puts a form inside the editor's form.
-- Fix      - Roadmap pages line up with the site header and footer on the blog template.
+- Fix      - Roadmap pages line up with the site header and footer on the blog template at every width.
 - Fix      - Buttons and selected chips use the theme's own brand colours, readable in dark mode (shared kit styles 4).
+- Compat   - Checked on EmDash 1.3.1. The 0.2.2 kit also works with the 0.2.1 engine.
 
 ## [0.2.1] - 2026-10-15
 

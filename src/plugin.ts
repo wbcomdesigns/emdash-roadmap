@@ -1,7 +1,7 @@
 import type { SandboxedPlugin } from "emdash/plugin";
 
 import { handleAdmin } from "./admin";
-import { loadBoard } from "./content";
+import { keepStoredStage, loadBoard } from "./content";
 import { handleEditorPanel } from "./editor";
 import { CHANGELOG, MEMBER, ROADMAP, hasCollection } from "./core";
 import { forgetOldGuests } from "./ideas";
@@ -24,6 +24,9 @@ const plugin: SandboxedPlugin = {
 				await seedDefaults(ctx);
 				await ensureNotifyTask(ctx);
 			},
+		},
+		"content:beforeSave": {
+			handler: async (event, ctx) => keepStoredStage(ctx, event),
 		},
 		cron: {
 			handler: async (event, ctx) => {
@@ -86,7 +89,7 @@ const plugin: SandboxedPlugin = {
 			handler: handleSuggestGuest,
 		},
 		admin: {
-			handler: async (routeCtx, ctx) => handleAdmin(routeCtx.input, ctx, requestGuest(routeCtx) !== null),
+			handler: async (routeCtx, ctx) => handleAdmin(routeCtx.input, ctx),
 		},
 		editor_stage: {
 			handler: async (routeCtx, ctx) => handleEditorPanel(routeCtx, ctx),

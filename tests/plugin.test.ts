@@ -723,12 +723,30 @@ describe("guest participation", () => {
 		expect(page).toContain("Sam (guest)");
 	});
 
-	it("says on Settings that guests cannot take part when the host gives no address", async () => {
+	it("says on Settings whether guests can take part, from the last guest request", async () => {
 		const site = await openRoadmap();
-		const noIp = await site.call("admin", { type: "page_load", page: "/settings" }, fromIp(null));
-		expect(JSON.stringify(noIp)).toContain("Guests cannot vote or suggest on this host");
-		const withIp = await site.call("admin", { type: "page_load", page: "/settings" }, fromIp("198.51.100.7"));
-		expect(JSON.stringify(withIp)).not.toContain("Guests cannot vote or suggest on this host");
+		const item = await addItem(site.rt, "Banner item");
+		const settings = async () => JSON.stringify(await site.call("admin", { type: "page_load", page: "/settings" }, fromIp(null)));
+		// Before any guest request: a neutral line, no alarm.
+		expect(await settings()).toContain("This shows here after the first guest vote or idea");
+		expect(await settings()).not.toContain("Guests cannot vote or suggest on this host");
+		await site.call("vote_guest", { id: item.id }, fromIp(null));
+		expect(await settings()).toContain("Guests cannot vote or suggest on this host");
+		await site.call("vote_guest", { id: item.id }, guest);
+		const after = await settings();
+		expect(after).not.toContain("Guests cannot vote or suggest on this host");
+		expect(after).not.toContain("This shows here after the first guest vote or idea");
+	});
+
+	it("answers plainly when a guest takes back a vote that is not there", async () => {
+		const site = await openRoadmap();
+		const item = await addItem(site.rt, "Nothing to take back");
+		expect(await site.call("vote_guest", { id: item.id }, fromIp("198.51.100.7", "DELETE"))).toMatchObject({
+			ok: true,
+			voted: false,
+			votes: 0,
+			code: "NO_VOTE_TO_TAKE_BACK",
+		});
 	});
 
 	it("forgets guest hashes after 30 days and keeps the votes and ideas", async () => {
@@ -759,6 +777,74 @@ describe("guest participation", () => {
 		expect(board.columns.flatMap((column) => column.items).find((row) => row.id === item.id)?.votes).toBe(2);
 		expect(JSON.stringify(await site.rt.inspect.kv.list())).not.toMatch(/rate:vote:v-/);
 		expect(textOf(await admin(site.call, { type: "page_load", page: "/ideas" }))).toContain("Sam (guest)");
+	});
+
+	it("can stop halfway and run again without counting a guest twice, and never undoes a decision", async () => {
+		const site = await openRoadmap();
+		const item = await addItem(site.rt, "Rerun");
+		await site.call("vote_guest", { id: item.id }, guest);
+		const sent = (await site.call("suggest_guest", { title: "Decided idea", name: "Sam" }, guest)) as { id: string };
+		const old = new Date(Date.now() - 31 * 24 * 60 * 60 * 1000).toISOString();
+		const [vote] = await site.rt.inspect.storage.list<Record<string, unknown>>("votes");
+		await site.rt.fixtures.plugin.storage("votes", vote!.id, { ...vote!.data, createdAt: old });
+		const [idea] = await site.rt.inspect.storage.list<Record<string, unknown>>("ideas");
+		await site.rt.fixtures.plugin.storage("ideas", idea!.id, { ...idea!.data, createdAt: old });
+		const cron = () => site.rt.transport.invokeHook("cron", { name: "notify", data: {}, scheduledAt: new Date().toISOString() });
+		await cron();
+		// A run that stopped after writing the new row but before deleting the old one.
+		await site.rt.fixtures.plugin.storage("votes", vote!.id, { ...vote!.data, createdAt: old });
+		await cron();
+		const votes = await site.rt.inspect.storage.list<{ visitor: string }>("votes");
+		expect(votes).toHaveLength(1);
+		expect(votes[0]!.id).toMatch(/:g-[a-f0-9]{40}$/);
+		// The owner rejects the idea; the cleanup only clears the hash and keeps the decision.
+		const rev = ((await site.rt.inspect.storage.list<{ rev: string }>("ideas"))[0]!.data.rev);
+		await admin(site.call, { type: "block_action", action_id: "idea_mod", page: "/ideas", value: `reject|${rev}|${sent.id}` });
+		await cron();
+		expect((await site.rt.inspect.storage.list<{ status: string }>("ideas"))[0]!.data.status).toBe("rejected");
+	});
+});
+
+describe("guarded decisions", () => {
+	it("refuses an approve made on a page that loaded before a reject", async () => {
+		const site = await openRoadmap();
+		const sent = (await site.call("suggest", { title: "Two tabs" }, site.as(ana))) as { id: string };
+		const rev = ((await site.rt.inspect.storage.list<{ rev: string }>("ideas"))[0]!.data.rev);
+		await admin(site.call, { type: "block_action", action_id: "idea_mod", page: "/ideas", value: `reject|${rev}|${sent.id}` });
+		const late = await admin(site.call, { type: "block_action", action_id: "idea_mod", page: "/ideas", value: `approve|${rev}|${sent.id}` });
+		expect(late.toast?.type).toBe("error");
+		expect((await site.rt.inspect.content.get("roadmap", sent.id))?.status).not.toBe("published");
+	});
+});
+
+describe("stage source of truth", () => {
+	it("keeps the stage the panel set when a stale editor form saves", async () => {
+		const site = await openRoadmap();
+		const item = await addItem(site.rt, "Stale form", "Under review");
+		const before = await site.rt.transport.invokeHook("content:beforeSave", {
+			collection: "roadmap", isNew: false, id: item.id, content: { title: "Stale form", stage: "Planned" },
+		});
+		// Never moved by the plugin: the form decides.
+		expect((before as { stage?: string } | undefined)?.stage ?? "Planned").toBe("Planned");
+		await site.rt.admin.actEditorPanel("stage", "roadmap", item.id, "set_stage:done", { value: "done" });
+		const kept = await site.rt.transport.invokeHook("content:beforeSave", {
+			collection: "roadmap", isNew: false, id: item.id, content: { title: "Stale form", stage: "Under review" },
+		});
+		expect(kept).toMatchObject({ stage: "Done", title: "Stale form" });
+		const other = await site.rt.transport.invokeHook("content:beforeSave", {
+			collection: "posts", isNew: false, id: item.id, content: { stage: "Under review" },
+		});
+		expect((other as { stage?: string } | undefined)?.stage ?? "Under review").toBe("Under review");
+	});
+
+	it("counts an item with an unknown stage in the first column, like the board", async () => {
+		const site = await openRoadmap();
+		await addItem(site.rt, "Typo stage", "Planed");
+		const page = await admin(site.call, { type: "page_load", page: "/ideas" });
+		const stats = page.blocks.find((block) => block.type === "stats") as unknown as { items: Array<{ label: string; value: string }> };
+		expect(stats.items.find((stat) => stat.label === "Under review")?.value).toBe("1");
+		const board = (await site.call("board")) as { columns: Array<{ name: string; items: unknown[] }> };
+		expect(board.columns[0]!.items).toHaveLength(1);
 	});
 });
 
@@ -975,7 +1061,11 @@ describe("0.2.2 install-pass findings", () => {
 		const tag = `v${site.rt.manifest.version}`;
 		const first = textOf(await admin(site.call, { type: "page_load", page: "/ideas" }));
 		expect(first).toContain("Set up visitor pages");
-		expect(first).toContain(`git clone --branch ${tag} --depth 1 https://github.com/wbcomdesigns/emdash-roadmap \\"$kit/emdash-roadmap\\" && \\"$kit/emdash-roadmap/scripts/add-to-site.sh\\" .`);
+		expect(first).toContain(`--branch ${tag}`);
+		const { kitCommand } = await import("../src/admin");
+		const lines = kitCommand(tag).split("\n");
+		expect(lines).toHaveLength(6);
+		expect(Math.max(...lines.map((line) => line.length))).toBeLessThanOrEqual(52);
 		expect(first).not.toContain("/tmp/");
 		expect(first).toContain("/account/roadmap-votes/");
 		const done = await admin(site.call, { type: "block_action", action_id: "kit_done", page: "/ideas" });
@@ -983,5 +1073,8 @@ describe("0.2.2 install-pass findings", () => {
 		const after = textOf(done);
 		expect(after).not.toContain("Set up visitor pages");
 		expect(after).toContain(`blob/${tag}/docs/website/getting-started/install.md`);
+		expect(after).toContain("Show the setup steps again");
+		const again = textOf(await admin(site.call, { type: "block_action", action_id: "kit_again", page: "/ideas" }));
+		expect(again).toContain("Set up visitor pages");
 	});
 });

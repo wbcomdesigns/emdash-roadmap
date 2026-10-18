@@ -15,7 +15,7 @@ Stop the dev server and start it again. **Registry** now shows in the admin menu
 
 **3. You need Node 22.16 or later** for the `npx emdash seed` step.
 
-Checked on EmDash 1.3.0 with the `blog` template on Node. The Cloudflare lines follow EmDash's own guide; we have not run them on a Cloudflare site yet.
+Checked on EmDash 1.3.1 with the `blog` template on Node. The Cloudflare lines follow EmDash's own guide; we have not run them on a Cloudflare site yet.
 
 ## Install
 
@@ -23,12 +23,17 @@ Checked on EmDash 1.3.0 with the `blog` template on Node. The Cloudflare lines f
 2. From your site's root folder, get the kit for the version you just installed and copy it in:
 
    ```bash
-   kit="$(mktemp -d)" && git clone --branch v0.2.2 --depth 1 https://github.com/wbcomdesigns/emdash-roadmap "$kit/emdash-roadmap" && "$kit/emdash-roadmap/scripts/add-to-site.sh" .
+   kit="$(mktemp -d)" &&
+     git clone --depth 1 \
+       --branch v0.2.2 \
+       https://github.com/wbcomdesigns/emdash-roadmap \
+       "$kit/emdash-roadmap" &&
+     "$kit/emdash-roadmap/scripts/add-to-site.sh" .
    ```
 
    (`mktemp -d` makes a fresh folder only you can write to, and `&&` runs the script only when the clone worked. Never clone into a fixed `/tmp/<name>`: on a shared machine someone else can create it first.)
 
-   The script copies the kit, never replaces a newer shared file another Wbcom plugin already copied, keeps a backup of any wording file you changed, creates the content types the plugin needs (if any), and prints the exact lines to paste into your templates, with the file names.
+   The script copies the kit, never replaces a newer shared file another Wbcom plugin already copied, keeps a backup of the wording file only when you changed it yourself, creates the content types the plugin needs (if any), and prints the exact lines to paste into your templates, with the file names.
 3. Paste the lines it printed. Restart the dev server.
 4. Add the menu links it printed in Admin, Menus.
 5. Open the plugin in the admin and follow its first screen.
@@ -45,16 +50,16 @@ After the install, a **Roadmap** group with **Ideas** and **Settings** appears i
 
 | Part | Where it goes |
 | --- | --- |
-| Pages | `src/pages/roadmap/` (board, one item, suggest an idea), `src/pages/changelog/`, `src/pages/account/roadmap-votes.astro` (My votes) |
-| Kit files | `src/lib/`, `src/styles/`, `src/components/`, including the two shared Wbcom files |
-| Wording | `src/lib/roadmap-strings.ts`. If yours differs from the release, your copy is kept as `roadmap-strings.ts.bak-YYYYMMDD` and the script says so |
+| Pages | `src/pages/roadmap/` (board, one item, suggest an idea), `src/pages/changelog/`, `src/pages/account/roadmap-votes.astro` (Roadmap votes) |
+| Kit files | `src/lib/`, `src/styles/`, `src/components/`, including the two shared Wbcom files. A newer shared copy from another Wbcom plugin is kept; an older one is upgraded, and the script says which |
+| Wording | `src/lib/roadmap-strings.ts`. An untouched file from any release is replaced. If you edited it yourself, your copy is kept as `roadmap-strings.ts.bak-YYYYMMDD` first and the script says so |
 | Layout | `src/layouts/RoadmapLayout.astro`, copied only the first time. Later runs never overwrite it |
 | Content types | `.emdash/roadmap-seed.json`, then `npx emdash seed .emdash/roadmap-seed.json --no-content` (Node 22.16 or later). It creates the **roadmap** and **changelog** content types and the **Roadmap categories** taxonomy, and leaves anything you already have alone. It never changes your menus |
 | Optional block | `src/roadmap-block/`, unused until you add it to `astro.config.mjs` (see below) |
 
 **Templates:** nothing to paste. The kit brings its own pages, so the script says so instead of printing lines.
 
-**Menus:** in Admin, Menus, add `/roadmap/` (Roadmap), `/changelog/` (Changelog) and `/account/roadmap-votes/` (My votes). WB Polls has its own My votes at `/account/votes`; both pages work side by side.
+**Menus:** in Admin, Menus, add `/roadmap/` (Roadmap), `/changelog/` (Changelog) and `/account/roadmap-votes/` (Roadmap votes). WB Polls has its own My votes at `/account/votes`; both pages work side by side, so give them different labels.
 
 If the seed step could not run (an older Node, or a database that is not `./data.db`), run it yourself from the site root with Node 22.16 or later: `npx emdash seed .emdash/roadmap-seed.json --no-content`, adding `-d <file>` for another database file.
 
@@ -72,13 +77,15 @@ If a page is a 404 or the board says it could not load, see [Troubleshooting](..
 
 ## Guests and the visitor address
 
-Guests can vote and suggest only when your host tells EmDash the visitor's address. EmDash fills it in on Cloudflare (EmDash's own docs; not yet run by us on Cloudflare). On any other host, add `trustedProxyHeaders` to `emdash({ ... })` in `astro.config.mjs`, naming the header your proxy sets, for example `trustedProxyHeaders: ["x-forwarded-for"],`. Only do this when the site really sits behind a proxy that sets that header, or visitors could make up their own address.
+EmDash gives a plugin the visitor's address only on Cloudflare, or when the site sets `trustedProxyHeaders` in `astro.config.mjs`. Without an address, guests are asked to sign in before they can vote or post, so one person cannot vote many times.
 
-Without it, guests see a sign-in link instead of the vote result and the suggest form, members take part as usual, and Admin, Roadmap, Settings says that guests cannot take part on this host.
+Set `trustedProxyHeaders` only to a header that **your proxy writes itself and replaces** on every request. EmDash reads the first address in that header. Many proxies **add** to `X-Forwarded-For` instead of replacing it (nginx `$proxy_add_x_forwarded_for`, most load balancers), so the first address is whatever the visitor typed, and a guest could vote again and again. Behind nginx, set `proxy_set_header X-Real-IP $remote_addr;` and use `trustedProxyHeaders: ["x-real-ip"]`. Behind another proxy, use the header it overwrites with the connecting address. If you are not sure, leave it unset: members can still take part.
+
+Without an address, guests see "Sign in to vote or suggest on this site." with a **Sign in** link instead of active vote buttons and the suggest form. Members take part as usual. Admin, Roadmap, Settings says so after the first guest request.
 
 ## Move an item to another stage
 
-Open the item in Admin, Content, Roadmap, and use the **Stage** panel on the right: one button per stage. The board changes at once and the item's Stage box in the form follows. If the item has unpublished edits, publish or discard them first; the panel says so.
+Open the item in Admin, Content, Roadmap, and use the **Stage** panel on the right: one button per stage. The panel is the one place to set the stage. A stage it set stays, even if you then save a form that still shows the old stage. Visitors see the move on the board within about two minutes (the board is cached briefly). If the item has unpublished changes (the editor saves them as you type), the move goes into those changes and shows on the board when you publish.
 
 ## The in-text block (optional)
 

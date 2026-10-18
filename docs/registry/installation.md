@@ -11,7 +11,7 @@ Stop the dev server and start it again. **Registry** now shows in the admin menu
 
 **3. You need Node 22.16 or later** for the `npx emdash seed` step.
 
-Checked on EmDash 1.3.0 with the `blog` template on Node. The Cloudflare lines follow EmDash's own guide; we have not run them on a Cloudflare site yet.
+Checked on EmDash 1.3.1 with the `blog` template on Node. The Cloudflare lines follow EmDash's own guide; we have not run them on a Cloudflare site yet.
 
 ## Install
 
@@ -19,11 +19,16 @@ Checked on EmDash 1.3.0 with the `blog` template on Node. The Cloudflare lines f
 2. From your site's root folder:
 
    ```bash
-   kit="$(mktemp -d)" && git clone --branch v0.2.2 --depth 1 https://github.com/wbcomdesigns/emdash-roadmap "$kit/emdash-roadmap" && "$kit/emdash-roadmap/scripts/add-to-site.sh" .
+   kit="$(mktemp -d)" &&
+     git clone --depth 1 \
+       --branch v0.2.2 \
+       https://github.com/wbcomdesigns/emdash-roadmap \
+       "$kit/emdash-roadmap" &&
+     "$kit/emdash-roadmap/scripts/add-to-site.sh" .
    ```
 
 3. Nothing to paste. Restart the dev server.
-4. Add the links it printed in Admin, Menus.
-5. Open Admin, Roadmap, Ideas, then Admin, Roadmap, Settings.
+4. Add the printed links in Admin, Menus.
+5. Open Admin, Roadmap, Ideas.
 
 After every update, run step 2 with the new tag. Full guide: https://github.com/wbcomdesigns/emdash-roadmap/blob/v0.2.2/docs/website/getting-started/install.md

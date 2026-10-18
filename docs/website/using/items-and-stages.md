@@ -18,9 +18,9 @@ Each item has its own page at `/roadmap/<slug>/`. It shows the stage and categor
 
 ## Set an item's stage
 
-The **Stage** panel in the editor sidebar is the place to set it. It shows **Stage now** and one **Move to** button for each other stage you named; a stage you hid shows with "(hidden)" after its name. Choose a button: the board changes at once, and the editor reloads the item so its own **Stage** box shows the new stage too. Saving the entry afterwards keeps it.
+The **Stage** panel in the editor sidebar is the place to set it. It shows **Stage now** and one **Move to** button for each other stage you named; a stage you hid shows with "(hidden)" after its name. Choose a button. The panel is the one place to set the stage: the stage it set stays, even when you then save a form that still shows the old stage. Visitors see the move on the board within about two minutes, because the board is cached briefly.
 
-If the item has unpublished edits, the panel shows no buttons and asks you to publish or discard them first. Moving an item republishes it, and that would publish edits nobody has reviewed.
+If the item has unpublished changes (the editor saves them as you type), the move goes into those changes, and the board shows it once you publish. Nothing you have not reviewed goes live.
 
 To move an item without opening it, use **Settings**, **Stages**, **Move an item**. It does the same as the panel.
 

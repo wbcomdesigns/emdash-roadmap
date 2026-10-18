@@ -1,7 +1,7 @@
 import type { PluginContext } from "emdash/plugin";
 
 import type { BlockResponse } from "./admin";
-import { getItem, patchStage } from "./content";
+import { getItem, patchStage, stageKey } from "./content";
 import { ROADMAP } from "./core";
 import { findStage, loadSettings } from "./settings";
 import { asRecord, asString } from "./util";
@@ -53,34 +53,36 @@ async function renderPanel(
 	}
 
 	const settings = await loadSettings(ctx);
-	const current = findStage(settings.stages, asString(asRecord(item.data).stage));
+	// The stage the plugin last set wins: it is what the next save and publish will carry.
+	const stored = asString(await ctx.kv.get<string>(stageKey(entry.id)));
+	const current = findStage(settings.stages, stored || asString(asRecord(item.data).stage));
 	const label = (stage: { name: string; shown: boolean }) => (stage.shown === false ? `${stage.name} (hidden)` : stage.name);
 	// Buttons, not a form: the panel sits inside the editor's own form, and a form inside a form is
-	// invalid HTML. This panel is the one place to move an item; the board follows at once.
+	// invalid HTML. This panel is the one place to move an item.
 	return {
 		blocks: [
 			{
 				type: "fields",
 				fields: [{ label: "Stage now", value: current ? label(current) : settings.stages[0]?.name || "" }],
 			},
-			// A move republishes the item, which would also publish edits nobody has reviewed.
-			...(item.draftRevisionId
-				? [{ type: "context", text: "This item has unpublished edits. Publish or discard them, then move it here." }]
-				: [
-						{ type: "context", text: "Move this item to another stage. The board changes at once." },
-						{
-							type: "actions",
-							elements: settings.stages
-								.filter((stage) => stage.id !== current?.id)
-								.map((stage) => ({
-									type: "button",
-									label: `Move to ${label(stage)}`,
-									// Unique per button: the admin keys elements by action_id.
-									action_id: `set_stage:${stage.id}`,
-									value: stage.id,
-								})),
-						},
-					]),
+			{
+				type: "context",
+				text: item.draftRevisionId
+					? "This item has unpublished changes. A move goes into them; publish to show it on the board."
+					: "Move this item to another stage. Visitors see it on the board within about two minutes.",
+			},
+			{
+				type: "actions",
+				elements: settings.stages
+					.filter((stage) => stage.id !== current?.id)
+					.map((stage) => ({
+						type: "button",
+						label: `Move to ${label(stage)}`,
+						// Unique per button: the admin keys elements by action_id.
+						action_id: `set_stage:${stage.id}`,
+						value: stage.id,
+					})),
+			},
 		],
 		toast: extra?.toast,
 		...(extra?.refresh ? { refresh: true as const } : {}),
@@ -97,14 +99,13 @@ async function saveStage(ctx: Ctx, entry: { collection: string; id: string }, ra
 	if (result.state === "missing") {
 		return renderPanel(ctx, entry, { toast: { message: "That item is gone.", type: "error" } });
 	}
-	if (result.state === "busy") {
-		return renderPanel(ctx, entry, {
-			toast: { message: "This item has unpublished edits. Publish or discard them, then move it.", type: "error" },
-		});
-	}
-	// refresh: the editor reloads the entry, so its own Stage box shows the new stage and a later
-	// Save of the entry cannot put the old one back.
-	return renderPanel(ctx, entry, { toast: { message: `Moved to ${stage.name}.`, type: "success" }, refresh: true });
+	// refresh: the editor reloads the entry, so its own Stage box shows the new stage. A later Save
+	// from a form that still holds the old stage is corrected by the content:beforeSave hook.
+	const message =
+		result.state === "draft"
+			? `Moved to ${stage.name} in this item's unpublished changes. Publish them to show it on the board.`
+			: `Moved to ${stage.name}.`;
+	return renderPanel(ctx, entry, { toast: { message, type: "success" }, refresh: true });
 }
 
 export async function handleEditorPanel(routeCtx: RouteCtx, ctx: Ctx): Promise<BlockResponse> {

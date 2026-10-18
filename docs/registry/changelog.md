@@ -1,11 +1,20 @@
 ## 0.2.2
 
-Guests can vote and suggest only when the host gives EmDash the visitor's address. Copy the kit again after updating.
+Guests vote and suggest only when the host gives EmDash the visitor's address. Copy the kit again after you update:
 
-- Security: guest writes are refused without a visitor address (Cloudflare, or trustedProxyHeaders), one guest per IPv4 or IPv6 /64, guest hashes cleared after 30 days, merges check the item stamp.
-- New: Set up visitor pages card on Ideas, and scripts/add-to-site.sh copies the whole kit.
-- Improve: the Stage panel is the one place to move an item; Settings says when guests cannot take part.
-- Fix: Ideas counts, the panel's nested form, pages line up with the site frame, dark mode buttons.
+```bash
+kit="$(mktemp -d)" &&
+  git clone --depth 1 \
+    --branch v0.2.2 \
+    https://github.com/wbcomdesigns/emdash-roadmap \
+    "$kit/emdash-roadmap" &&
+  "$kit/emdash-roadmap/scripts/add-to-site.sh" .
+```
+
+- Security: no guest writes without a visitor address; one guest per IPv4 or IPv6 /64; guest hashes cleared after 30 days; guarded decisions.
+- New: Set up visitor pages card; scripts/add-to-site.sh copies the whole kit.
+- Improve: the Stage panel is the one place to set the stage; Roadmap votes label.
+- Fix: Ideas counts, nested form, page alignment, dark mode buttons.
 
 ## 0.2.1
 

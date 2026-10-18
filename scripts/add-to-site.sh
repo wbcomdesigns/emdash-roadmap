@@ -2,11 +2,17 @@
 # Adds the Product Roadmap visitor pages to an EmDash site. Run it from a checkout of the release
 # tag that matches the plugin version you installed:
 #
-#   kit="$(mktemp -d)" && git clone --branch v0.2.2 --depth 1 https://github.com/wbcomdesigns/emdash-roadmap "$kit/emdash-roadmap" && "$kit/emdash-roadmap/scripts/add-to-site.sh" .
+#   kit="$(mktemp -d)" &&
+#     git clone --depth 1 \
+#       --branch v0.2.2 \
+#       https://github.com/wbcomdesigns/emdash-roadmap \
+#       "$kit/emdash-roadmap" &&
+#     "$kit/emdash-roadmap/scripts/add-to-site.sh" .
 #
 # Safe to run again after every plugin update. It replaces Roadmap's own kit files, never replaces
 # a newer shared Wbcom file another plugin copied, never touches src/layouts/RoadmapLayout.astro
-# once it exists, and keeps a dated backup of a wording file you changed.
+# once it exists, and keeps a dated backup of the wording file only when you edited it yourself
+# (its hash is not one of a released version's, listed in site-kit/lib/roadmap-strings.sums).
 set -euo pipefail
 
 PLUGIN="$(cd "$(dirname "$0")/.." && pwd)"
@@ -33,19 +39,32 @@ notes=()
 # copy is missing or has a lower number on its first line ("wbcom-shared: N"; none counts as 0).
 shared_version() { local v; v="$(sed -n '1s/.*wbcom-shared: *\([0-9]*\).*/\1/p' "$1" 2>/dev/null)"; echo "${v:-0}"; }
 
+# The site's strings file is untouched when its hash is one a released version shipped.
+released_strings() {
+	local hash
+	hash="$( (shasum -a 256 "$1" 2>/dev/null || sha256sum "$1") | cut -d" " -f1)"
+	grep -qx "$hash" "$KIT/lib/roadmap-strings.sums"
+}
+
 copy_file() {
 	local from="$1" to="$2" name
 	name="$(basename "$from")"
 	if [[ "$name" == wbcom-base.css || "$name" == wbcom-kit.ts ]] && [[ -f "$to" ]]; then
-		if (( $(shared_version "$from") < $(shared_version "$to") )); then
-			notes+=("Kept ${to#"$SITE/"}: the site already has a newer shared copy.")
+		local have want
+		have="$(shared_version "$to")"
+		want="$(shared_version "$from")"
+		if (( want < have )); then
+			notes+=("Kept ${to#"$SITE/"}: the site already has a newer shared copy (wbcom-shared $have; this kit has $want).")
 			return
 		fi
+		if (( want > have )); then
+			notes+=("Upgraded ${to#"$SITE/"} from wbcom-shared $have to $want. Other Wbcom plugins on this site use it too; it only ever adds.")
+		fi
 	fi
-	if [[ "$name" == roadmap-strings.ts && -f "$to" ]] && ! cmp -s "$from" "$to"; then
+	if [[ "$name" == roadmap-strings.ts && -f "$to" ]] && ! cmp -s "$from" "$to" && ! released_strings "$to"; then
 		local backup="$to.bak-$today"
 		cp "$to" "$backup"
-		notes+=("Your wording file differed from this release. Your copy is saved as ${backup#"$SITE/"}; move your changes back into ${to#"$SITE/"}.")
+		notes+=("Your wording file had your own changes. Your copy is saved as ${backup#"$SITE/"}; move your changes back into ${to#"$SITE/"}.")
 	fi
 	cp "$from" "$to"
 }
@@ -54,7 +73,7 @@ for part in lib styles components pages; do
 	[[ -d "$KIT/$part" ]] || continue
 	while IFS= read -r -d '' file; do
 		rel="${file#"$KIT/$part/"}"
-		[[ "$(basename "$rel")" == .gitkeep ]] && continue
+		[[ "$(basename "$rel")" == .gitkeep || "$rel" == *.sums ]] && continue
 		mkdir -p "$(dirname "$SITE/src/$part/$rel")"
 		copy_file "$file" "$SITE/src/$part/$rel"
 	done < <(find "$KIT/$part" -type f -print0)
@@ -97,7 +116,7 @@ Product Roadmap kit $(sed -n 's/.*"version": *"\([^"]*\)".*/\1/p' "$PLUGIN/packa
 
   Pages    src/pages/roadmap/ (board, one item, suggest an idea)
            src/pages/changelog/ (changelog, one release)
-           src/pages/account/roadmap-votes.astro (My votes)
+           src/pages/account/roadmap-votes.astro (Roadmap votes)
   Kit      src/lib/, src/styles/, src/components/ (Roadmap files and the shared Wbcom files)
   Wording  src/lib/roadmap-strings.ts
   Layout   src/layouts/RoadmapLayout.astro ($layout_state)
@@ -118,14 +137,19 @@ Left for you:
   2. Templates: nothing to paste. The kit brings its own pages.
   3. Restart the dev server (stop it, then npm run dev). New pages are not picked up until then.
   4. In the admin, open Menus and add these links:
-       Roadmap    /roadmap/
-       Changelog  /changelog/
-       My votes   /account/roadmap-votes/
+       Roadmap        /roadmap/
+       Changelog      /changelog/
+       Roadmap votes  /account/roadmap-votes/
   5. Open /roadmap/, /roadmap/suggest/, /changelog/ and /account/roadmap-votes/.
   6. In the admin, open Roadmap, Settings: who can take part, stages, and the hourly email.
 
-After every plugin update, run this again from the site root with the new tag:
-  kit="\$(mktemp -d)" && git clone --branch v<new version> --depth 1 https://github.com/wbcomdesigns/emdash-roadmap "\$kit/emdash-roadmap" && "\$kit/emdash-roadmap/scripts/add-to-site.sh" .
+After every plugin update, run this again from the site root, with the new tag:
+  kit="\$(mktemp -d)" &&
+    git clone --depth 1 \\
+      --branch v<new version> \\
+      https://github.com/wbcomdesigns/emdash-roadmap \\
+      "\$kit/emdash-roadmap" &&
+    "\$kit/emdash-roadmap/scripts/add-to-site.sh" .
 
 Guide: https://github.com/wbcomdesigns/emdash-roadmap/blob/v$(sed -n 's/.*"version": *"\([^"]*\)".*/\1/p' "$PLUGIN/package.json" | head -n 1)/docs/website/getting-started/install.md
 DONE

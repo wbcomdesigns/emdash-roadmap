@@ -31,12 +31,12 @@ Your hosting has to tell EmDash the visitor's address: Cloudflare does, and any 
 What this means for you:
 
 - People who share one internet address, such as one office, share one vote per item.
-- After 30 days a guest's vote no longer carries their address, so the same guest could vote on that item again. For votes where that matters, choose **Signed-in members only**.
+- After 30 days a guest is forgotten on purpose: the vote stays, but it no longer carries their address. The same guest can then vote on that item again, and can no longer take the old vote back (the button says so and goes back to **Vote**). This trades a little precision for privacy. For votes where that matters, choose **Signed-in members only**.
 - A guest's "Voted" mark comes from their own browser. On a different browser they see **Vote**, though their vote still counts.
 
-## My votes
+## Roadmap votes
 
-A signed-in member opens `/account/roadmap-votes/`. Each item is a link, with its stage in plain words. Ideas they sent are listed with a status: waiting for a decision, on the board, or not published. **Take back all my votes** asks for a second click. Guests see a sign-in link. Add a menu link labelled **My votes**.
+A signed-in member opens `/account/roadmap-votes/`. Each item is a link, with its stage in plain words. Ideas they sent are listed with a status: waiting for a decision, on the board, or not published. **Take back all my votes** asks for a second click. Guests see a sign-in link. Add a menu link labelled **Roadmap votes** (WB Polls uses My votes for its own page).
 
 ## Limits
 

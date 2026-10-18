@@ -40,7 +40,7 @@ export async function settlePublishedIdeas(ctx: PluginContext, ideas: IdeaRow[])
 	const waiting: IdeaRow[] = [];
 	for (const idea of ideas) {
 		const item = await getItem(ctx, idea.id);
-		if (item?.status === "published") await writeIdea(ctx, idea, { status: "approved" });
+		if (item?.status === "published") await writeIdea(ctx, idea, { status: "approved" }).catch(() => false);
 		else waiting.push(idea);
 	}
 	return waiting;
@@ -78,9 +78,17 @@ export async function loadIdea(ctx: PluginContext, id: string): Promise<IdeaRow 
 	}
 }
 
-async function writeIdea(ctx: PluginContext, idea: IdeaRow, patch: Partial<IdeaRow>): Promise<void> {
-	const { id: _id, ...rest } = { ...idea, ...patch };
-	await ctx.storage.ideas.put(idea.id, rest);
+/**
+ * Guarded write: applies only while the row still has the status and revision this decision was
+ * made on, so a decision or a cleanup that landed in between is never overwritten.
+ */
+async function writeIdea(ctx: PluginContext, idea: IdeaRow, patch: Partial<IdeaRow>): Promise<boolean> {
+	const { id: _id, ...set } = patch;
+	const result = await ctx.storage.ideas.updateIf(idea.id, {
+		where: { status: idea.status, rev: idea.rev },
+		set: { ...set, rev: crypto.randomUUID() },
+	});
+	return result.applied;
 }
 
 export async function approveIdea(
@@ -104,16 +112,24 @@ export async function approveIdea(
 			error: "This idea's draft has unpublished edits. Open it in Roadmap content, check it and publish it there. It then leaves this list.",
 		};
 	}
+	// Claim the idea first: a reject or merge that landed after the checks above wins.
+	if (!(await writeIdea(ctx, idea, { status: "approved" }))) {
+		return { ok: false, error: "That idea changed after this page loaded." };
+	}
+	const back = async () => {
+		const now = await loadIdea(ctx, id);
+		if (now?.status === "approved") await writeIdea(ctx, now, { status: "pending" });
+	};
 	await ctx.content.update(await collectionName(ctx), id, {
 		...item.data,
 		title: asString(asRecord(item.data).title) || idea.title,
 		description: asString(asRecord(item.data).description) || idea.description,
 		stage: stage.name,
 	});
-	if (!(await publishNow(ctx, id))) {
+	if (!(await publishNow(ctx, id).catch(() => false))) {
+		await back();
 		return { ok: false, error: "Could not publish. Open the item in content admin and publish it there." };
 	}
-	await writeIdea(ctx, idea, { status: "approved" });
 	return { ok: true };
 }
 
@@ -125,7 +141,9 @@ export async function rejectIdea(
 	const idea = await loadIdea(ctx, id);
 	if (!idea || idea.status !== "pending") return { ok: false, error: "That idea is no longer waiting." };
 	if (!rev || idea.rev !== rev) return { ok: false, error: "That idea changed after this page loaded." };
-	await writeIdea(ctx, idea, { status: "rejected" });
+	if (!(await writeIdea(ctx, idea, { status: "rejected" }))) {
+		return { ok: false, error: "That idea changed after this page loaded." };
+	}
 	return { ok: true };
 }
 
@@ -194,6 +212,10 @@ export async function mergeItems(
 	if (!source || !keep) return { ok: false, error: "One of those items is no longer there." };
 	if (from.kind === "item" && itemStamp(source) !== from.stamp) return CHANGED;
 	if (keep.status !== "published") return { ok: false, error: "Keep a published item." };
+	// A waiting idea is claimed before anything moves, so an approve in between wins.
+	if (from.kind === "idea" && idea && !(await writeIdea(ctx, idea, { status: "merged" }))) {
+		return { ok: false, error: "That idea changed after this page loaded." };
+	}
 	await moveVotes(ctx, sourceId, keepId);
 	if (source.status === "published") await unpublishNow(ctx, sourceId);
 	const fromPath = `/${(await collectionName(ctx))}/${source.slug || sourceId}`;
@@ -201,8 +223,13 @@ export async function mergeItems(
 	if (ctx.redirects?.create && source.slug && keep.slug && fromPath !== toPath) {
 		await ctx.redirects.create({ source: fromPath, destination: toPath, type: 301 }).catch(() => undefined);
 	}
-	if (idea) await writeIdea(ctx, idea, { status: "merged" });
+	if (from.kind === "item" && idea?.status === "pending") await writeIdea(ctx, idea, { status: "merged" });
 	return { ok: true };
+}
+
+async function sha256Hex(text: string): Promise<string> {
+	const bytes = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(text));
+	return [...new Uint8Array(bytes)].map((byte) => byte.toString(16).padStart(2, "0")).join("").slice(0, 40);
 }
 
 /** How long a guest's salted address stays on a row: it stops repeat votes inside this window. */
@@ -220,7 +247,8 @@ export async function forgetOldGuests(ctx: PluginContext, now = Date.now()): Pro
 	for (const row of oldVotes) {
 		if (!asString(row.visitor)) continue;
 		const item = asString(row.item);
-		const anon = `g-${crypto.randomUUID()}`;
+		// Same old row, same new key: a run that stops halfway and runs again cannot count it twice.
+		const anon = `g-${await sha256Hex(row.id)}`;
 		await ctx.storage.votes.put(voteRowId(item, anon), {
 			item,
 			member_id: anon,
@@ -234,9 +262,12 @@ export async function forgetOldGuests(ctx: PluginContext, now = Date.now()): Pro
 	const oldIdeas = rows(await ctx.storage.ideas.query({ where: { visitor: { gt: "" }, createdAt: { lt: before } }, limit: FORGET_BATCH }));
 	for (const row of oldIdeas) {
 		if (!asString(row.visitor)) continue;
-		const { id, ...rest } = row;
-		await ctx.storage.ideas.put(id, { ...rest, visitor: "", guest: true });
-		ideas += 1;
+		// Touches only these two fields, and only while the hash is still the one read here.
+		const done = await ctx.storage.ideas.updateIf(row.id, {
+			where: { visitor: asString(row.visitor) },
+			set: { visitor: "", guest: true },
+		});
+		if (done.applied) ideas += 1;
 	}
 	// Rate-limit counters carry the same hash in their key. Drop the ones whose hour is over.
 	for (const entry of await ctx.kv.list("rate:").catch(() => [])) {

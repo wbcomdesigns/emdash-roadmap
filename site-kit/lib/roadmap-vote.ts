@@ -4,6 +4,9 @@ import { readVotes, rememberVote } from "./roadmap-visitor";
 
 let bound = false;
 
+/** Refusals that mean "sign in to do this", from this engine release and the one before (0.2.1 sent NO_VISITOR). */
+export const SIGN_IN_CODES = new Set(["SIGN_IN_REQUIRED", "MEMBERS_ONLY", "GUEST_UNAVAILABLE", "NO_VISITOR"]);
+
 export function voteAriaLabel(voted: boolean, title: string, votes: number): string {
 	const action = voted ? strings.voted : strings.vote;
 	const count = voteCountLabel(votes);
@@ -29,26 +32,31 @@ async function markMine(): Promise<void> {
 		button.setAttribute("aria-busy", "true");
 		button.disabled = true;
 	}
-	const [mine, counts] = await Promise.all([loadMine(), loadCounts()]);
+	const [mine, counts, health] = await Promise.all([loadMine(), loadCounts(), api("roadmap", "health")]);
+	// A guest on a host that gives no visitor address cannot vote: say so up front, with the
+	// sign-in link, instead of offering buttons that would only refuse. An older engine sends no
+	// guestWrites: then the buttons stay on and a refusal shows the same sign-in line.
+	const guestBlocked = mine.guest && health.ok && health.guestWrites === false;
 	for (const button of buttons) {
 		button.removeAttribute("aria-busy");
-		button.disabled = false;
+		button.disabled = guestBlocked;
 	}
+	if (guestBlocked) showStatus({ ok: false, error: { code: "GUEST_UNAVAILABLE" } });
 	for (const button of document.querySelectorAll<HTMLButtonElement>("[data-vote]")) {
 		const id = button.dataset.vote || "";
-		const voted = mine.has(id);
+		const voted = mine.ids.has(id);
 		const votes = counts.get(id) ?? Number(button.dataset.votes || 0);
 		paint(button, voted, voted ? Math.max(votes, 1) : votes);
 	}
 }
 
-async function loadMine(): Promise<Set<string>> {
+async function loadMine(): Promise<{ ids: Set<string>; guest: boolean }> {
 	let result = await api("roadmap", "votes");
 	// A guest gets SIGN_IN_REQUIRED and uses the votes kept in this browser. Any other failure
 	// is retried once before a member's votes would wrongly show as not voted.
 	if (!result.ok && result.error?.code !== "SIGN_IN_REQUIRED") result = await api("roadmap", "votes");
-	if (result.ok) return new Set(((result.ids as string[]) || []).filter(Boolean));
-	return new Set(readVotes());
+	if (result.ok) return { ids: new Set(((result.ids as string[]) || []).filter(Boolean)), guest: false };
+	return { ids: new Set(readVotes()), guest: result.error?.code === "SIGN_IN_REQUIRED" };
 }
 
 async function loadCounts(): Promise<Map<string, number>> {
@@ -105,6 +113,7 @@ async function onClick(event: Event): Promise<void> {
 	}
 	rememberVote(id, Boolean(result.voted));
 	paint(button, Boolean(result.voted), Number(result.votes) || 0);
+	if (result.code === "NO_VOTE_TO_TAKE_BACK") showNote(strings.voteForgotten);
 }
 
 async function sendVote(id: string, voted: boolean): Promise<ApiResult> {
@@ -127,13 +136,21 @@ function paint(button: HTMLButtonElement, voted: boolean, votes: number): void {
 	if (count) count.textContent = String(votes);
 }
 
+function showNote(text: string): void {
+	const box = document.getElementById("roadmap-status");
+	if (!box) return;
+	box.hidden = false;
+	box.dataset.tone = "ok";
+	box.textContent = text;
+}
+
 function showStatus(result: ApiResult): void {
 	const code = result.error?.code || "FAILED";
 	const box = document.getElementById("roadmap-status");
 	if (!box) return;
 	box.hidden = false;
 	box.dataset.tone = "error";
-	if (code === "SIGN_IN_REQUIRED" || code === "MEMBERS_ONLY" || code === "GUEST_UNAVAILABLE") {
+	if (SIGN_IN_CODES.has(code)) {
 		box.innerHTML = `${esc(phrase(code))} <a href="${esc(signInUrl())}">${esc(strings.signIn)}</a>`;
 		return;
 	}

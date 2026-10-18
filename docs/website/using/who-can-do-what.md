@@ -35,5 +35,5 @@ These pages are open to everyone:
 
 - A suggestion from a guest or member never goes live by itself. It is saved as a draft until you approve it.
 - Visitors never see the list of who voted. Votes are kept in the plugin with a person id or a scrambled visitor code, and there is no screen that lists them.
-- Taking part as a guest needs no account. Guests have no list of their own votes. A signed-in member opens **My votes** at `/account/roadmap-votes/` to see items they voted for and take those votes back.
+- Taking part as a guest needs no account. Guests have no list of their own votes. A signed-in member opens **Roadmap votes** at `/account/roadmap-votes/` to see items they voted for and take those votes back.
 - Where the hosting gives no visitor address, guests cannot vote or suggest and see a sign-in link. See [Voting](voting.md#how-a-guest-vote-is-counted).

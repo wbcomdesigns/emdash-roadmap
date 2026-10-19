@@ -119,16 +119,16 @@ export async function kitBlocks(ctx: PluginContext): Promise<BlockMap[]> {
 				{ type: "link", label: "Copy it from the install guide on a phone", target: { kind: "external", url: guideUrl } },
 			],
 		},
-		{
-			type: "fields",
-			fields: [
-				{ label: "Board", value: "/roadmap/" },
-				{ label: "One item", value: "/roadmap/<item>/" },
-				{ label: "Suggest an idea", value: "/roadmap/suggest/" },
-				{ label: "Changelog", value: "/changelog/" },
-				{ label: "Roadmap votes", value: "/account/roadmap-votes/" },
-			],
-		},
+		// One line per address in context blocks, which wrap: a fields block cuts a long value
+		// (/account/roadmap-votes/ was clipped at 390).
+		{ type: "context", text: "The kit adds these pages:" },
+		...lines([
+			"Board: /roadmap/",
+			"One item: /roadmap/<item>/",
+			"Suggest an idea: /roadmap/suggest/",
+			"Changelog: /changelog/",
+			"Roadmap votes: /account/roadmap-votes/",
+		]),
 		{
 			type: "actions",
 			elements: [guide, { type: "button", action_id: "kit_done", label: "Visitor pages are set up", style: "primary" }],

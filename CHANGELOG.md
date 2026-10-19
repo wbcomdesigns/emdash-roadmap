@@ -2,6 +2,38 @@
 
 Versions match `package.json`, the git tag and the registry release. Newest first.
 
+## [0.3.0] - 2026-10-19
+
+New permission: Read retained content revision history, so the Stage panel can see and move an item while it has unpublished changes. You approve it once when you update. Guests can now vote and suggest only when your host tells EmDash the visitor's address. Copy the kit again after you update:
+
+```bash
+kit="$(mktemp -d)" &&
+  git clone --depth 1 \
+    --branch v0.3.0 \
+    https://github.com/wbcomdesigns/emdash-roadmap \
+    "$kit/emdash-roadmap" &&
+  "$kit/emdash-roadmap/scripts/add-to-site.sh" .
+```
+
+- New      - Ideas opens with a Set up visitor pages card that gives the kit command for the installed version, with a way to show it again later.
+- New      - One command copies the whole kit into a site, layout included, and creates the content types: scripts/add-to-site.sh.
+- Improve  - The Stage panel is the one place to move an item: one button per stage. A form opened before a move cannot undo it; a different stage typed in the Stage box is kept, and retyping a stage the panel just replaced is refused with a message.
+- Improve  - A move on an item with unpublished changes goes into those changes, so nothing unreviewed goes live.
+- Improve  - On a host with no visitor address, guests see the sign-in line up front, and Settings says so when no guest request in a day came with an address.
+- Improve  - Any kit file you edited yourself is backed up before an update replaces it, and the script says when it upgrades a shared Wbcom file.
+- Improve  - The member votes page and menu label are now Roadmap votes, so they sit apart from WB Polls' My votes.
+- Fix      - Ideas no longer counts a waiting idea in Under review, and counts an item with an unknown stage in the first column like the board.
+- Fix      - Taking back a vote that is no longer there says why (already taken back, or a guest vote older than 30 days), instead of showing Voted.
+- Fix      - The Stage panel no longer puts a form inside the editor's form.
+- Fix      - Roadmap pages line up with the site header and footer on the blog template at every width.
+- Fix      - Buttons and selected chips use the theme's own brand colours, readable in dark mode (shared kit styles 4).
+- Security - Guest votes and suggestions are refused when the host gives EmDash no visitor address (any host but Cloudflare, unless the site sets trustedProxyHeaders), and guests see a sign-in link instead.
+- Security - A guest is one guest per IPv4 address or IPv6 /64, IPv4 written as IPv6 counts as the same guest, and a browser-sent code no longer counts as a guest.
+- Security - After 30 days the hourly task clears the salted visitor hash from guest votes and ideas; the vote stays, and the guest may vote again.
+- Security - Approve, reject, merge and the cleanup use guarded writes, and every merge checks that the item has not changed since the page loaded.
+- Dev      - Minor version: new capability content:revisions:read.
+- Compat   - Checked on EmDash 1.3.1. The 0.3.0 kit works with the 0.2.1 engine, and the 0.2.1 kit shows its sign-in line on the 0.3.0 engine.
+
 ## [0.2.1] - 2026-10-15
 
 Copy the kit again after you update.

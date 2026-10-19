@@ -15,7 +15,7 @@ Saved with **Save** on the **Who can take part** tab. You see "Who can take part
 | Allow suggestions | When on, people can send an idea. It always waits for your approval. When off, the Suggest an idea button leaves the board and the suggest page says suggestions are closed | On |
 | Who can vote and suggest | **Anyone**, or **Signed-in members only**. Guests who try under members only are asked to sign in | Anyone |
 
-Guest votes are counted as described in [Voting](../using/voting.md#how-a-guest-vote-is-counted).
+Guest votes are counted as described in [Voting](../using/voting.md#how-a-guest-vote-is-counted). When no guest request in the last 24 hours came with a visitor address (and at least one came without), this tab shows "Guests cannot vote here" with a link to the fix. Before any guest request, it shows a short note instead.
 
 ## Stages
 

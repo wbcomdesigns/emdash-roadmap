@@ -1,3 +1,5 @@
+import type { PluginContext } from "emdash/plugin";
+
 export function asRecord(input: unknown): Record<string, unknown> {
 	return input !== null && typeof input === "object" && !Array.isArray(input)
 		? (input as Record<string, unknown>)
@@ -66,4 +68,23 @@ export type Row = Record<string, unknown> & { id: string };
 /** Flatten a storage query result into plain rows carrying their id. */
 export function rows(result: { items: Array<{ id: string; data: unknown }> }): Row[] {
 	return result.items.map((item) => ({ ...asRecord(item.data), id: item.id }));
+}
+
+/** EmDash returns at most this many rows per storage query, whatever limit is asked for. */
+export const STORAGE_PAGE = 100;
+
+type Pageable = Pick<PluginContext["storage"][string], "query">;
+type Where = NonNullable<Parameters<Pageable["query"]>[0]>["where"];
+
+/** Every row matching where, read 100 at a time with the cursor (a storage query stops at 100). */
+export async function allRows(collection: Pageable, where: Where = {}, maxPages = 100): Promise<Row[]> {
+	const out: Row[] = [];
+	let cursor: string | undefined;
+	for (let page = 0; page < maxPages; page += 1) {
+		const found = await collection.query({ where, limit: STORAGE_PAGE, cursor });
+		out.push(...rows(found));
+		if (!found.hasMore || !found.cursor) break;
+		cursor = found.cursor;
+	}
+	return out;
 }

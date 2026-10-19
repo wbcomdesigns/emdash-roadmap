@@ -1,10 +1,10 @@
 import type { PluginContext } from "emdash/plugin";
 
-import { MEMBERS_ONLY, NO_VISITOR, RATE_LIMITED, SIGN_IN, SPAM, collectionName, rateLimited, type Member } from "./core";
+import { GUEST_UNAVAILABLE, MEMBERS_ONLY, NO_VISITOR, RATE_LIMITED, SIGN_IN, SPAM, collectionName, rateLimited, roadmapReady, type Member } from "./core";
 import { listRoadmapItems } from "./content";
 import { findStage, loadSettings } from "./settings";
 import { asRecord, asString, nowIso, rows } from "./util";
-import { requestIp, visitorHash, visitorWho } from "./visitor";
+import { noteGuestAddress, requestGuest, visitorHash, visitorWho } from "./visitor";
 
 export const NOT_FOUND = {
 	ok: false,
@@ -21,7 +21,7 @@ type Route = {
 export type VoteOk = { ok: true; votes: number; voted: boolean };
 
 export async function publishedItem(ctx: PluginContext, id: string): Promise<boolean> {
-	if (!id || !ctx.content) return false;
+	if (!id || !ctx.content || !(await roadmapReady(ctx))) return false;
 	const collection = await collectionName(ctx);
 	const item = await ctx.content.get(collection, id).catch(() => null);
 	return item?.status === "published";
@@ -50,8 +50,29 @@ async function saveVote(ctx: PluginContext, itemId: string, who: string, extra: 
 	return { ok: true, votes: await recount(ctx, itemId), voted: true } satisfies VoteOk;
 }
 
+/** The key a guest vote moves to once the 30-day cleanup drops its hash. Same old row, same key. */
+export async function anonymousVoteId(itemId: string, oldRowId: string): Promise<string> {
+	const bytes = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(oldRowId));
+	const hex = [...new Uint8Array(bytes)].map((byte) => byte.toString(16).padStart(2, "0")).join("").slice(0, 40);
+	return voteRowId(itemId, `g-${hex}`);
+}
+
 async function dropVote(ctx: PluginContext, itemId: string, who: string) {
-	await ctx.storage.votes.delete(voteRowId(itemId, who));
+	const id = voteRowId(itemId, who);
+	// Nothing to take back. Say which case plainly; the kit then stops showing Voted.
+	// forgotten_guest: the vote is older than 30 days and no longer carries the guest's address.
+	// already_removed: taken back before (another tab, another device), or never cast.
+	if (!(await ctx.storage.votes.exists(id))) {
+		const forgotten = who.startsWith("v-") && (await ctx.storage.votes.exists(await anonymousVoteId(itemId, id)));
+		return {
+			ok: true,
+			votes: await recount(ctx, itemId),
+			voted: false,
+			code: "NO_VOTE_TO_TAKE_BACK" as const,
+			reason: forgotten ? ("forgotten_guest" as const) : ("already_removed" as const),
+		};
+	}
+	await ctx.storage.votes.delete(id);
 	return { ok: true, votes: await recount(ctx, itemId), voted: false } satisfies VoteOk;
 }
 
@@ -79,8 +100,11 @@ export async function handleVoteGuest(routeCtx: Route, ctx: PluginContext) {
 	if (asString(raw.website) || asString(raw.honeypot)) return SPAM;
 	const settings = await loadSettings(ctx);
 	if (settings.who === "members") return MEMBERS_ONLY;
-	const hash = await visitorHash(ctx, requestIp(routeCtx), asString(raw.visitor));
-	if (!hash) return NO_VISITOR;
+	// No visitor address from the host: guests cannot be told apart, so they cannot write (#51).
+	const guest = requestGuest(routeCtx);
+	await noteGuestAddress(ctx, guest !== null);
+	if (!guest) return GUEST_UNAVAILABLE;
+	const hash = await visitorHash(ctx, guest);
 	const who = visitorWho(hash);
 	const itemId = asString(raw.id);
 	const method = routeCtx.request.method;

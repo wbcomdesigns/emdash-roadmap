@@ -1,8 +1,8 @@
 import type { PluginContext } from "emdash/plugin";
 
-import { CHANGELOG, ROADMAP, collectionName, hasCollection } from "./core";
+import { CHANGELOG, ROADMAP, collectionName, hasCollection, roadmapReady } from "./core";
 import { findStage, loadSettings, type Stage } from "./settings";
-import { asNumber, asRecord, asString, rows } from "./util";
+import { allRows, asNumber, asRecord, asString } from "./util";
 
 export const BOARD_MAX = 100;
 
@@ -13,7 +13,13 @@ export type RoadmapItem = {
 	stage: string;
 	published: boolean;
 	createdAt: string;
+	/** Changes whenever the item is saved. Ties an admin decision to the item the admin saw. */
+	stamp: string;
 };
+
+export function itemStamp(item: { version?: number; updatedAt?: string | null }): string {
+	return `${item.version ?? ""}~${item.updatedAt ?? ""}`;
+}
 
 export type BoardCard = {
 	id: string;
@@ -50,6 +56,7 @@ async function listByStatus(
 				stage: asString(data.stage),
 				published: item.status === "published",
 				createdAt: item.publishedAt || item.createdAt || "",
+				stamp: itemStamp(item),
 			});
 		}
 		if (!page.hasMore || !page.cursor) break;
@@ -59,6 +66,7 @@ async function listByStatus(
 }
 
 export async function listRoadmapItems(ctx: PluginContext): Promise<RoadmapItem[]> {
+	if (!(await roadmapReady(ctx))) return [];
 	const collection = await collectionName(ctx);
 	try {
 		const [live, drafts] = await Promise.all([
@@ -78,17 +86,20 @@ export function countInStage(items: RoadmapItem[], stage: Stage): number {
 export function stageCounts(items: RoadmapItem[], stages: Stage[]): Map<string, number> {
 	const counts = new Map<string, number>();
 	for (const stage of stages) counts.set(stage.id, 0);
+	// Same rule as the board: an item whose stage matches no stage counts in the first column shown.
+	const first = stages.find((stage) => stage.shown);
 	for (const item of items) {
-		const stage = findStage(stages, item.stage);
+		const stage = findStage(stages, item.stage) ?? first;
 		if (!stage) continue;
 		counts.set(stage.id, (counts.get(stage.id) ?? 0) + 1);
 	}
 	return counts;
 }
 
+/** One tally per item. Paged: a storage query returns 100 rows at most, and items can pass 100. */
 async function votesMap(ctx: PluginContext): Promise<Map<string, number>> {
-	const found = await ctx.storage.tallies.query({ limit: BOARD_MAX });
-	return new Map(rows(found).map((row) => [row.id, asNumber(row.votes) ?? 0]));
+	const found = await allRows(ctx.storage.tallies, {}, MAX_PAGES * 2);
+	return new Map(found.map((row) => [row.id, asNumber(row.votes) ?? 0]));
 }
 
 async function inCategory(ctx: PluginContext, id: string, collection: string, wanted: string): Promise<boolean> {
@@ -156,6 +167,7 @@ export async function hasCollections(ctx: PluginContext): Promise<{ roadmap: boo
 }
 
 export async function getItem(ctx: PluginContext, id: string) {
+	if (!id || !(await roadmapReady(ctx))) return null;
 	const collection = await collectionName(ctx);
 	return ctx.content?.get?.(collection, id).catch(() => null) ?? null;
 }
@@ -178,20 +190,101 @@ export async function unpublishNow(ctx: PluginContext, id: string): Promise<bool
 	return true;
 }
 
-/** Change the stage on an item and keep a published item live. */
+/** The last Stage panel move on an item: {from, to}. Guards against an older editor form only. */
+export function stageKey(id: string): string {
+	return `stage:${id}`;
+}
+
+/** to: the stage the panel last set. left: every stage the item left through the panel since then. */
+type StageMove = { to: string; left: string[] };
+
+function readMove(raw: unknown): StageMove | null {
+	const row = asRecord(raw);
+	const to = asString(row.to);
+	if (!to) return null;
+	const left = Array.isArray(row.left) ? row.left.map(asString).filter(Boolean) : [asString(row.from)].filter(Boolean);
+	return { to, left };
+}
+
+/**
+ * The item's stage as the next publish would show it: the unpublished changes if there are any,
+ * otherwise the live entry. Read from the entry every time, never from the plugin's own record.
+ */
+export async function currentStage(ctx: PluginContext, item: { id: string; data: unknown; draftRevisionId?: string | null }): Promise<{ stage: string; inDraft: boolean; live: string }> {
+	const live = asString(asRecord(item.data).stage);
+	if (!item.draftRevisionId || !ctx.content?.getRevision) return { stage: live, inDraft: false, live };
+	const collection = await collectionName(ctx);
+	const draft = await ctx.content.getRevision(collection, item.id, item.draftRevisionId).catch(() => null);
+	const stage = draft ? asString(asRecord(draft.data).stage) : live;
+	return { stage: stage || live, inDraft: Boolean(draft), live };
+}
+
+/**
+ * Change the stage on an item. Published with no unpublished changes: the change goes live at
+ * once. With unpublished changes: only the stage in that draft changes, and it goes live when the
+ * owner publishes. Either way the move is recorded as {from, to} so keepPanelStage can turn away an
+ * editor form that was opened before the move and still holds the old stage.
+ */
 export async function patchStage(
 	ctx: PluginContext,
 	id: string,
 	stage: string,
-): Promise<{ state: "done" } | { state: "busy" | "missing" }> {
+): Promise<{ state: "done" | "draft" | "missing" }> {
 	const collection = await collectionName(ctx);
-	const item = await ctx.content?.get?.(collection, id).catch(() => null);
+	const item = await getItem(ctx, id);
 	if (!item || !ctx.content?.update) return { state: "missing" };
-	if ((item as { draftRevisionId?: string | null }).draftRevisionId) return { state: "busy" };
+	const from = (await currentStage(ctx, item)).stage;
+	// Recorded before the write, so the hook sees this move when the plugin's own update saves.
+	if (from && from !== stage) {
+		// A move from the stage the last move set continues the record, so a form opened before
+		// either move is still turned away. Moving back to a stage takes it off the list.
+		const before = readMove(await ctx.kv.get(stageKey(id)));
+		const left = before && before.to === from ? [...before.left, from] : [from];
+		await ctx.kv.set(stageKey(id), {
+			to: stage,
+			left: [...new Set(left)].filter((name) => name !== stage),
+		} satisfies StageMove);
+	}
+	if (item.draftRevisionId) {
+		await ctx.content.update(collection, id, { stage });
+		return { state: "draft" };
+	}
 	await ctx.content.update(collection, id, { ...item.data, stage });
 	if (item.status === "published" && ctx.content.getVersioned && ctx.content.publish) {
 		const versioned = await ctx.content.getVersioned(collection, id);
 		if (versioned) await ctx.content.publish(collection, id, { _rev: versioned._rev });
 	}
 	return { state: "done" };
+}
+
+export const STALE_STAGE_REASON = (to: string) =>
+	`The Stage panel moved this item to ${to}. To keep that, set the Stage box to ${to} and save again, or reload the page. To change the stage, use the Stage panel.`;
+
+/**
+ * content:beforeSave. Only one save is turned away: one that carries a stage the item left through
+ * the Stage panel, while the item still has the stage the panel set (a form opened before the
+ * moves). The owner is told why. Every other stage, typed in the form or sent through the API, is
+ * saved as it is, and the record is dropped. A discarded draft or a restored revision changes the
+ * item's stage, so the record is dropped then too.
+ */
+export async function keepPanelStage(
+	ctx: PluginContext,
+	event: { collection: string; isNew: boolean; id?: string; content: Record<string, unknown> },
+): Promise<Record<string, unknown> | { __emdashSandboxHookResult: true; version: 1; error: { code: "SAVE_REJECTED"; reason: string } } | void> {
+	if (event.isNew || !event.id || !("stage" in event.content)) return;
+	if (event.collection !== (await collectionName(ctx))) return;
+	const move = readMove(await ctx.kv.get(stageKey(event.id)));
+	if (!move) return;
+	const incoming = asString(event.content.stage);
+	if (incoming === move.to) return;
+	const item = await ctx.content?.get?.(event.collection, event.id).catch(() => null);
+	const now = item ? (await currentStage(ctx, item)).stage : "";
+	if (move.left.includes(incoming) && now === move.to) {
+		return {
+			__emdashSandboxHookResult: true,
+			version: 1,
+			error: { code: "SAVE_REJECTED", reason: STALE_STAGE_REASON(move.to) },
+		};
+	}
+	await ctx.kv.delete(stageKey(event.id));
 }

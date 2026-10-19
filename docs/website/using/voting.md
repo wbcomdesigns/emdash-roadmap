@@ -24,18 +24,19 @@ A signed-in member always votes as themselves, whichever setting you pick.
 
 ## How a guest vote is counted
 
-A guest has no account, so Product Roadmap needs another way to count one vote per person. It uses the visitor's internet address when your hosting passes it on. It stores only a scrambled form of the address, never the address itself. If your hosting does not pass the address on, it falls back to a random code saved in the visitor's browser.
+A guest has no account, so Product Roadmap counts one vote per internet address (for IPv6, per /64 network, so one home's rotating addresses count once). It stores only a salted, scrambled form of the address, never the address itself, and clears even that from a vote after 30 days. The vote stays.
+
+Your hosting has to tell EmDash the visitor's address: Cloudflare does, and any other host does once the site sets `trustedProxyHeaders` (see [Install](../getting-started/install.md#guests-and-the-visitor-address)). Without it, guests cannot vote or suggest: they see "Sign in to vote or suggest on this site." with a **Sign in** link, and members take part as usual.
 
 What this means for you:
 
 - People who share one internet address, such as one office, share one vote per item.
-- With the browser code, a private window or cleared site data lets someone vote again. For votes where that matters, choose **Signed-in members only**.
-- A guest is never locked out because of the hosting. See [Who can take part](../settings/settings-reference.md#who-can-take-part).
+- After 30 days a guest is forgotten on purpose: the vote stays, but it no longer carries their address. The same guest can then vote on that item again, and can no longer take the old vote back (the button says so and goes back to **Vote**). This trades a little precision for privacy. For votes where that matters, choose **Signed-in members only**.
 - A guest's "Voted" mark comes from their own browser. On a different browser they see **Vote**, though their vote still counts.
 
-## My votes
+## Roadmap votes
 
-A signed-in member opens `/account/roadmap-votes/`. Each item is a link, with its stage in plain words. Ideas they sent are listed with a status: waiting for a decision, on the board, or not published. **Take back all my votes** asks for a second click. Guests see a sign-in link. Add a menu link labelled **My votes**.
+A signed-in member opens `/account/roadmap-votes/`. Each item is a link, with its stage in plain words. Ideas they sent are listed with a status: waiting for a decision, on the board, or not published. **Take back all my votes** asks for a second click. Guests see a sign-in link. Add a menu link labelled **Roadmap votes** (WB Polls uses My votes for its own page).
 
 ## Limits
 

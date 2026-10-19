@@ -4,7 +4,7 @@
 
 ## The /roadmap/ page is a 404
 
-The plugin cannot create pages. Your developer must copy the site kit pages into the site, then rebuild. See [Install Product Roadmap](../getting-started/install.md).
+The plugin cannot create pages. Your developer runs the kit command shown on Admin, Roadmap, Ideas (or in [Install Product Roadmap](../getting-started/install.md)) with the tag of the version you installed, then restarts the dev server. If a page still fails right after the copy, restart the dev server once more: a page that was opened before its files existed can keep its error until then.
 
 ## The board says "Could not load the board. Try again."
 
@@ -15,7 +15,7 @@ The plugin cannot create pages. Your developer must copy the site kit pages into
 ## The board shows but is empty
 
 1. **Is the item published?** Drafts stay off the board.
-2. **Is its stage on the list and shown?** A stage you hid is not a column. A stage name that is not on your list shows in no column. Set the stage with the **Stage** panel.
+2. **Is its stage on the list and shown?** A stage you hid is not a column. Set the stage with the **Stage** panel.
 3. **Did you just publish?** Changes can take a couple of minutes to reach visitors.
 4. **More than 100 items?** The board shows up to 100.
 
@@ -43,9 +43,13 @@ A guest left **Your name** empty on the suggest form. Signed-in members do not n
 
 **Allow suggestions** is off in **Settings**. Turn it on to reopen the form.
 
-## "Could not send that from this browser. Try again."
+## Guests see a sign-in link instead of voting
 
-Your hosting did not pass on the visitor's address, and the browser blocked the small code Product Roadmap uses instead. Ask the visitor to allow site data for your site, or choose **Signed-in members only**.
+"Sign in to vote or suggest on this site." means your hosting does not tell EmDash the visitor's address, so guests cannot be told apart. Admin, Roadmap, Settings says the same. On Cloudflare, EmDash fills the address in. On another host, set `trustedProxyHeaders` in the site config: see [Install](../getting-started/install.md#guests-and-the-visitor-address). Members are not affected.
+
+## A 401 in the browser console
+
+A guest's browser shows one `401` from the plugin's `votes` address on the board, item and Roadmap votes pages. The page checks for a signed-in member's votes first. It is expected, and the page works.
 
 ## A vote shows "Voted" on one browser and "Vote" on another
 

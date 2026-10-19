@@ -15,7 +15,7 @@ export const roadmapCollection = {
 		{ slug: "description", label: "Description", type: "text", searchable: true },
 		{
 			slug: "stage",
-			label: "Stage",
+			label: "Stage (set it in the Stage panel)",
 			type: "string",
 			indexed: true,
 			defaultValue: "Under review",

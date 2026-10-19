@@ -43,6 +43,21 @@ function admin(
 	}>;
 }
 
+/** The merge value the Ideas page renders for an item, read from the page itself. */
+async function itemSource(site: Awaited<ReturnType<typeof openSite>>, id: string): Promise<string> {
+	const page = textOf(await admin(site.call, { type: "page_load", page: "/ideas" }));
+	const found = page.match(new RegExp(`"value":"(item\\|${id}\\|[^"]*)"`));
+	if (!found) throw new Error(`No merge value for ${id}`);
+	return found[1]!;
+}
+
+function stageCount(page: { blocks: Array<Record<string, unknown>> }, stage: string): string | undefined {
+	const fields = page.blocks.find((block) => block.type === "fields" && JSON.stringify(block).includes("(on the board)")) as
+		| { fields: Array<{ label: string; value: string }> }
+		| undefined;
+	return fields?.fields.find((field) => field.label === `${stage} (on the board)`)?.value;
+}
+
 function textOf(page: { blocks: unknown }): string {
 	return JSON.stringify(page.blocks);
 }
@@ -610,22 +625,70 @@ describe("suggest and ideas queue", () => {
 });
 
 describe("guest participation", () => {
-	const visitor = "a".repeat(32);
-	const guest = { method: "POST" as const };
+	const fromIp = (ip: string | null, method = "POST") => ({
+		method,
+		meta: { ip, userAgent: null, referer: null, geo: null },
+	});
+	const guest = fromIp("198.51.100.7");
 
 	it("lets a guest vote and take it back, and never stores an IP", async () => {
 		const site = await openRoadmap();
 		const item = await addItem(site.rt, "Guest vote item");
-		const first = await site.call("vote_guest", { id: item.id, visitor }, guest);
+		const first = await site.call("vote_guest", { id: item.id }, guest);
 		expect(first).toMatchObject({ ok: true, votes: 1, voted: true });
 		const rows = await site.rt.inspect.storage.list<{ visitor: string; member_id: string }>("votes");
 		expect(rows[0]?.data.visitor).toMatch(/^[a-f0-9]{64}$/);
-		expect(JSON.stringify(rows)).not.toMatch(/1\.2\.3\.4|visitor-ip/);
-		const back = await site.call("vote_guest", { id: item.id, visitor }, { method: "DELETE" });
+		expect(JSON.stringify(rows)).not.toContain("198.51.100.7");
+		const back = await site.call("vote_guest", { id: item.id }, fromIp("198.51.100.7", "DELETE"));
 		expect(back).toMatchObject({ ok: true, votes: 0, voted: false });
 	});
 
-	it("refuses members-only, a honeypot, and a missing visitor", async () => {
+	it("refuses guest writes and stores nothing when the host gives no visitor address", async () => {
+		const site = await openRoadmap();
+		const item = await addItem(site.rt, "No address");
+		for (const ip of [null, "", "unknown", "not-an-address", "999.1.1.1"]) {
+			expect(await site.call("vote_guest", { id: item.id, visitor: "a".repeat(32) }, fromIp(ip))).toMatchObject({
+				ok: false,
+				error: { code: "MEMBERS_ONLY", reason: "GUEST_UNAVAILABLE" },
+			});
+			expect(
+				await site.call("suggest_guest", { title: "Sneaky", name: "Sam", visitor: "a".repeat(32) }, fromIp(ip)),
+			).toMatchObject({ ok: false, error: { code: "MEMBERS_ONLY", reason: "GUEST_UNAVAILABLE" } });
+		}
+		expect(await site.rt.inspect.storage.list("votes")).toHaveLength(0);
+		expect(await site.rt.inspect.storage.list("ideas")).toHaveLength(0);
+		expect(await site.call("health", undefined, fromIp(null, "GET"))).toMatchObject({ guestWrites: false });
+		expect(await site.call("health", undefined, fromIp("198.51.100.7", "GET"))).toMatchObject({ guestWrites: true });
+		// Members are not affected.
+		expect(await site.call("vote", { id: item.id }, site.as(ana))).toMatchObject({ ok: true, votes: 1 });
+	});
+
+	it("limits an IPv4 guest to one vote and eight requests an hour", async () => {
+		const site = await openRoadmap();
+		const item = await addItem(site.rt, "Limited");
+		for (let n = 0; n < 3; n += 1) {
+			expect(await site.call("vote_guest", { id: item.id, visitor: `${n}`.repeat(32) }, guest)).toMatchObject({
+				ok: true,
+				votes: 1,
+			});
+		}
+		const results = [];
+		for (let n = 0; n < 6; n += 1) results.push(await site.call("vote_guest", { id: item.id }, guest));
+		expect(results.at(-1)).toMatchObject({ ok: false, error: { code: "RATE_LIMITED" } });
+	});
+
+	it("counts two IPv6 addresses in one /64 as one guest", async () => {
+		const site = await openRoadmap();
+		const item = await addItem(site.rt, "Six");
+		await site.call("vote_guest", { id: item.id }, fromIp("2001:db8:1:2:aaaa::1"));
+		expect(await site.call("vote_guest", { id: item.id }, fromIp("2001:db8:1:2:bbbb:cccc:dddd:eeee"))).toMatchObject({
+			ok: true,
+			votes: 1,
+		});
+		expect(await site.call("vote_guest", { id: item.id }, fromIp("2001:db8:9:9::1"))).toMatchObject({ votes: 2 });
+	});
+
+	it("refuses members-only and a honeypot", async () => {
 		const site = await openRoadmap();
 		const item = await addItem(site.rt, "Closed vote");
 		await admin(site.call, {
@@ -634,11 +697,11 @@ describe("guest participation", () => {
 			page: "/settings",
 			values: { allow_ideas: true, who: "members" },
 		});
-		expect(await site.call("vote_guest", { id: item.id, visitor }, guest)).toMatchObject({
+		expect(await site.call("vote_guest", { id: item.id }, guest)).toMatchObject({
 			ok: false,
 			error: { code: "MEMBERS_ONLY" },
 		});
-		expect(await site.call("suggest_guest", { title: "Nope", name: "Sam", visitor }, guest)).toMatchObject({
+		expect(await site.call("suggest_guest", { title: "Nope", name: "Sam" }, guest)).toMatchObject({
 			ok: false,
 			error: { code: "MEMBERS_ONLY" },
 		});
@@ -648,12 +711,9 @@ describe("guest participation", () => {
 			page: "/settings",
 			values: { allow_ideas: true, who: "anyone" },
 		});
-		expect(
-			await site.call("vote_guest", { id: item.id, visitor, website: "https://spam.example" }, guest),
-		).toMatchObject({ ok: false, error: { code: "SPAM" } });
-		expect(await site.call("vote_guest", { id: item.id }, guest)).toMatchObject({
+		expect(await site.call("vote_guest", { id: item.id, website: "https://spam.example" }, guest)).toMatchObject({
 			ok: false,
-			error: { code: "NO_VISITOR" },
+			error: { code: "SPAM" },
 		});
 	});
 
@@ -661,13 +721,170 @@ describe("guest participation", () => {
 		const site = await openRoadmap();
 		const sent = (await site.call(
 			"suggest_guest",
-			{ title: "From the door", description: "Please", name: "Sam", visitor },
+			{ title: "From the door", description: "Please", name: "Sam" },
 			guest,
 		)) as { ok: true; id: string };
 		expect(sent.ok).toBe(true);
 		const page = textOf(await admin(site.call, { type: "page_load", page: "/ideas" }));
 		expect(page).toContain("From the door");
 		expect(page).toContain("Sam (guest)");
+	});
+
+	it("says on Settings whether guests can take part, from the last guest request", async () => {
+		const site = await openRoadmap();
+		const item = await addItem(site.rt, "Banner item");
+		const settings = async () => JSON.stringify(await site.call("admin", { type: "page_load", page: "/settings" }, fromIp(null)));
+		// Before any guest request: a neutral line, no alarm.
+		expect(await settings()).toContain("Whether it does shows here after guests vote or send ideas");
+		expect(await settings()).not.toContain("Guests cannot vote here");
+		await site.call("vote_guest", { id: item.id }, fromIp(null));
+		expect(await settings()).toContain("Guests cannot vote here");
+		await site.call("vote_guest", { id: item.id }, guest);
+		const after = await settings();
+		expect(after).not.toContain("Guests cannot vote here");
+		expect(after).not.toContain("Whether it does shows here after guests vote or send ideas");
+	});
+
+	it("answers plainly when a guest takes back a vote that is not there", async () => {
+		const site = await openRoadmap();
+		const item = await addItem(site.rt, "Nothing to take back");
+		expect(await site.call("vote_guest", { id: item.id }, fromIp("198.51.100.7", "DELETE"))).toMatchObject({
+			ok: true,
+			voted: false,
+			votes: 0,
+			code: "NO_VOTE_TO_TAKE_BACK",
+		});
+	});
+
+	it("forgets guest hashes after 30 days and keeps the votes and ideas", async () => {
+		const site = await openRoadmap();
+		const item = await addItem(site.rt, "Old guest");
+		await site.call("vote_guest", { id: item.id }, guest);
+		await site.call("vote", { id: item.id }, site.as(ana));
+		const idea = (await site.call("suggest_guest", { title: "Old idea", name: "Sam" }, guest)) as { id: string };
+		// Age the guest rows and the rate counter past the window, then run the hourly task.
+		const old = new Date(Date.now() - 31 * 24 * 60 * 60 * 1000).toISOString();
+		for (const row of await site.rt.inspect.storage.list<Record<string, unknown>>("votes")) {
+			await site.rt.fixtures.plugin.storage("votes", row.id, { ...row.data, createdAt: old });
+		}
+		for (const row of await site.rt.inspect.storage.list<Record<string, unknown>>("ideas")) {
+			await site.rt.fixtures.plugin.storage("ideas", row.id, { ...row.data, createdAt: old });
+		}
+		for (const entry of await site.rt.inspect.kv.list()) {
+			if (entry.id.startsWith("rate:")) await site.rt.fixtures.plugin.kv(entry.id, `${Date.parse(old)}|1`);
+		}
+		await site.rt.transport.invokeHook("cron", { name: "notify", data: {}, scheduledAt: new Date().toISOString() });
+		const votes = await site.rt.inspect.storage.list<{ visitor: string; member_id: string }>("votes");
+		expect(votes).toHaveLength(2);
+		expect(votes.every((row) => row.data.visitor === "")).toBe(true);
+		expect(votes.some((row) => row.data.member_id === "ana")).toBe(true);
+		const ideas = await site.rt.inspect.storage.list<{ visitor: string; guest: boolean }>("ideas");
+		expect(ideas.find((row) => row.id === idea.id)?.data).toMatchObject({ visitor: "", guest: true });
+		const board = (await site.call("board")) as { columns: Array<{ items: Array<{ id: string; votes: number }> }> };
+		expect(board.columns.flatMap((column) => column.items).find((row) => row.id === item.id)?.votes).toBe(2);
+		expect(JSON.stringify(await site.rt.inspect.kv.list())).not.toMatch(/rate:vote:v-/);
+		expect(textOf(await admin(site.call, { type: "page_load", page: "/ideas" }))).toContain("Sam (guest)");
+	});
+
+	it("can stop halfway and run again without counting a guest twice, and never undoes a decision", async () => {
+		const site = await openRoadmap();
+		const item = await addItem(site.rt, "Rerun");
+		await site.call("vote_guest", { id: item.id }, guest);
+		const sent = (await site.call("suggest_guest", { title: "Decided idea", name: "Sam" }, guest)) as { id: string };
+		const old = new Date(Date.now() - 31 * 24 * 60 * 60 * 1000).toISOString();
+		const [vote] = await site.rt.inspect.storage.list<Record<string, unknown>>("votes");
+		await site.rt.fixtures.plugin.storage("votes", vote!.id, { ...vote!.data, createdAt: old });
+		const [idea] = await site.rt.inspect.storage.list<Record<string, unknown>>("ideas");
+		await site.rt.fixtures.plugin.storage("ideas", idea!.id, { ...idea!.data, createdAt: old });
+		const cron = () => site.rt.transport.invokeHook("cron", { name: "notify", data: {}, scheduledAt: new Date().toISOString() });
+		await cron();
+		// A run that stopped after writing the new row but before deleting the old one.
+		await site.rt.fixtures.plugin.storage("votes", vote!.id, { ...vote!.data, createdAt: old });
+		await cron();
+		const votes = await site.rt.inspect.storage.list<{ visitor: string }>("votes");
+		expect(votes).toHaveLength(1);
+		expect(votes[0]!.id).toMatch(/:g-[a-f0-9]{40}$/);
+		// The owner rejects the idea; the cleanup only clears the hash and keeps the decision.
+		const rev = ((await site.rt.inspect.storage.list<{ rev: string }>("ideas"))[0]!.data.rev);
+		await admin(site.call, { type: "block_action", action_id: "idea_mod", page: "/ideas", value: `reject|${rev}|${sent.id}` });
+		await cron();
+		expect((await site.rt.inspect.storage.list<{ status: string }>("ideas"))[0]!.data.status).toBe("rejected");
+	});
+});
+
+describe("guarded decisions", () => {
+	it("refuses an approve made on a page that loaded before a reject", async () => {
+		const site = await openRoadmap();
+		const sent = (await site.call("suggest", { title: "Two tabs" }, site.as(ana))) as { id: string };
+		const rev = ((await site.rt.inspect.storage.list<{ rev: string }>("ideas"))[0]!.data.rev);
+		await admin(site.call, { type: "block_action", action_id: "idea_mod", page: "/ideas", value: `reject|${rev}|${sent.id}` });
+		const late = await admin(site.call, { type: "block_action", action_id: "idea_mod", page: "/ideas", value: `approve|${rev}|${sent.id}` });
+		expect(late.toast?.type).toBe("error");
+		expect((await site.rt.inspect.content.get("roadmap", sent.id))?.status).not.toBe("published");
+	});
+});
+
+describe("stage source of truth", () => {
+	it("turns away only a stale form after a panel move, and says why; a typed stage is saved", async () => {
+		const site = await openRoadmap();
+		const item = await addItem(site.rt, "Stale form", "Under review");
+		const save = (stage: string) =>
+			site.rt.transport.invokeHook("content:beforeSave", {
+				collection: "roadmap", isNew: false, id: item.id, content: { title: "Stale form", stage },
+			});
+		// Never moved by the panel: whatever the form says is saved.
+		expect(await save("Planned")).toBeUndefined();
+		await site.rt.admin.actEditorPanel("stage", "roadmap", item.id, "set_stage:done", { value: "done" });
+		// (a) A form opened before the move still says Under review: refused, with the reason.
+		expect(await save("Under review")).toMatchObject({
+			__emdashSandboxHookResult: true,
+			error: { code: "SAVE_REJECTED", reason: expect.stringContaining("moved this item to Done") },
+		});
+		expect(JSON.stringify(await save("Under review"))).not.toContain("after this page was opened");
+		// The form caught up: saved, nothing changed.
+		expect(await save("Done")).toBeUndefined();
+		// (b) A stage the owner types is saved as typed, and the record is dropped.
+		expect(await save("In progress")).toBeUndefined();
+		expect(await save("Under review")).toBeUndefined();
+		const other = await site.rt.transport.invokeHook("content:beforeSave", {
+			collection: "posts", isNew: false, id: item.id, content: { stage: "Under review" },
+		});
+		expect(other).toBeUndefined();
+	});
+
+	it("turns away a form opened before two or three panel moves", async () => {
+		const site = await openRoadmap();
+		const item = await addItem(site.rt, "Many moves", "Under review");
+		const save = (stage: string) =>
+			site.rt.transport.invokeHook("content:beforeSave", {
+				collection: "roadmap", isNew: false, id: item.id, content: { title: "Many moves", stage },
+			});
+		const move = (id: string) => site.rt.admin.actEditorPanel("stage", "roadmap", item.id, `set_stage:${id}`, { value: id });
+		await move("planned");
+		await move("done");
+		// Two moves: a form from before either move is refused.
+		expect(await save("Under review")).toMatchObject({ error: { code: "SAVE_REJECTED" } });
+		expect(await save("Planned")).toMatchObject({ error: { code: "SAVE_REJECTED" } });
+		await move("in-progress");
+		// Three moves.
+		for (const stale of ["Under review", "Planned", "Done"]) {
+			expect(await save(stale)).toMatchObject({ error: { reason: expect.stringContaining("moved this item to In progress") } });
+		}
+		// Moving back to a stage the item left takes it off the list: that stage is now current.
+		await move("planned");
+		expect(await save("Planned")).toBeUndefined();
+		expect(await save("In progress")).toMatchObject({ error: { code: "SAVE_REJECTED" } });
+		// Done was left through the panel too, so a form still showing it is refused as well.
+		expect(await save("Done")).toMatchObject({ error: { code: "SAVE_REJECTED" } });
+	});
+
+	it("counts an item with an unknown stage in the first column, like the board", async () => {
+		const site = await openRoadmap();
+		await addItem(site.rt, "Typo stage", "Planed");
+		const page = await admin(site.call, { type: "page_load", page: "/ideas" });
+		expect(stageCount(page, "Under review")).toBe("1");
+		const board = (await site.call("board")) as { columns: Array<{ name: string; items: unknown[] }> };
+		expect(board.columns[0]!.items).toHaveLength(1);
 	});
 });
 
@@ -690,7 +907,7 @@ describe("merge", () => {
 			type: "form_submit",
 			action_id: "merge_review",
 			page: "/ideas",
-			values: { source: `item:${drop.id}`, keep: keep.id },
+			values: { source: await itemSource(site, drop.id), keep: keep.id },
 		});
 		expect(textOf(preview)).toContain("Merge Drop this into Keep this?");
 		expect(textOf(preview)).toContain("Merge these two");
@@ -737,7 +954,7 @@ describe("merge", () => {
 			type: "form_submit",
 			action_id: "merge_items",
 			page: "/ideas",
-			values: { source: `item:${drop.id}`, keep: keep.id },
+			values: { source: await itemSource(site, drop.id), keep: keep.id },
 		});
 		expect(merged.toast?.type).toBe("success");
 		const board = (await site.call("board")) as {
@@ -750,7 +967,7 @@ describe("merge", () => {
 			type: "form_submit",
 			action_id: "merge_items",
 			page: "/ideas",
-			values: { source: `item:${keep.id}`, keep: keep.id },
+			values: { source: await itemSource(site, keep.id), keep: keep.id },
 		});
 		expect(self.toast?.type).toBe("error");
 	});
@@ -760,6 +977,18 @@ describe("0.1.1 owner findings", () => {
 	it("computes the registry plugin id used on a real site", async () => {
 		const { registryPluginId } = await import("../site-kit/lib/wbcom-kit");
 		expect(await registryPluginId("roadmap")).toBe("r_76xywti6l5cbxzos");
+	});
+
+	it("maps the guest refusal of either engine to the sign-in wording", async () => {
+		const { refusalCode, SIGN_IN_CODES } = await import("../site-kit/lib/roadmap-vote");
+		const { phrase } = await import("../site-kit/lib/roadmap-strings");
+		const now = refusalCode({ ok: false, error: { code: "MEMBERS_ONLY", reason: "GUEST_UNAVAILABLE" } as never });
+		expect(now).toBe("GUEST_UNAVAILABLE");
+		expect(phrase(now)).toBe("Sign in to vote or suggest on this site.");
+		const old = refusalCode({ ok: false, error: { code: "NO_VISITOR" } });
+		expect(SIGN_IN_CODES.has(old)).toBe(true);
+		expect(phrase(old)).toBe("Sign in to vote or suggest on this site.");
+		expect(refusalCode({ ok: false, error: { code: "MEMBERS_ONLY" } })).toBe("MEMBERS_ONLY");
 	});
 
 	it("puts the vote count in the button name", async () => {
@@ -786,10 +1015,15 @@ describe("0.1.1 owner findings", () => {
 		const panel = await site.rt.admin.loadEditorPanel("stage", "roadmap", item.id);
 		expect(textOf(panel)).toContain("Done");
 		expect(textOf(panel)).toContain("Planned");
-		const saved = await site.rt.admin.submitEditorPanel("stage", "roadmap", item.id, "set_stage", {
-			stage: "done",
-		});
+		// Buttons, not a form: the panel sits inside the editor's own form.
+		expect(JSON.stringify(panel.blocks)).not.toContain('"type":"form"');
+		expect(textOf(panel)).toContain("Move to Done");
+		expect(textOf(panel)).not.toContain("Move to Planned");
+		const saved = await site.rt.admin.actEditorPanel("stage", "roadmap", item.id, "set_stage:done", { value: "done" });
 		expect(saved.toast).toMatchObject({ type: "success", message: "Moved to Done." });
+		// The editor reloads the entry, so its Stage box cannot put the old stage back on Save.
+		expect((saved as { refresh?: boolean }).refresh).toBe(true);
+		expect((await site.rt.inspect.content.get("roadmap", item.id))?.data).toMatchObject({ stage: "Done" });
 		const board = (await site.call("board")) as {
 			columns: Array<{ name: string; items: Array<{ title: string }> }>;
 		};
@@ -845,5 +1079,197 @@ describe("first stage for new ideas", () => {
 		];
 		expect(firstStage(stages as never).name).toBe("Planned");
 		expect(firstStage(stages.map((s) => ({ ...s, shown: true })) as never).name).toBe("Under review");
+	});
+});
+
+describe("0.3.0 install-pass findings", () => {
+	it("counts a waiting idea as waiting only, not in a stage", async () => {
+		const site = await openRoadmap();
+		await addItem(site.rt, "On the board");
+		await site.call("suggest", { title: "Not approved yet" }, site.as(ana));
+		const page = await admin(site.call, { type: "page_load", page: "/ideas" });
+		const stats = page.blocks.find((block) => block.type === "stats") as unknown as { items: Array<{ label: string; value: string }> };
+		expect(stats.items.find((stat) => stat.label === "Ideas waiting")?.value).toBe("1");
+		expect(stageCount(page, "Under review")).toBe("1");
+	});
+
+	it("checks the stamp on every merge, for items and ideas", async () => {
+		const site = await openRoadmap();
+		const keep = await addItem(site.rt, "Keep me");
+		const drop = await addItem(site.rt, "Drop me");
+		const merge = (source: string) =>
+			admin(site.call, { type: "form_submit", action_id: "merge_items", page: "/ideas", values: { source, keep: keep.id } });
+		expect((await merge(`item|${drop.id}|`)).toast?.type).toBe("error");
+		expect((await merge(`item|${drop.id}|1~2000-01-01T00:00:00.000Z`)).toast?.message).toContain("changed after this page loaded");
+		const sent = (await site.call("suggest", { title: "Waiting one" }, site.as(ana))) as { id: string };
+		expect((await merge(`idea|${sent.id}|`)).toast?.type).toBe("error");
+		expect((await merge(`idea|${sent.id}|not-the-rev`)).toast?.type).toBe("error");
+		expect((await site.rt.inspect.content.get("roadmap", drop.id))?.status).toBe("published");
+		expect((await merge(await itemSource(site, drop.id))).toast?.type).toBe("success");
+	});
+
+	it("shows the visitor pages card with this version's command until the owner says it is done", async () => {
+		const site = await openRoadmap();
+		const tag = `v${site.rt.manifest.version}`;
+		const first = textOf(await admin(site.call, { type: "page_load", page: "/ideas" }));
+		expect(first).toContain("Set up visitor pages");
+		expect(first).toContain(`--branch ${tag}`);
+		const { kitCommand } = await import("../src/admin");
+		const lines = kitCommand(tag).split("\n");
+		expect(lines).toHaveLength(6);
+		expect(Math.max(...lines.map((line) => line.length))).toBeLessThanOrEqual(52);
+		expect(first).not.toContain("/tmp/");
+		expect(first).toContain("/account/roadmap-votes/");
+		const done = await admin(site.call, { type: "block_action", action_id: "kit_done", page: "/ideas" });
+		expect(done.toast?.type).toBe("success");
+		const after = textOf(done);
+		expect(after).not.toContain("Set up visitor pages");
+		expect(after).toContain(`blob/${tag}/docs/website/getting-started/install.md`);
+		expect(after).toContain("Show the setup steps again");
+		const again = textOf(await admin(site.call, { type: "block_action", action_id: "kit_again", page: "/ideas" }));
+		expect(again).toContain("Set up visitor pages");
+	});
+});
+
+describe("storage pages of 100", () => {
+	it("merges two items with more than 100 votes each, losing none and counting each voter once", async () => {
+		const site = await openRoadmap();
+		const keep = await addItem(site.rt, "Big keep");
+		const drop = await addItem(site.rt, "Big drop");
+		const put = (item: string, who: string) =>
+			site.rt.fixtures.plugin.storage("votes", `${item}:${who}`, {
+				item,
+				member_id: who,
+				createdAt: "2026-10-01T00:00:00.000Z",
+				visitor: "",
+			});
+		for (let n = 0; n < 160; n += 1) await put(keep.id, `m${n}`);
+		for (let n = 100; n < 270; n += 1) await put(drop.id, `m${n}`);
+		const merged = await admin(site.call, {
+			type: "form_submit",
+			action_id: "merge_items",
+			page: "/ideas",
+			values: { source: await itemSource(site, drop.id), keep: keep.id },
+		});
+		expect(merged.toast?.type).toBe("success");
+		const votes = await site.rt.inspect.storage.list<{ item: string; member_id: string }>("votes");
+		const onKeep = votes.filter((row) => row.data.item === keep.id);
+		expect(onKeep).toHaveLength(270);
+		expect(new Set(onKeep.map((row) => row.data.member_id)).size).toBe(270);
+		expect(votes.filter((row) => row.data.item === drop.id)).toHaveLength(0);
+		const board = (await site.call("board")) as { columns: Array<{ items: Array<{ id: string; votes: number }> }> };
+		expect(board.columns.flatMap((column) => column.items).find((row) => row.id === keep.id)?.votes).toBe(270);
+	}, 120_000);
+
+	it("clears more than 100 old guest votes in one hourly run", async () => {
+		const site = await openRoadmap();
+		const item = await addItem(site.rt, "Many guests");
+		const old = new Date(Date.now() - 31 * 24 * 60 * 60 * 1000).toISOString();
+		for (let n = 0; n < 130; n += 1) {
+			const hash = n.toString(16).padStart(64, "a");
+			await site.rt.fixtures.plugin.storage("votes", `${item.id}:v-${hash}`, {
+				item: item.id,
+				member_id: `v-${hash}`,
+				createdAt: old,
+				visitor: hash,
+			});
+		}
+		await site.rt.transport.invokeHook("cron", { name: "notify", data: {}, scheduledAt: new Date().toISOString() });
+		const votes = await site.rt.inspect.storage.list<{ visitor: string }>("votes");
+		expect(votes).toHaveLength(130);
+		expect(votes.every((row) => row.data.visitor === "")).toBe(true);
+	}, 120_000);
+});
+
+describe("round 3 checks", () => {
+	const fromIp = (ip: string | null, method = "POST") => ({ method, meta: { ip, userAgent: null, referer: null, geo: null } });
+
+	it("puts a failed approve back in the queue when the content save throws", async () => {
+		const { approveIdea } = await import("../src/ideas");
+		const ideas = new Map<string, Record<string, unknown>>([
+			["i1", { title: "Idea", description: "", status: "pending", rev: "r1", member_id: "ana", visitor: "", name: "", createdAt: "" }],
+		]);
+		const ctx = {
+			settings: { get: async () => null },
+			schema: { listCollections: async () => [{ slug: "roadmap" }] },
+			storage: {
+				ideas: {
+					get: async (id: string) => ideas.get(id) ?? null,
+					updateIf: async (id: string, args: { where: Record<string, unknown>; set: Record<string, unknown> }) => {
+						const row = ideas.get(id);
+						if (!row || Object.entries(args.where).some(([k, v]) => row[k] !== v)) return { applied: false };
+						ideas.set(id, { ...row, ...args.set });
+						return { applied: true, data: ideas.get(id) };
+					},
+				},
+			},
+			content: {
+				get: async () => ({ id: "i1", status: "draft", data: { title: "Idea" }, draftRevisionId: null }),
+				update: async () => {
+					throw new Error("validation failed");
+				},
+			},
+		};
+		const result = await approveIdea(ctx as never, "i1", "r1");
+		expect(result).toMatchObject({ ok: false, error: expect.stringContaining("back in the list") });
+		expect(ideas.get("i1")?.status).toBe("pending");
+	});
+
+	it("does not bring back a guest vote taken back while the cleanup ran", async () => {
+		const { forgetVote } = await import("../src/ideas");
+		const puts: string[] = [];
+		// The cleanup read this row, then the guest took the vote back: the delete finds nothing.
+		const ctx = { storage: { votes: { delete: async () => false, put: async (id: string) => void puts.push(id) } } };
+		const done = await forgetVote(ctx as never, { id: "item1:v-abc", item: "item1", visitor: "abc", createdAt: "" });
+		expect(done).toBe(0);
+		expect(puts).toHaveLength(0);
+		// Without the race the vote moves to its anonymous key.
+		const ok = { storage: { votes: { delete: async () => true, put: async (id: string) => void puts.push(id) } } };
+		expect(await forgetVote(ok as never, { id: "item1:v-abc", item: "item1", visitor: "abc", createdAt: "" })).toBe(1);
+		expect(puts[0]).toMatch(/^item1:g-[a-f0-9]{40}$/);
+	});
+
+	it("says which vote cannot be taken back: forgotten guest or already taken back", async () => {
+		const site = await openRoadmap();
+		const item = await addItem(site.rt, "Reasons");
+		await site.call("vote", { id: item.id }, site.as(ana));
+		await site.call("vote", { id: item.id }, site.as(ana, "DELETE"));
+		expect(await site.call("vote", { id: item.id }, site.as(ana, "DELETE"))).toMatchObject({
+			code: "NO_VOTE_TO_TAKE_BACK", reason: "already_removed", votes: 0, voted: false,
+		});
+		await site.call("vote_guest", { id: item.id }, fromIp("198.51.100.31"));
+		const old = new Date(Date.now() - 31 * 24 * 60 * 60 * 1000).toISOString();
+		const [row] = await site.rt.inspect.storage.list<Record<string, unknown>>("votes");
+		await site.rt.fixtures.plugin.storage("votes", row!.id, { ...row!.data, createdAt: old });
+		await site.rt.transport.invokeHook("cron", { name: "notify", data: {}, scheduledAt: new Date().toISOString() });
+		expect(await site.call("vote_guest", { id: item.id }, fromIp("198.51.100.31", "DELETE"))).toMatchObject({
+			code: "NO_VOTE_TO_TAKE_BACK", reason: "forgotten_guest", votes: 1,
+		});
+		expect(await site.call("vote_guest", { id: item.id }, fromIp("198.51.100.99", "DELETE"))).toMatchObject({
+			reason: "already_removed",
+		});
+	});
+
+	it("keeps Settings quiet after one stray request without an address", async () => {
+		const site = await openRoadmap();
+		const item = await addItem(site.rt, "Stray");
+		await site.call("vote_guest", { id: item.id }, fromIp("198.51.100.40"));
+		await site.call("vote_guest", { id: item.id }, fromIp(null));
+		const page = JSON.stringify(await site.call("admin", { type: "page_load", page: "/settings" }, fromIp(null)));
+		expect(page).not.toContain("Guests cannot vote here");
+	});
+
+	it("answers every route on a site with no roadmap collection yet, with no content read", async () => {
+		const site = await openSite();
+		dispose = site.dispose;
+		const started = Date.now();
+		const board = (await site.call("board")) as { columns: Array<{ items: unknown[] }> };
+		expect(board.columns.every((column) => column.items.length === 0)).toBe(true);
+		expect(await site.call("votes", undefined, site.as(ana, "GET"))).toMatchObject({ ok: true, items: [] });
+		expect(await site.call("vote", { id: "nope" }, site.as(ana))).toMatchObject({ ok: false, error: { code: "NOT_FOUND" } });
+		expect(await site.call("suggest", { title: "Too early" }, site.as(ana))).toMatchObject({ ok: false });
+		const ideas = textOf(await admin(site.call, { type: "page_load", page: "/ideas" }));
+		expect(ideas).toContain("Create the roadmap content type");
+		expect(Date.now() - started).toBeLessThan(15_000);
 	});
 });

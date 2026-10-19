@@ -1,7 +1,7 @@
 ---
 /**
  * Member votes. Copy this file to src/pages/account/roadmap-votes.astro.
- * Link to /account/roadmap-votes/ from the site header as My votes.
+ * Link to /account/roadmap-votes/ from the site header as Roadmap votes (WB Polls uses My votes).
  */
 import Layout from "../../layouts/RoadmapLayout.astro";
 import RoadmapVotes from "../../components/RoadmapVotes.astro";
@@ -9,7 +9,7 @@ import { strings } from "../../lib/roadmap-strings";
 ---
 
 <Layout title={strings.myVotes} description="Roadmap items you have voted for on this site.">
-	<div style="max-width: 40rem; margin-inline: auto; padding: 2rem 1rem;">
+	<div class="wb roadmap roadmap-narrow">
 		<RoadmapVotes />
 		<p><a href="/roadmap/">{strings.backToBoard}</a></p>
 	</div>

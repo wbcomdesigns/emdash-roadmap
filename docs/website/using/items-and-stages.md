@@ -18,15 +18,17 @@ Each item has its own page at `/roadmap/<slug>/`. It shows the stage and categor
 
 ## Set an item's stage
 
-Open an item and find the **Stage** panel in the editor sidebar. Pick a stage and choose **Save stage**. The panel lists the stages you named. A stage you hid shows with "(hidden)" after its name.
+The **Stage** panel in the editor sidebar is the place to set it. It shows **Stage now** and one **Move to** button for each other stage you named; a stage you hid shows with "(hidden)" after its name. Choose a button. The panel is the one place to set the stage. An editor page that was opened before the move cannot undo it. Saving a stage the item left through the panel is refused with a message that says to set the Stage box to the new stage or reload. A different stage you type in the Stage box and save is kept. Visitors see a move on the board within about two minutes, because the board is cached briefly.
 
-You can also move an item from **Settings**, under **Stages**: pick it in **Move an item**, pick **To this stage**, and choose **Move item**.
+If the item has unpublished changes (the editor saves them as you type), the move goes into those changes. The panel then shows the stage in the unpublished changes and the stage on the board now, and the board changes when you publish. Discard the changes and the item keeps its published stage; restoring an older revision keeps that revision's stage.
+
+To move an item without opening it, use **Settings**, **Stages**, **Move an item**. It does the same as the panel.
 
 If an item has unpublished edits, both places refuse with a message. Publish or discard the edits first, then move it.
 
 ### Stage names must match
 
-The item stores the stage as text. If it holds a name that is not on your list, the item shows in no column. This can happen if someone types a different stage in the entry's own **Stage** field. Use the **Stage** panel instead.
+The item stores the stage as text. If it holds a name that is not on your list, the item shows in the first column. This can happen if someone types in the entry's own **Stage** box. Use the **Stage** panel instead. On a new site that box is labelled "Stage (set it in the Stage panel)".
 
 Renaming a stage is safe. Items keep working, and you do not edit them one by one.
 

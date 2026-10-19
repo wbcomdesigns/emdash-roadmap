@@ -1,12 +1,34 @@
-1. Install Product Roadmap from the registry and confirm the permissions. Use the site kit from this release (0.1.1 or later). The 0.1.0 kit cannot reach a registry install.
-2. Create a `roadmap` collection and a `changelog` collection. The kit ships the field list in `site-kit/seed/collection.mjs`. Turn comments on for roadmap items.
-3. Copy the site kit into your site: `site-kit/lib`, `site-kit/styles`, `site-kit/components` and `site-kit/pages` into `src/`.
-4. Point `layouts/RoadmapLayout.astro` at your site layout if it is not `Base.astro`.
-5. Add menu links to `/roadmap/`, `/changelog/`, and `/account/roadmap-votes/` (My votes).
-6. Open Admin, then Settings. Choose who can take part, and set the hourly email if the site has a mail provider.
+## Before you install
 
-Optional: copy `site-kit/blocks/` to `src/roadmap-block/` and add `roadmapBlock()` under `plugins` to insert the Roadmap block inside a post. It shows the board. The registry plugin works without that.
+**1. Your site needs a sandbox runner.** Registry plugins run in a sandbox. Until the site has one, Admin, Plugins shows "No plugins configured" and there is no Registry in the menu.
 
-Your site needs a sandbox runner in `astro.config.mjs`. Without one, EmDash skips sandboxed plugins at startup.
+- **Node:** in your site, run `npm install @emdash-cms/sandbox-workerd workerd`, then add `sandboxRunner: "@emdash-cms/sandbox-workerd/sandbox",` inside `emdash({ ... })` in `astro.config.mjs`.
+- **Cloudflare:** add `import { sandbox } from "@emdash-cms/cloudflare";` and `sandboxRunner: sandbox(),`. It needs the Workers Paid plan and a `worker_loaders` binding named `LOADER` in your Wrangler config. The EmDash Cloudflare templates ship that binding commented out. EmDash's guide: https://docs.emdashcms.com/deployment/plugin-sandbox/#cloudflare-workers
 
-Full steps: https://github.com/wbcomdesigns/emdash-roadmap/blob/main/site-kit/README.md
+Stop the dev server and start it again. **Registry** now shows in the admin menu.
+
+**2. The plugin is the engine. Visitor pages come from its site kit.** A registry plugin cannot add pages to your site. Until you copy the kit, its addresses (for example `/roadmap/`) show your site's 404 page. That is expected. The kit copy below takes one command.
+
+**3. You need Node 22.16 or later** for the `npx emdash seed` step.
+
+Checked on EmDash 1.3.1 with the `blog` template on Node. The Cloudflare lines follow EmDash's own guide; we have not run them on a Cloudflare site yet.
+
+## Install
+
+1. Admin, Registry, search **Product Roadmap**, Install, then accept the permissions.
+2. From your site's root folder:
+
+   ```bash
+   kit="$(mktemp -d)" &&
+     git clone --depth 1 \
+       --branch v0.3.0 \
+       https://github.com/wbcomdesigns/emdash-roadmap \
+       "$kit/emdash-roadmap" &&
+     "$kit/emdash-roadmap/scripts/add-to-site.sh" .
+   ```
+
+3. Nothing to paste. Restart the dev server.
+4. Add the printed links in Admin, Menus.
+5. Open Admin, Roadmap, Ideas.
+
+After every update, run step 2 with the new tag. Full guide: https://github.com/wbcomdesigns/emdash-roadmap/blob/v0.3.0/docs/website/getting-started/install.md

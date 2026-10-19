@@ -15,6 +15,14 @@ export const RATE_LIMITED = {
 };
 export const MEMBERS_ONLY = { ok: false, error: { code: "MEMBERS_ONLY", message: "Sign in to continue." } };
 export const SPAM = { ok: false, error: { code: "SPAM", message: "That request was not accepted." } };
+/**
+ * No usable visitor address: the guest is sent to sign in. The code is MEMBERS_ONLY because every
+ * kit since 0.1 maps it to the sign-in path; the reason lets the 0.3.0 kit use its own wording.
+ */
+export const GUEST_UNAVAILABLE = {
+	ok: false,
+	error: { code: "MEMBERS_ONLY", reason: "GUEST_UNAVAILABLE", message: "Sign in to vote or suggest on this site." },
+};
 export const NO_VISITOR = { ok: false, error: { code: "NO_VISITOR", message: "Could not identify this visitor." } };
 export const IDEAS_CLOSED = { ok: false, error: { code: "IDEAS_CLOSED", message: "Suggestions are closed." } };
 export const INVALID = { ok: false, error: { code: "INVALID", message: "Check the form and try again." } };
@@ -60,4 +68,25 @@ export async function listCollectionSlugs(ctx: PluginContext): Promise<string[]>
 
 export async function hasCollection(ctx: PluginContext, slug: string): Promise<boolean> {
 	return (await listCollectionSlugs(ctx)).includes(slug);
+}
+
+const ready = new WeakMap<object, { at: number; found: Promise<boolean> }>();
+// The context object can outlive one request in the sandbox, so the answer is kept only briefly:
+// long enough to cover one request's many reads, short enough that a site that just ran the
+// seed sees its collection on the next request.
+const READY_MS = 2000;
+
+/**
+ * Whether the roadmap content type exists. Every content read checks this first: before the seed
+ * step, a content list or get on a missing collection rejects inside EmDash's sandbox bridge and
+ * the request hangs until the runtime cancels it.
+ */
+export function roadmapReady(ctx: PluginContext): Promise<boolean> {
+	const seen = ready.get(ctx);
+	if (seen && Date.now() - seen.at < READY_MS) return seen.found;
+	const found = collectionName(ctx)
+		.then((name) => hasCollection(ctx, name))
+		.catch(() => false);
+	ready.set(ctx, { at: Date.now(), found });
+	return found;
 }

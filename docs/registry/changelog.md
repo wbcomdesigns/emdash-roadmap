@@ -1,3 +1,21 @@
+## 0.3.0
+
+New permission: Read retained content revision history, so the Stage panel can see and move an item while it has unpublished changes. You approve it once when you update. Guests need a visitor address to vote. Copy the kit again after you update:
+
+```bash
+kit="$(mktemp -d)" &&
+  git clone --depth 1 \
+    --branch v0.3.0 \
+    https://github.com/wbcomdesigns/emdash-roadmap \
+    "$kit/emdash-roadmap" &&
+  "$kit/emdash-roadmap/scripts/add-to-site.sh" .
+```
+
+- New: Set up visitor pages card; scripts/add-to-site.sh copies the whole kit.
+- Improve: Stage panel is the one place to set the stage.
+- Fix: Ideas counts, nested form, alignment, dark mode.
+- Security: no guest writes without a visitor address; one guest per IPv4 or IPv6 /64; hashes cleared after 30 days.
+
 ## 0.2.1
 
 - Fix: the My votes file no longer has the same name as WB Polls', so both kits can sit on one site. Copy the kit again after updating.
@@ -19,11 +37,5 @@
 - Fix: approve never overwrites your edits; publish an edited idea from the editor and it leaves the Ideas list.
 - Fix: new and approved ideas go to the first stage shown on the board.
 - New: full user guides.
-
-## 0.1.2
-
-- Suggestions off hides the form and the Suggest an idea link.
-- Merge names both items before it runs. Dropdowns start with Choose an item.
-- Board filters labelled. Suggest is a button. Current phone stage tab is marked.
 
 Older versions: https://github.com/wbcomdesigns/emdash-roadmap/blob/main/CHANGELOG.md

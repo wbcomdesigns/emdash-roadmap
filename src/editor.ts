@@ -1,7 +1,7 @@
 import type { PluginContext } from "emdash/plugin";
 
 import type { BlockResponse } from "./admin";
-import { getItem, patchStage } from "./content";
+import { currentStage, getItem, patchStage } from "./content";
 import { ROADMAP } from "./core";
 import { findStage, loadSettings } from "./settings";
 import { asRecord, asString } from "./util";
@@ -21,7 +21,7 @@ function entryOf(routeCtx: RouteCtx): { collection: string; id: string } | null 
 async function renderPanel(
 	ctx: Ctx,
 	entry: { collection: string; id: string },
-	extra?: Pick<BlockResponse, "toast">,
+	extra?: Pick<BlockResponse, "toast"> & { refresh?: boolean },
 ): Promise<BlockResponse> {
 	if (entry.collection !== ROADMAP) {
 		return {
@@ -53,33 +53,48 @@ async function renderPanel(
 	}
 
 	const settings = await loadSettings(ctx);
-	const current = findStage(settings.stages, asString(asRecord(item.data).stage));
+	// Read from the entry: the unpublished changes if there are any, otherwise the live item.
+	const now = await currentStage(ctx, { ...item, id: entry.id });
+	const current = findStage(settings.stages, now.stage);
+	const live = findStage(settings.stages, now.live);
+	const label = (stage: { name: string; shown: boolean }) => (stage.shown === false ? `${stage.name} (hidden)` : stage.name);
+	// Buttons, not a form: the panel sits inside the editor's own form, and a form inside a form is
+	// invalid HTML. This panel is the one place to move an item.
 	return {
 		blocks: [
-			{ type: "header", text: "Stage" },
 			{
-				type: "context",
-				text: "Pick a stage. The board uses this as soon as you save it here.",
-			},
-			{
-				type: "form",
-				block_id: "stage",
+				type: "fields",
 				fields: [
 					{
-						type: "select",
-						action_id: "stage",
-						label: "Stage",
-						initial_value: current?.id || settings.stages[0]?.id || "",
-						options: settings.stages.map((stage) => ({
-							label: stage.shown === false ? `${stage.name} (hidden)` : stage.name,
-							value: stage.id,
-						})),
+						label: now.inDraft ? "Stage in the unpublished changes" : "Stage now",
+						value: current ? label(current) : now.stage || settings.stages[0]?.name || "",
 					},
+					...(now.inDraft && now.live !== now.stage
+						? [{ label: "On the board now", value: live ? label(live) : now.live }]
+						: []),
 				],
-				submit: { action_id: "set_stage", label: "Save stage" },
+			},
+			{
+				type: "context",
+				text: item.draftRevisionId
+					? "This item has unpublished changes. A move goes into them; publish to show it on the board."
+					: "Move this item to another stage. Visitors see it on the board within about two minutes.",
+			},
+			{
+				type: "actions",
+				elements: settings.stages
+					.filter((stage) => stage.id !== current?.id)
+					.map((stage) => ({
+						type: "button",
+						label: `Move to ${label(stage)}`,
+						// Unique per button: the admin keys elements by action_id.
+						action_id: `set_stage:${stage.id}`,
+						value: stage.id,
+					})),
 			},
 		],
 		toast: extra?.toast,
+		...(extra?.refresh ? { refresh: true as const } : {}),
 	};
 }
 
@@ -93,12 +108,13 @@ async function saveStage(ctx: Ctx, entry: { collection: string; id: string }, ra
 	if (result.state === "missing") {
 		return renderPanel(ctx, entry, { toast: { message: "That item is gone.", type: "error" } });
 	}
-	if (result.state === "busy") {
-		return renderPanel(ctx, entry, {
-			toast: { message: "This item has unpublished edits. Finish or discard them first.", type: "error" },
-		});
-	}
-	return renderPanel(ctx, entry, { toast: { message: `Moved to ${stage.name}.`, type: "success" } });
+	// refresh: the editor reloads the entry, so its own Stage box shows the new stage. A later Save
+	// from a form that still holds the old stage is corrected by the content:beforeSave hook.
+	const message =
+		result.state === "draft"
+			? `Moved to ${stage.name} in this item's unpublished changes. Publish them to show it on the board.`
+			: `Moved to ${stage.name}.`;
+	return renderPanel(ctx, entry, { toast: { message, type: "success" }, refresh: true });
 }
 
 export async function handleEditorPanel(routeCtx: RouteCtx, ctx: Ctx): Promise<BlockResponse> {
@@ -117,8 +133,9 @@ export async function handleEditorPanel(routeCtx: RouteCtx, ctx: Ctx): Promise<B
 	}
 
 	const raw = asRecord(routeCtx.input);
-	if (asString(raw.type) === "form_submit" && asString(raw.action_id) === "set_stage") {
-		return saveStage(ctx, entry, asString(asRecord(raw.values).stage));
+	const action = asString(raw.action_id);
+	if (asString(raw.type) === "block_action" && action.startsWith("set_stage:")) {
+		return saveStage(ctx, entry, action.slice("set_stage:".length));
 	}
 	return renderPanel(ctx, entry);
 }

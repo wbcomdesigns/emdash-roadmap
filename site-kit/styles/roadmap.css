@@ -1,10 +1,28 @@
-/* Same column as the site header on the EmDash themes (KnowX uses the same values). */
+/* Same column as the site header on the EmDash themes: the blog template's .frame is
+   --frame-width wide (the window less --frame-margin each side, at most --wide-width) with
+   --frame-padding inside it. Other themes fall back to a centred 75rem column. */
 .roadmap {
 	box-sizing: border-box;
+	width: var(--frame-width, 100%);
 	max-width: var(--wide-width, 75rem);
 	margin-inline: auto;
-	padding-inline: var(--spacing-6, 1.5rem);
+	padding-inline: var(--frame-padding, var(--spacing-6, 1.5rem));
 	padding-block: 1.25rem 3rem;
+}
+
+/* Empty and sign-in boxes: even space between the line and its button. */
+.roadmap .wb-empty {
+	display: grid;
+	gap: 0.75rem;
+	justify-items: start;
+}
+
+.roadmap .wb-empty > * {
+	margin: 0;
+}
+
+.roadmap-narrow > * {
+	max-width: 40rem;
 }
 
 .roadmap-toolbar {
@@ -90,6 +108,12 @@
 .wb-vote {
 	justify-self: start;
 	gap: 0.4rem;
+}
+
+/* A guest who cannot vote on this host: the buttons read as off, the sign-in line above is the next step. */
+.wb-vote[aria-disabled="true"] {
+	opacity: 0.5;
+	cursor: not-allowed;
 }
 
 .wb-vote[aria-pressed="true"] {
@@ -199,4 +223,20 @@
 	.roadmap-col.is-active {
 		display: grid;
 	}
+}
+
+/* My votes: even space between the vote list, the ideas list and the erase button. */
+[data-roadmap-mine-body] {
+	display: grid;
+	gap: var(--wb-gap);
+}
+
+[data-roadmap-mine-body] h3,
+.roadmap-erase p {
+	margin: 0;
+}
+
+.roadmap-erase {
+	display: grid;
+	gap: 0.5rem;
 }

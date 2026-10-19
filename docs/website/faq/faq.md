@@ -4,11 +4,11 @@
 
 ## Can guests vote and suggest ideas?
 
-Yes, when **Who can vote and suggest** is **Anyone**, which is the default. Guests add a name on the suggest form, and every idea waits for your approval. Choose **Signed-in members only** to require a sign-in.
+Yes, when **Who can vote and suggest** is **Anyone** (the default) and your hosting tells EmDash the visitor's address: Cloudflare, or `trustedProxyHeaders` in the site config. Without that address guests see a sign-in link and Settings says so. Guests add a name on the suggest form, and every idea waits for your approval.
 
 ## Can a visitor vote twice on the same item?
 
-Not on purpose. A signed-in member has one vote per item. A guest is counted by their internet address when your hosting passes it on, otherwise by a code in their browser. A private window can get around the browser code. For votes where that matters, choose **Signed-in members only**.
+Not on purpose. A signed-in member has one vote per item. A guest is counted by their internet address (one per IPv6 /64). After 30 days the address is cleared from the vote, so the same guest could vote again. For votes where that matters, choose **Signed-in members only**.
 
 ## Do ideas go live straight away?
 
@@ -40,7 +40,7 @@ Yes. Each item page uses EmDash's own comments, moderated in EmDash. Turn commen
 
 ## Do I need member accounts?
 
-No. With **Anyone** selected, guests can vote and suggest. Member accounts matter only if you choose **Signed-in members only**.
+No. With **Anyone** selected, guests can vote and suggest, as long as your hosting gives EmDash the visitor's address. Member accounts matter only if you choose **Signed-in members only**.
 
 ## Does it work in dark mode and on phones?
 

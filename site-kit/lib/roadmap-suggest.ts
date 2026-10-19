@@ -1,5 +1,6 @@
 import { api, esc, signInUrl, type ApiResult } from "./wbcom-kit";
 import { phrase, strings } from "./roadmap-strings";
+import { SIGN_IN_CODES, refusalCode } from "./roadmap-vote";
 import { visitorToken } from "./roadmap-visitor";
 
 export function bindSuggestForm(): void {
@@ -17,7 +18,24 @@ async function prepare(form: HTMLFormElement): Promise<void> {
 	const health = await api("roadmap", "health");
 	if (health.ok && health.allowIdeas === false) {
 		show(form, { ok: false, error: { code: "IDEAS_CLOSED" } }, true);
+		return;
 	}
+	// Guests can suggest only when the host gives the visitor's address (or the owner chose
+	// members only). Then a guest gets the sign-in path instead of a form that cannot send.
+	if (health.ok && health.guestWrites === false && !(await signedIn())) membersOnly(form);
+}
+
+/** The member list of votes answers a signed-in visitor and refuses a guest with a 401. */
+async function signedIn(): Promise<boolean> {
+	const mine = await api("roadmap", "votes");
+	return mine.ok || mine.error?.code !== "SIGN_IN_REQUIRED";
+}
+
+function membersOnly(form: HTMLFormElement): void {
+	const box = document.createElement("div");
+	box.className = "wb-empty";
+	box.innerHTML = `<p>${esc(strings.suggestSignInNeeded)}</p><p><a class="wb-btn" href="${esc(signInUrl())}">${esc(strings.signIn)}</a></p>`;
+	form.replaceWith(box);
 }
 
 async function send(form: HTMLFormElement): Promise<void> {
@@ -30,6 +48,7 @@ async function send(form: HTMLFormElement): Promise<void> {
 		description: String(data.get("description") || ""),
 		name: String(data.get("name") || ""),
 		website: String(data.get("website") || ""),
+		// Ignored by the 0.3.0 engine; the 0.2.1 engine keys a guest by it (see visitorToken).
 		visitor: visitorToken(),
 	};
 	const member = await api("roadmap", "suggest", body);
@@ -53,7 +72,7 @@ function show(form: HTMLFormElement, result: ApiResult, closed: boolean): void {
 		return;
 	}
 	box.dataset.tone = "error";
-	const code = result.error?.code || "FAILED";
+	const code = refusalCode(result);
 	if (code === "IDEAS_CLOSED") {
 		box.textContent = strings.suggestClosed;
 		form.querySelectorAll("input, textarea, button").forEach((el) => {
@@ -61,7 +80,7 @@ function show(form: HTMLFormElement, result: ApiResult, closed: boolean): void {
 		});
 		return;
 	}
-	if (code === "SIGN_IN_REQUIRED" || code === "MEMBERS_ONLY") {
+	if (SIGN_IN_CODES.has(code)) {
 		box.innerHTML = `${esc(phrase(code))} <a href="${esc(signInUrl())}">${esc(strings.signIn)}</a>`;
 		return;
 	}

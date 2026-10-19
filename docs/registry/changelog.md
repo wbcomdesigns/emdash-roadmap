@@ -1,6 +1,6 @@
 ## 0.3.0
 
-New permission: Read content revisions, so the Stage panel can see and move an item while it has unpublished changes. You approve it once when you update. Guests need a visitor address to vote. Copy the kit again after you update:
+New permission: Read retained content revision history, so the Stage panel can see and move an item while it has unpublished changes. You approve it once when you update. Guests need a visitor address to vote. Copy the kit again after you update:
 
 ```bash
 kit="$(mktemp -d)" &&
@@ -11,10 +11,10 @@ kit="$(mktemp -d)" &&
   "$kit/emdash-roadmap/scripts/add-to-site.sh" .
 ```
 
-- Security: no guest writes without a visitor address; one guest per IPv4 or IPv6 /64; guest hashes cleared after 30 days; guarded decisions.
 - New: Set up visitor pages card; scripts/add-to-site.sh copies the whole kit.
 - Improve: Stage panel is the one place to set the stage.
 - Fix: Ideas counts, nested form, alignment, dark mode.
+- Security: no guest writes without a visitor address; one guest per IPv4 or IPv6 /64; hashes cleared after 30 days.
 
 ## 0.2.1
 

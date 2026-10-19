@@ -840,6 +840,7 @@ describe("stage source of truth", () => {
 			__emdashSandboxHookResult: true,
 			error: { code: "SAVE_REJECTED", reason: expect.stringContaining("moved this item to Done") },
 		});
+		expect(JSON.stringify(await save("Under review"))).not.toContain("after this page was opened");
 		// The form caught up: saved, nothing changed.
 		expect(await save("Done")).toBeUndefined();
 		// (b) A stage the owner types is saved as typed, and the record is dropped.
@@ -849,6 +850,32 @@ describe("stage source of truth", () => {
 			collection: "posts", isNew: false, id: item.id, content: { stage: "Under review" },
 		});
 		expect(other).toBeUndefined();
+	});
+
+	it("turns away a form opened before two or three panel moves", async () => {
+		const site = await openRoadmap();
+		const item = await addItem(site.rt, "Many moves", "Under review");
+		const save = (stage: string) =>
+			site.rt.transport.invokeHook("content:beforeSave", {
+				collection: "roadmap", isNew: false, id: item.id, content: { title: "Many moves", stage },
+			});
+		const move = (id: string) => site.rt.admin.actEditorPanel("stage", "roadmap", item.id, `set_stage:${id}`, { value: id });
+		await move("planned");
+		await move("done");
+		// Two moves: a form from before either move is refused.
+		expect(await save("Under review")).toMatchObject({ error: { code: "SAVE_REJECTED" } });
+		expect(await save("Planned")).toMatchObject({ error: { code: "SAVE_REJECTED" } });
+		await move("in-progress");
+		// Three moves.
+		for (const stale of ["Under review", "Planned", "Done"]) {
+			expect(await save(stale)).toMatchObject({ error: { reason: expect.stringContaining("moved this item to In progress") } });
+		}
+		// Moving back to a stage the item left takes it off the list: that stage is now current.
+		await move("planned");
+		expect(await save("Planned")).toBeUndefined();
+		expect(await save("In progress")).toMatchObject({ error: { code: "SAVE_REJECTED" } });
+		// Done was left through the panel too, so a form still showing it is refused as well.
+		expect(await save("Done")).toMatchObject({ error: { code: "SAVE_REJECTED" } });
 	});
 
 	it("counts an item with an unknown stage in the first column, like the board", async () => {

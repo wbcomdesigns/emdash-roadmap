@@ -193,7 +193,16 @@ export function stageKey(id: string): string {
 	return `stage:${id}`;
 }
 
-type StageMove = { from: string; to: string };
+/** to: the stage the panel last set. left: every stage the item left through the panel since then. */
+type StageMove = { to: string; left: string[] };
+
+function readMove(raw: unknown): StageMove | null {
+	const row = asRecord(raw);
+	const to = asString(row.to);
+	if (!to) return null;
+	const left = Array.isArray(row.left) ? row.left.map(asString).filter(Boolean) : [asString(row.from)].filter(Boolean);
+	return { to, left };
+}
 
 /**
  * The item's stage as the next publish would show it: the unpublished changes if there are any,
@@ -224,7 +233,16 @@ export async function patchStage(
 	if (!item || !ctx.content?.update) return { state: "missing" };
 	const from = (await currentStage(ctx, item)).stage;
 	// Recorded before the write, so the hook sees this move when the plugin's own update saves.
-	if (from && from !== stage) await ctx.kv.set(stageKey(id), { from, to: stage } satisfies StageMove);
+	if (from && from !== stage) {
+		// A move from the stage the last move set continues the record, so a form opened before
+		// either move is still turned away. Moving back to a stage takes it off the list.
+		const before = readMove(await ctx.kv.get(stageKey(id)));
+		const left = before && before.to === from ? [...before.left, from] : [from];
+		await ctx.kv.set(stageKey(id), {
+			to: stage,
+			left: [...new Set(left)].filter((name) => name !== stage),
+		} satisfies StageMove);
+	}
 	if (item.draftRevisionId) {
 		await ctx.content.update(collection, id, { stage });
 		return { state: "draft" };
@@ -238,14 +256,14 @@ export async function patchStage(
 }
 
 export const STALE_STAGE_REASON = (to: string) =>
-	`The Stage panel moved this item to ${to} after this page was opened. To keep that, set the Stage box to ${to} and save again, or reload the page. To change the stage, use the Stage panel.`;
+	`The Stage panel moved this item to ${to}. To keep that, set the Stage box to ${to} and save again, or reload the page. To change the stage, use the Stage panel.`;
 
 /**
- * content:beforeSave. Only one save is turned away: one that still carries the stage an item had
- * before its last Stage panel move, while the item still has the stage that move set (the form was
- * opened before the move). The owner is told why. Every other stage, typed in the form or sent
- * through the API, is saved as it is, and the record is dropped. A discarded draft or a restored
- * revision changes the item's stage, so the record is dropped then too.
+ * content:beforeSave. Only one save is turned away: one that carries a stage the item left through
+ * the Stage panel, while the item still has the stage the panel set (a form opened before the
+ * moves). The owner is told why. Every other stage, typed in the form or sent through the API, is
+ * saved as it is, and the record is dropped. A discarded draft or a restored revision changes the
+ * item's stage, so the record is dropped then too.
  */
 export async function keepPanelStage(
 	ctx: PluginContext,
@@ -253,13 +271,13 @@ export async function keepPanelStage(
 ): Promise<Record<string, unknown> | { __emdashSandboxHookResult: true; version: 1; error: { code: "SAVE_REJECTED"; reason: string } } | void> {
 	if (event.isNew || !event.id || !("stage" in event.content)) return;
 	if (event.collection !== (await collectionName(ctx))) return;
-	const move = await ctx.kv.get<StageMove>(stageKey(event.id));
-	if (!move?.to) return;
+	const move = readMove(await ctx.kv.get(stageKey(event.id)));
+	if (!move) return;
 	const incoming = asString(event.content.stage);
 	if (incoming === move.to) return;
 	const item = await ctx.content?.get?.(event.collection, event.id).catch(() => null);
 	const now = item ? (await currentStage(ctx, item)).stage : "";
-	if (incoming === move.from && now === move.to) {
+	if (move.left.includes(incoming) && now === move.to) {
 		return {
 			__emdashSandboxHookResult: true,
 			version: 1,

@@ -42,7 +42,7 @@ After every plugin update, run step 2 again with the new tag.
 
 ## What the permissions are for
 
-Product Roadmap asks to read, write and publish your content, read content revisions (so the Stage panel can show the stage in unpublished changes), read your content types and categories, create redirects, and send email. It needs them to list items, save suggested ideas as drafts, publish an idea you approve, redirect a merged item, and send the hourly notice.
+Product Roadmap asks to read, write and publish your content, read retained content revision history (shown in the admin as "Read retained content revision history", so the Stage panel can see and move an item while it has unpublished changes), read your content types and categories, create redirects, and send email. It needs them to list items, save suggested ideas as drafts, publish an idea you approve, redirect a merged item, and send the hourly notice.
 
 After the install, a **Roadmap** group with **Ideas** and **Settings** appears in the admin menu.
 
@@ -85,7 +85,7 @@ Without an address, guests see "Sign in to vote or suggest on this site." with a
 
 ## Move an item to another stage
 
-Open the item in Admin, Content, Roadmap, and use the **Stage** panel on the right: one button per stage. The panel is the one place to set the stage. An editor page opened before a move cannot undo it (saving it is refused, with a message), and a stage you type and save on purpose is kept. Visitors see the move on the board within about two minutes (the board is cached briefly). If the item has unpublished changes, the move goes into those changes and shows on the board when you publish.
+Open the item in Admin, Content, Roadmap, and use the **Stage** panel on the right: one button per stage. The panel is the one place to set the stage. An editor page opened before a move cannot undo it; a different stage typed in the Stage box is kept, and retyping a stage the panel just replaced is refused with a message. Visitors see the move on the board within about two minutes (the board is cached briefly). If the item has unpublished changes, the move goes into those changes and shows on the board when you publish.
 
 ## The in-text block (optional)
 

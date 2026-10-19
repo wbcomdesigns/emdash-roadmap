@@ -1114,6 +1114,10 @@ describe("0.3.0 install-pass findings", () => {
 		const first = textOf(await admin(site.call, { type: "page_load", page: "/ideas" }));
 		expect(first).toContain("Set up visitor pages");
 		expect(first).toContain(`--branch ${tag}`);
+		// Addresses sit in wrapping text, not a fields block that clips a long value at 390.
+		expect(first).toContain("Roadmap votes: /account/roadmap-votes/");
+		const card = (await admin(site.call, { type: "page_load", page: "/ideas" })).blocks;
+		expect(card.some((block) => block.type === "fields" && JSON.stringify(block).includes("/account/roadmap-votes/"))).toBe(false);
 		const { kitCommand } = await import("../src/admin");
 		const lines = kitCommand(tag).split("\n");
 		expect(lines).toHaveLength(6);

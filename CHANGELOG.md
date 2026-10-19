@@ -25,6 +25,7 @@ kit="$(mktemp -d)" &&
 - Fix      - Ideas no longer counts a waiting idea in Under review, and counts an item with an unknown stage in the first column like the board.
 - Fix      - Taking back a vote that is no longer there says why (already taken back, or a guest vote older than 30 days), instead of showing Voted.
 - Fix      - The Stage panel no longer puts a form inside the editor's form.
+- Fix      - The Set up visitor pages card lists every visitor address in full on a phone.
 - Fix      - Roadmap pages line up with the site header and footer on the blog template at every width.
 - Fix      - Buttons and selected chips use the theme's own brand colours, readable in dark mode (shared kit styles 4).
 - Security - Guest votes and suggestions are refused when the host gives EmDash no visitor address (any host but Cloudflare, unless the site sets trustedProxyHeaders), and guests see a sign-in link instead.

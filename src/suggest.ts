@@ -12,6 +12,7 @@ import {
 	SPAM,
 	collectionName,
 	rateLimited,
+	roadmapReady,
 	type Member,
 } from "./core";
 import { firstStage, loadSettings } from "./settings";
@@ -37,7 +38,7 @@ type IdeaAuthor = {
 
 async function createIdea(ctx: PluginContext, title: string, description: string, author: IdeaAuthor) {
 	if (!title) return INVALID;
-	if (!ctx.content?.create) return FAILED;
+	if (!ctx.content?.create || !(await roadmapReady(ctx))) return FAILED;
 	const settings = await loadSettings(ctx);
 	const stage = firstStage(settings.stages);
 	const collection = await collectionName(ctx);

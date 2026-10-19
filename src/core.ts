@@ -69,3 +69,24 @@ export async function listCollectionSlugs(ctx: PluginContext): Promise<string[]>
 export async function hasCollection(ctx: PluginContext, slug: string): Promise<boolean> {
 	return (await listCollectionSlugs(ctx)).includes(slug);
 }
+
+const ready = new WeakMap<object, { at: number; found: Promise<boolean> }>();
+// The context object can outlive one request in the sandbox, so the answer is kept only briefly:
+// long enough to cover one request's many reads, short enough that a site that just ran the
+// seed sees its collection on the next request.
+const READY_MS = 2000;
+
+/**
+ * Whether the roadmap content type exists. Every content read checks this first: before the seed
+ * step, a content list or get on a missing collection rejects inside EmDash's sandbox bridge and
+ * the request hangs until the runtime cancels it.
+ */
+export function roadmapReady(ctx: PluginContext): Promise<boolean> {
+	const seen = ready.get(ctx);
+	if (seen && Date.now() - seen.at < READY_MS) return seen.found;
+	const found = collectionName(ctx)
+		.then((name) => hasCollection(ctx, name))
+		.catch(() => false);
+	ready.set(ctx, { at: Date.now(), found });
+	return found;
+}

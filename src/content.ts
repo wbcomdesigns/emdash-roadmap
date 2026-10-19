@@ -1,6 +1,6 @@
 import type { PluginContext } from "emdash/plugin";
 
-import { CHANGELOG, ROADMAP, collectionName, hasCollection } from "./core";
+import { CHANGELOG, ROADMAP, collectionName, hasCollection, roadmapReady } from "./core";
 import { findStage, loadSettings, type Stage } from "./settings";
 import { allRows, asNumber, asRecord, asString } from "./util";
 
@@ -66,6 +66,7 @@ async function listByStatus(
 }
 
 export async function listRoadmapItems(ctx: PluginContext): Promise<RoadmapItem[]> {
+	if (!(await roadmapReady(ctx))) return [];
 	const collection = await collectionName(ctx);
 	try {
 		const [live, drafts] = await Promise.all([
@@ -166,6 +167,7 @@ export async function hasCollections(ctx: PluginContext): Promise<{ roadmap: boo
 }
 
 export async function getItem(ctx: PluginContext, id: string) {
+	if (!id || !(await roadmapReady(ctx))) return null;
 	const collection = await collectionName(ctx);
 	return ctx.content?.get?.(collection, id).catch(() => null) ?? null;
 }
@@ -229,7 +231,7 @@ export async function patchStage(
 	stage: string,
 ): Promise<{ state: "done" | "draft" | "missing" }> {
 	const collection = await collectionName(ctx);
-	const item = await ctx.content?.get?.(collection, id).catch(() => null);
+	const item = await getItem(ctx, id);
 	if (!item || !ctx.content?.update) return { state: "missing" };
 	const from = (await currentStage(ctx, item)).stage;
 	// Recorded before the write, so the hook sees this move when the plugin's own update saves.

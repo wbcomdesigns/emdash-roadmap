@@ -1191,6 +1191,7 @@ describe("round 3 checks", () => {
 		]);
 		const ctx = {
 			settings: { get: async () => null },
+			schema: { listCollections: async () => [{ slug: "roadmap" }] },
 			storage: {
 				ideas: {
 					get: async (id: string) => ideas.get(id) ?? null,
@@ -1256,5 +1257,19 @@ describe("round 3 checks", () => {
 		await site.call("vote_guest", { id: item.id }, fromIp(null));
 		const page = JSON.stringify(await site.call("admin", { type: "page_load", page: "/settings" }, fromIp(null)));
 		expect(page).not.toContain("Guests cannot vote here");
+	});
+
+	it("answers every route on a site with no roadmap collection yet, with no content read", async () => {
+		const site = await openSite();
+		dispose = site.dispose;
+		const started = Date.now();
+		const board = (await site.call("board")) as { columns: Array<{ items: unknown[] }> };
+		expect(board.columns.every((column) => column.items.length === 0)).toBe(true);
+		expect(await site.call("votes", undefined, site.as(ana, "GET"))).toMatchObject({ ok: true, items: [] });
+		expect(await site.call("vote", { id: "nope" }, site.as(ana))).toMatchObject({ ok: false, error: { code: "NOT_FOUND" } });
+		expect(await site.call("suggest", { title: "Too early" }, site.as(ana))).toMatchObject({ ok: false });
+		const ideas = textOf(await admin(site.call, { type: "page_load", page: "/ideas" }));
+		expect(ideas).toContain("Create the roadmap content type");
+		expect(Date.now() - started).toBeLessThan(15_000);
 	});
 });

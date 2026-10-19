@@ -1,6 +1,6 @@
 import type { PluginContext } from "emdash/plugin";
 
-import { GUEST_UNAVAILABLE, MEMBERS_ONLY, NO_VISITOR, RATE_LIMITED, SIGN_IN, SPAM, collectionName, rateLimited, type Member } from "./core";
+import { GUEST_UNAVAILABLE, MEMBERS_ONLY, NO_VISITOR, RATE_LIMITED, SIGN_IN, SPAM, collectionName, rateLimited, roadmapReady, type Member } from "./core";
 import { listRoadmapItems } from "./content";
 import { findStage, loadSettings } from "./settings";
 import { asRecord, asString, nowIso, rows } from "./util";
@@ -21,7 +21,7 @@ type Route = {
 export type VoteOk = { ok: true; votes: number; voted: boolean };
 
 export async function publishedItem(ctx: PluginContext, id: string): Promise<boolean> {
-	if (!id || !ctx.content) return false;
+	if (!id || !ctx.content || !(await roadmapReady(ctx))) return false;
 	const collection = await collectionName(ctx);
 	const item = await ctx.content.get(collection, id).catch(() => null);
 	return item?.status === "published";

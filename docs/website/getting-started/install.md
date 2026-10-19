@@ -71,7 +71,7 @@ If the seed step could not run (an older Node, or a database that is not `./data
 2. Open Admin, Roadmap, **Ideas**. When both content types exist you see **Ideas waiting**, a count for each stage and **Votes this week**. Press **Visitor pages are set up** on the card at the top.
 3. Open Admin, Roadmap, **Settings**: who can take part, stages, and the hourly email. See the [Settings reference](../settings/settings-reference.md).
 
-**Expected in the browser console:** a guest on `/roadmap/`, an item page or `/account/roadmap-votes/` gets one `401` from the plugin's `votes` address. That is the check for a signed-in member's votes; the page is fine. On a site where the plugin was installed from local files rather than the registry, you also see one `404` the first time a page asks the plugin anything (the kit tries the registry address first).
+**Expected in the browser console:** a guest on `/roadmap/`, an item page or `/account/roadmap-votes/` gets one `401` from the plugin's `votes` address. So does `/roadmap/suggest/` on a host that gives no visitor address, where guests must sign in to suggest. That is the check for a signed-in member; the page is fine. On a site where the plugin was installed from local files rather than the registry, you also see one `404` the first time a page asks the plugin anything (the kit tries the registry address first).
 
 If a page is a 404 or the board says it could not load, see [Troubleshooting](../troubleshooting/troubleshooting.md).
 

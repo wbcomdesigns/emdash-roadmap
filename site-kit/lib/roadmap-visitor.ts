@@ -1,7 +1,7 @@
 const KEY = "roadmap-visitor";
 
 /**
- * Per-browser token. The 0.2.2 engine ignores it (guests are keyed by their address). The 0.2.1
+ * Per-browser token. The 0.3.0 engine ignores it (guests are keyed by their address). The 0.2.1
  * engine keys a guest by it when the host gives no address, so the kit keeps sending it: an older
  * engine then never treats every request as a new guest.
  */

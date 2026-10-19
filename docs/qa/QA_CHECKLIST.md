@@ -92,7 +92,7 @@ Three roles, in this order: guest (private window), member (subscriber), admin. 
 | A-19 | Run add-to-site.sh on a fresh blog site, then again after editing roadmap-strings.ts and RoadmapLayout.astro | Every page renders after a restart; second run keeps the layout and backs up the wording file |
 | A-20 | Type in Description (editor autosaves a draft), Move to Done in the panel, Save (Save anyway if asked), Publish | Board and content API say Done; the typed description is kept |
 | A-21 | Ideas at 1440, 768, 390 | Nothing cut at 1440 and 768, no sideways scroll; at 390 the guide link sits under the command |
-| A-22 | 0.2.1 engine with the 0.2.2 kit, and 0.2.2 engine with the 0.2.1 kit, guest with no address | Every mix shows a sign-in line with a Sign in link: the old kit says "Sign in to continue.", the new kit "Sign in to vote or suggest on this site." No generic error |
+| A-22 | 0.2.1 engine with the 0.3.0 kit, and 0.3.0 engine with the 0.2.1 kit, guest with no address | Every mix shows a sign-in line with a Sign in link: the old kit says "Sign in to continue.", the new kit "Sign in to vote or suggest on this site." No generic error |
 
 ## Presentation, every screen
 

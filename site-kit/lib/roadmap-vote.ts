@@ -7,7 +7,7 @@ let bound = false;
 /** Refusals that mean "sign in to do this", from this engine release and the one before (0.2.1 sent NO_VISITOR). */
 export const SIGN_IN_CODES = new Set(["SIGN_IN_REQUIRED", "MEMBERS_ONLY", "GUEST_UNAVAILABLE", "NO_VISITOR"]);
 
-/** The wording key for a refusal: 0.2.2 engines send MEMBERS_ONLY with reason GUEST_UNAVAILABLE. */
+/** The wording key for a refusal: 0.3.0 engines send MEMBERS_ONLY with reason GUEST_UNAVAILABLE. */
 export function refusalCode(result: ApiResult): string {
 	const error = result.error as { code?: string; reason?: string } | undefined;
 	return error?.reason === "GUEST_UNAVAILABLE" ? "GUEST_UNAVAILABLE" : error?.code || "FAILED";

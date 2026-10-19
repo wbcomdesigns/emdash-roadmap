@@ -4,7 +4,7 @@
 #
 #   kit="$(mktemp -d)" &&
 #     git clone --depth 1 \
-#       --branch v0.2.2 \
+#       --branch v0.3.0 \
 #       https://github.com/wbcomdesigns/emdash-roadmap \
 #       "$kit/emdash-roadmap" &&
 #     "$kit/emdash-roadmap/scripts/add-to-site.sh" .

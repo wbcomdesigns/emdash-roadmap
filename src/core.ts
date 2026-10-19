@@ -17,7 +17,7 @@ export const MEMBERS_ONLY = { ok: false, error: { code: "MEMBERS_ONLY", message:
 export const SPAM = { ok: false, error: { code: "SPAM", message: "That request was not accepted." } };
 /**
  * No usable visitor address: the guest is sent to sign in. The code is MEMBERS_ONLY because every
- * kit since 0.1 maps it to the sign-in path; the reason lets the 0.2.2 kit use its own wording.
+ * kit since 0.1 maps it to the sign-in path; the reason lets the 0.3.0 kit use its own wording.
  */
 export const GUEST_UNAVAILABLE = {
 	ok: false,

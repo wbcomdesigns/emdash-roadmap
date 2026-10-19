@@ -2,14 +2,14 @@
 
 Versions match `package.json`, the git tag and the registry release. Newest first.
 
-## [0.2.2] - 2026-10-19
+## [0.3.0] - 2026-10-19
 
-New permission: "Read content revisions" (content:revisions:read), so the Stage panel can show the stage in an item's unpublished changes. Your admin asks you to approve it when you update. Guests can now vote and suggest only when your host tells EmDash the visitor's address. Copy the kit again after you update:
+New permission: Read content revisions, so the Stage panel can see and move an item while it has unpublished changes. You approve it once when you update. Guests can now vote and suggest only when your host tells EmDash the visitor's address. Copy the kit again after you update:
 
 ```bash
 kit="$(mktemp -d)" &&
   git clone --depth 1 \
-    --branch v0.2.2 \
+    --branch v0.3.0 \
     https://github.com/wbcomdesigns/emdash-roadmap \
     "$kit/emdash-roadmap" &&
   "$kit/emdash-roadmap/scripts/add-to-site.sh" .
@@ -31,7 +31,8 @@ kit="$(mktemp -d)" &&
 - Fix      - The Stage panel no longer puts a form inside the editor's form.
 - Fix      - Roadmap pages line up with the site header and footer on the blog template at every width.
 - Fix      - Buttons and selected chips use the theme's own brand colours, readable in dark mode (shared kit styles 4).
-- Compat   - Checked on EmDash 1.3.1. The 0.2.2 kit works with the 0.2.1 engine, and the 0.2.1 kit shows its sign-in line on the 0.2.2 engine.
+- Compat   - Checked on EmDash 1.3.1. The 0.3.0 kit works with the 0.2.1 engine, and the 0.2.1 kit shows its sign-in line on the 0.3.0 engine.
+- Dev      - Minor version: new capability content:revisions:read.
 
 ## [0.2.1] - 2026-10-15
 

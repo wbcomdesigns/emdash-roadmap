@@ -1,11 +1,11 @@
-## 0.2.2
+## 0.3.0
 
-New permission: Read content revisions (the Stage panel shows the stage in unpublished changes). Guests vote and suggest only when the host gives EmDash the visitor's address. Copy the kit again after you update:
+New permission: Read content revisions, so the Stage panel can see and move an item while it has unpublished changes. You approve it once when you update. Guests need a visitor address to vote. Copy the kit again after you update:
 
 ```bash
 kit="$(mktemp -d)" &&
   git clone --depth 1 \
-    --branch v0.2.2 \
+    --branch v0.3.0 \
     https://github.com/wbcomdesigns/emdash-roadmap \
     "$kit/emdash-roadmap" &&
   "$kit/emdash-roadmap/scripts/add-to-site.sh" .

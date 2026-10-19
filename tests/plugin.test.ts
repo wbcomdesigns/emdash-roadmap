@@ -1055,7 +1055,7 @@ describe("first stage for new ideas", () => {
 	});
 });
 
-describe("0.2.2 install-pass findings", () => {
+describe("0.3.0 install-pass findings", () => {
 	it("counts a waiting idea as waiting only, not in a stage", async () => {
 		const site = await openRoadmap();
 		await addItem(site.rt, "On the board");

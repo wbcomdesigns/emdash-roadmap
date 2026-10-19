@@ -49,7 +49,7 @@ A guest left **Your name** empty on the suggest form. Signed-in members do not n
 
 ## A 401 in the browser console
 
-A guest's browser shows one `401` from the plugin's `votes` address on the board, item and Roadmap votes pages. The page checks for a signed-in member's votes first. It is expected, and the page works.
+A guest's browser shows one `401` from the plugin's `votes` address on the board, item and Roadmap votes pages, and on the suggest page when your host gives no visitor address. The page checks whether the visitor is a signed-in member first. It is expected, and the page works.
 
 ## A vote shows "Voted" on one browser and "Vote" on another
 

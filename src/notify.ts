@@ -1,7 +1,7 @@
 import type { PluginContext } from "emdash/plugin";
 
-import { EMAIL_RE } from "./core";
-import { loadSettings } from "./settings";
+import { EMAIL_RE, left, spend, type Budget } from "./core";
+import type { Settings } from "./settings";
 import { asNumber, asString } from "./util";
 
 /** The owner-notice task runs once an hour. */
@@ -26,28 +26,31 @@ export async function ensureNotifyTask(ctx: PluginContext): Promise<void> {
 }
 
 /**
- * Hourly task: tell the site admin that ideas are waiting. One notice per run,
- * nothing a visitor wrote, and no link. Silent when mail is off or missing.
+ * Hourly task: tell the site admin that ideas are waiting. One notice per run, nothing a visitor
+ * wrote, and no link. Silent when mail is off or missing. At most five calls (four when the send
+ * works): the waiting count, the last-sent time with its revision, the claim, the send, and on a
+ * failed send the claim is given back.
  */
-export async function notifyOwners(ctx: PluginContext): Promise<void> {
-	const settings = await loadSettings(ctx);
-	if (!settings.notify) return;
+export async function notifyOwners(ctx: PluginContext, b: Budget, settings: Settings): Promise<void> {
+	if (!settings.notify || !ctx.email || !EMAIL_RE.test(settings.notifyTo)) return;
+	if (left(b) < 5) return;
+	spend(b);
 	const waiting = await ctx.storage.ideas.count({ status: "pending" });
 	if (!waiting) return;
-	if (!ctx.email) return;
-	const to = settings.notifyTo;
-	if (!EMAIL_RE.test(to)) return;
-
+	spend(b);
 	const seen = await ctx.kv.getVersioned<string>(LAST_KEY);
 	const last = asNumber(seen?.value) ?? 0;
 	const now = Date.now();
 	if (now - last < MIN_GAP_MS) return;
+	spend(b);
 	if (!(await ctx.kv.compareAndSet(LAST_KEY, seen?.revision ?? null, String(now))).applied) return;
 
 	const site = asString(ctx.site?.name);
 	try {
-		await ctx.email.send({ to, ...waitingNotice(site) });
+		spend(b);
+		await ctx.email.send({ to: settings.notifyTo, ...waitingNotice(site) });
 	} catch {
+		spend(b);
 		await ctx.kv.delete(LAST_KEY).catch(() => undefined);
 	}
 }

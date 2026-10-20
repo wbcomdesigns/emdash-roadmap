@@ -9,94 +9,70 @@ import { admin as adminUser, ana, openSite } from "./site";
 
 /**
  * Bridge calls per entry point, each in its worst realistic case (a busy site). On Cloudflare a
- * sandboxed call gets 10 subrequests and each bridge call is one. This file measures; it does not
- * enforce the limit yet. A change in any count fails here so it is seen.
+ * sandboxed call gets 10 subrequests and each bridge call is one. Every count is pinned here, so a
+ * change shows, and every one is held to MAX_BRIDGE_CALLS. Stepped work (the 0.3.0 upgrade, a
+ * merge, the hourly cleanup, an erase) is run to the end and its largest call is pinned.
  */
 const MEASURED: Record<string, number> = {
-	"hook plugin:install (fresh)": 12,
-	"hook plugin:activate (already set up)": 6,
-	"hook content:beforeSave (panel-moved, draft)": 6,
-	"hook cron notify (150 old guest votes, 120 old guest ideas, 10 rate keys)": 444,
-	"route board (200 items, votes sort)": 13,
-	"route board (200 items, category=core)": 214,
-	"route health": 7,
-	"route vote_guest POST (first vote)": 18,
-	"route vote_guest DELETE (take back)": 11,
-	"route vote_guest DELETE (nothing to take back, first guest request)": 13,
-	"route suggest_guest": 20,
-	"route vote POST (first vote)": 10,
-	"route vote DELETE (take back)": 4,
-	"route votes GET (200 votes)": 14,
-	"route votes DELETE (erase 200 votes)": 602,
-	"route suggest": 17,
-	"admin page_load /ideas (200 items, 50 waiting)": 116,
-	"admin page_load /settings (200 items)": 13,
+	"hook plugin:install (fresh)": 5,
+	"hook plugin:activate (already set up)": 1,
+	"hook content:beforeSave (panel-moved, draft)": 4,
+	"hook content:beforeSave (inside the plugin's own Stage move)": 1,
+	"hook content:afterPublish (no count row, waiting idea)": 3,
+	"hook content:afterUnpublish": 1,
+	"hook content:afterDelete": 1,
+	"hook content:afterRestore": 1,
+	"hook cron notify (sends, 150 old guest votes, 120 old guest ideas, 10 rate keys), largest run": 9,
+	"hook cron notify (merge running), largest run": 8,
+	"hook cron notify (0.3.0 upgrade), largest run": 8,
+	"route board (200 items, votes sort)": 4,
+	"route board (200 items, category=core)": 4,
+	"route health": 2,
+	"route vote POST (live item)": 5,
+	"route vote POST (first counted vote, item not marked live)": 8,
+	"route vote POST (0.3.0 row the upgrade passed)": 9,
+	"route vote POST (0.3.0 site before the upgrade)": 7,
+	"route vote DELETE (take back)": 2,
+	"route vote DELETE (0.3.0 row the upgrade passed)": 6,
+	"route vote_guest POST (live item)": 7,
+	"route vote_guest POST (first counted vote, item not marked live)": 9,
+	"route vote_guest POST (0.3.0 site before the upgrade, salt in kv)": 9,
+	"route vote_guest DELETE (take back)": 3,
+	"route vote_guest DELETE (nothing to take back)": 5,
+	"route suggest_guest": 7,
+	"route suggest_guest (0.3.0 site, no salt yet)": 9,
+	"route suggest": 6,
+	"route votes GET (300 votes)": 8,
+	"route votes DELETE (erase 200 votes), largest call": 9,
+	"admin page_load /ideas (200 items, 50 waiting)": 5,
+	"admin page_load /ideas (0.3.0 upgrade running), largest call": 9,
+	"admin page_load /ideas (500 + 500 vote merge running), largest call": 9,
+	"admin page_load /settings (200 items)": 4,
 	"admin widget waiting": 1,
-	"admin form_submit save_who": 20,
-	"admin form_submit save_email": 20,
-	"admin form_submit add_stage": 19,
-	"admin form_submit save_stage:planned": 19,
-	"admin form_submit move_item (published)": 26,
-	"admin form_submit move_item (draft)": 26,
-	"admin form_submit ideas_find": 121,
-	"admin form_submit merge_review": 126,
-	"admin form_submit merge_items (500 + 500 votes)": 896,
-	"admin block_action kit_done": 122,
-	"admin block_action kit_again": 122,
-	"admin block_action ideas_page": 121,
-	"admin block_action idea_mod approve": 133,
-	"admin block_action idea_mod reject": 121,
-	"admin block_action stage_up:planned": 19,
-	"admin block_action stage_down:planned": 19,
-	"admin block_action stage_remove:done (empty stage)": 23,
-	"editor_stage panel_load (draft)": 11,
-	"editor_stage set_stage (published)": 22,
-	"editor_stage set_stage (draft)": 24,
+	"admin form_submit save_who": 6,
+	"admin form_submit save_email": 7,
+	"admin form_submit add_stage": 5,
+	"admin form_submit save_stage:planned": 5,
+	"admin form_submit move_item (published)": 9,
+	"admin form_submit move_item (draft)": 8,
+	"admin form_submit ideas_find": 5,
+	"admin form_submit merge_review": 5,
+	"admin form_submit merge_items (500 + 500 votes)": 7,
+	"admin block_action kit_done": 6,
+	"admin block_action kit_again": 6,
+	"admin block_action ideas_page": 5,
+	"admin block_action idea_mod approve": 9,
+	"admin block_action idea_mod reject": 5,
+	"admin block_action stage_up:planned": 5,
+	"admin block_action stage_down:planned": 5,
+	"admin block_action stage_remove:done (empty stage)": 5,
+	"editor_stage panel_load (draft)": 3,
+	"editor_stage set_stage (published)": 7,
+	"editor_stage set_stage (draft)": 6,
 };
 
-/** Every entry over MAX_BRIDGE_CALLS, with its count. Must match what the run measures. */
-const KNOWN_OVER: Array<[string, number]> = [
-	["hook plugin:install (fresh)", 12],
-	["hook cron notify (150 old guest votes, 120 old guest ideas, 10 rate keys)", 444],
-	["route board (200 items, votes sort)", 13],
-	["route board (200 items, category=core)", 214],
-	["route vote_guest POST (first vote)", 18],
-	["route vote_guest DELETE (take back)", 11],
-	["route vote_guest DELETE (nothing to take back, first guest request)", 13],
-	["route suggest_guest", 20],
-	["route vote POST (first vote)", 10],
-	["route votes GET (200 votes)", 14],
-	["route votes DELETE (erase 200 votes)", 602],
-	["route suggest", 17],
-	["admin page_load /ideas (200 items, 50 waiting)", 116],
-	["admin page_load /settings (200 items)", 13],
-	["admin form_submit save_who", 20],
-	["admin form_submit save_email", 20],
-	["admin form_submit add_stage", 19],
-	["admin form_submit save_stage:planned", 19],
-	["admin form_submit move_item (published)", 26],
-	["admin form_submit move_item (draft)", 26],
-	["admin form_submit ideas_find", 121],
-	["admin form_submit merge_review", 126],
-	["admin form_submit merge_items (500 + 500 votes)", 896],
-	["admin block_action kit_done", 122],
-	["admin block_action kit_again", 122],
-	["admin block_action ideas_page", 121],
-	["admin block_action idea_mod approve", 133],
-	["admin block_action idea_mod reject", 121],
-	["admin block_action stage_up:planned", 19],
-	["admin block_action stage_down:planned", 19],
-	["admin block_action stage_remove:done (empty stage)", 23],
-	["editor_stage panel_load (draft)", 11],
-	["editor_stage set_stage (published)", 22],
-	["editor_stage set_stage (draft)", 24],
-];
-
-/**
- * Entries long enough to outlive roadmapReady's 2-second cache (src/core.ts): each expiry re-reads
- * the collection setting and the schema, 2 more calls. Asserted within this many extra calls.
- */
-const SLACK: Record<string, number> = { "admin form_submit merge_items (500 + 500 votes)": 6 };
+/** Every entry over MAX_BRIDGE_CALLS. Empty since 0.4.0, and kept that way. */
+const KNOWN_OVER: Array<[string, number]> = [];
 
 const seen = new Map<string, string[]>();
 
@@ -113,17 +89,32 @@ const RECENT = new Date(Date.now() - DAY).toISOString();
 const guestReq = (ip: string, method = "POST") => ({ method, meta: { ip, userAgent: null, referer: null, geo: null } });
 const memberReq = (method = "POST") => ({ method, user: ana });
 
-type Busy = { fresh?: boolean; items?: number; drafts?: number; pending?: number; votesPer?: number; votedBy?: string };
+type Busy = {
+	/** Seed counts as 0.3.0 left them (no `v`), with the salt and setup answer in kv, and no install. */
+	v3?: boolean;
+	fresh?: boolean;
+	items?: number;
+	drafts?: number;
+	pending?: number;
+	votesPer?: number;
+	votedBy?: string;
+	/** Mark each item's count row live, as the content hooks do on a 0.4.0 site. */
+	live?: boolean;
+};
 
-/** A busy site: published items, draft items, waiting ideas, and votes with tallies. */
+/** A busy site: published items, draft items, waiting ideas, and votes with their counts. */
 async function busySite(opts: Busy = {}) {
 	site = await openSite();
 	const { rt } = site;
 	await rt.fixtures.collection(roadmapCollection as never);
 	await rt.fixtures.collection(changelogCollection as never);
 	await rt.fixtures.plugin.setting("notify_to", "owner@example.com");
-	// A live site ran install: settings seeded and the hourly task scheduled.
-	if (!opts.fresh) await rt.transport.invokeHook("plugin:install", {});
+	// A 0.4.0 site ran install: the hourly task, the salt, and no 0.3.0 data to bring over.
+	if (!opts.fresh && !opts.v3) await rt.transport.invokeHook("plugin:install", {});
+	if (opts.v3) {
+		await rt.fixtures.plugin.kv("visitor-salt", "old-salt");
+		await rt.fixtures.plugin.kv("kit_pages_done", "1");
+	}
 	const items: string[] = [];
 	for (let i = 0; i < (opts.items ?? 0); i += 1) {
 		const made = await rt.fixtures.content("roadmap", {
@@ -166,35 +157,66 @@ async function busySite(opts: Busy = {}) {
 		if (opts.votedBy) {
 			await rt.fixtures.plugin.storage("votes", `${item}:${opts.votedBy}`, { item, member_id: opts.votedBy, createdAt: RECENT, visitor: "" });
 		}
-		await rt.fixtures.plugin.storage("tallies", item, { votes: per + (opts.votedBy ? 1 : 0) });
+		const votes = per + (opts.votedBy ? 1 : 0);
+		await rt.fixtures.plugin.storage("tallies", item, opts.v3 ? { votes } : { v: 4, votes, live: opts.live !== false, seq: 0 });
 	}
 	return { site, rt, items, ideas };
 }
 
+/**
+ * Content hooks run after a publish without being awaited (EmDash fires them and moves on). Each is
+ * its own plugin call with its own budget, so let them finish before counting the next call.
+ */
+const settle = () => new Promise((resolve) => setTimeout(resolve, 150));
+
 async function measure(name: string, call: () => Promise<unknown>) {
+	await settle();
 	const { result, calls } = await countBridgeCalls(call);
-	seen.set(name, calls);
-	const want = MEASURED[name];
-	expect(want, `${name} has no MEASURED count`).toBeTypeOf("number");
-	if (SLACK[name]) expect(calls.length - want!, name).toSatisfy((extra: number) => extra >= 0 && extra <= SLACK[name]!);
-	else expect(calls.length, name).toBe(want);
+	record(name, calls);
+	expect(calls.length, `${name}: ${calls.join(",")}`).toBe(MEASURED[name]);
 	return result;
+}
+
+/** Stepped work: run `call` until `done` says it ended, and keep the largest call. */
+async function measureSteps(name: string, call: () => Promise<unknown>, done: () => Promise<boolean>, max = 60) {
+	let largest: string[] = [];
+	for (let step = 0; step < max; step += 1) {
+		await settle();
+		const { calls } = await countBridgeCalls(call);
+		if (calls.length > largest.length) largest = calls;
+		if (await done()) {
+			record(name, largest);
+			expect(largest.length, `${name}: ${largest.join(",")}`).toBe(MEASURED[name]);
+			return step + 1;
+		}
+	}
+	throw new Error(`${name} did not end in ${max} calls`);
+}
+
+function record(name: string, calls: string[]) {
+	expect(MEASURED[name], `${name} has no MEASURED count`).toBeTypeOf("number");
+	seen.set(name, calls);
 }
 
 const adminCall = (s: Site, input: Record<string, unknown>) => s.call("admin", input, { method: "POST", user: adminUser });
 const panelCall = (s: Site, id: string, input: Record<string, unknown>) =>
 	s.call("editor_stage", input, { method: "POST", user: adminUser, ui: { entry: { collection: "roadmap", id } } } as never);
+const cron = (s: Site) => s.rt.transport.invokeHook("cron", { name: "notify", data: {}, scheduledAt: new Date().toISOString() });
 
 /** Puts an unpublished change on a published item, so it carries a draft revision. */
 async function withDraft(s: Site, id: string) {
 	await s.rt.actions.content.update("roadmap", id, { data: { title: "Edited", description: "d", stage: "Planned" } } as never);
 }
 
+type Row = Record<string, unknown>;
+const tally = async (s: Site, id: string) => (await s.rt.inspect.storage.get<Row>("tallies", id)) ?? null;
+const voteRows = async (s: Site, id: string) => (await s.rt.inspect.storage.list<Row>("votes")).filter((row) => row.data.item === id).length;
+
 describe("hooks", () => {
 	it("plugin:install on a fresh site", async () => {
 		const { rt } = await busySite({ fresh: true });
-		for (const key of ["stages", "allow_ideas", "who", "notify", "collection"]) await rt.fixtures.plugin.setting(key, null as never);
 		await measure("hook plugin:install (fresh)", () => rt.transport.invokeHook("plugin:install", {}));
+		expect(await rt.inspect.setting("upgrade_0_4")).toMatchObject({ phase: "done" });
 	});
 
 	it("plugin:activate on a set-up site", async () => {
@@ -216,8 +238,38 @@ describe("hooks", () => {
 		);
 	});
 
-	it("cron notify on a busy site with old guest rows", async () => {
-		const { rt, items } = await busySite({ items: 2, pending: 5 });
+	it("content:beforeSave inside the plugin's own Stage move stops after one call", async () => {
+		const { site: s, rt, items } = await busySite({ items: 1 });
+		await panelCall(s, items[0]!, { type: "block_action", action_id: "set_stage:done" });
+		// The plugin's own update carries the stage the move record was just set to.
+		await measure("hook content:beforeSave (inside the plugin's own Stage move)", () =>
+			rt.transport.invokeHook("content:beforeSave", { collection: "roadmap", isNew: false, id: items[0], content: { title: "x", stage: "Done" } }),
+		);
+	});
+
+	it("content:afterPublish on an item with no count row and a waiting idea", async () => {
+		const { rt, ideas } = await busySite({ pending: 1 });
+		await measure("hook content:afterPublish (no count row, waiting idea)", () =>
+			rt.transport.invokeHook("content:afterPublish", { collection: "roadmap", content: { id: ideas[0], status: "published" } }),
+		);
+		expect(await rt.inspect.storage.get("tallies", ideas[0]!)).toMatchObject({ v: 4, votes: 0, live: true });
+		expect(await rt.inspect.storage.get("ideas", ideas[0]!)).toMatchObject({ status: "approved" });
+	});
+
+	for (const [hook, event] of [
+		["content:afterUnpublish", (id: string) => ({ collection: "roadmap", content: { id } })],
+		["content:afterDelete", (id: string) => ({ collection: "roadmap", id })],
+		["content:afterRestore", (id: string) => ({ collection: "roadmap", content: { id, status: "draft" } })],
+	] as const) {
+		it(`${hook} marks the count row not live`, async () => {
+			const { rt, items } = await busySite({ items: 1, votesPer: 3 });
+			await measure(`hook ${hook}`, () => rt.transport.invokeHook(hook, event(items[0]!)));
+			expect(await rt.inspect.storage.get("tallies", items[0]!)).toMatchObject({ v: 4, votes: 3, live: false });
+		});
+	}
+
+	it("cron on a busy site with old guest rows: notice, then the cleanup in batches", async () => {
+		const { site: s, rt, items } = await busySite({ items: 2, pending: 5 });
 		for (let i = 0; i < 150; i += 1) {
 			const id = `${items[i % 2]}:v-old${i}`;
 			await rt.fixtures.plugin.storage("votes", id, { item: items[i % 2], member_id: `v-old${i}`, createdAt: OLD, visitor: `old${i}` });
@@ -227,10 +279,16 @@ describe("hooks", () => {
 		}
 		for (let i = 0; i < 10; i += 1) await rt.fixtures.plugin.kv(`rate:vote:v-${i}`, `${Date.parse(OLD)}|1`);
 		await rt.fixtures.plugin.kv("notify:last", "0");
-		await measure("hook cron notify (150 old guest votes, 120 old guest ideas, 10 rate keys)", () =>
-			rt.transport.invokeHook("cron", { name: "notify", data: {}, scheduledAt: new Date().toISOString() }),
-		);
-	});
+		const hashed = async () => {
+			const votes = (await rt.inspect.storage.list<Row>("votes")).filter((row) => row.data.visitor);
+			const ideas = (await rt.inspect.storage.list<Row>("ideas")).filter((row) => row.data.visitor);
+			const rate = (await rt.inspect.kv.list()).filter((row) => String((row as { id?: string; key?: string }).id ?? (row as { key?: string }).key).startsWith("rate:"));
+			return votes.length + ideas.length + rate.length === 0;
+		};
+		await measureSteps("hook cron notify (sends, 150 old guest votes, 120 old guest ideas, 10 rate keys), largest run", () => cron(s), hashed, 80);
+		const votes = await rt.inspect.storage.list<Row>("votes");
+		expect(votes).toHaveLength(150);
+	}, 240_000);
 });
 
 describe("public routes", () => {
@@ -249,54 +307,116 @@ describe("public routes", () => {
 		await measure("route health", () => s.call("health", {}, { method: "GET" }));
 	});
 
-	it("vote_guest POST, first vote of the hour, item with 500 votes", async () => {
+	it("vote_guest POST on a live item", async () => {
 		const { site: s, items } = await busySite({ items: 1, votesPer: 500 });
-		await s.call("vote_guest", { id: "warm-salt" }, guestReq("203.0.113.9")); // the salt exists on a live site
-		await s.rt.fixtures.plugin.kv("guest:address-seen", {});
-		await measure("route vote_guest POST (first vote)", () => s.call("vote_guest", { id: items[0] }, guestReq("198.51.100.7")));
+		await s.rt.fixtures.plugin.setting("guest_seen", {});
+		await measure("route vote_guest POST (live item)", () => s.call("vote_guest", { id: items[0] }, guestReq("198.51.100.7")));
+		expect(await tally(s, items[0]!)).toMatchObject({ votes: 501 });
+	});
+
+	it("vote_guest POST, the item's first counted vote, row not marked live", async () => {
+		const { site: s } = await busySite();
+		const made = await s.rt.fixtures.content("roadmap", { data: { title: "New", stage: "Planned" }, slug: "new", status: "published" } as never);
+		await measure("route vote_guest POST (first counted vote, item not marked live)", () => s.call("vote_guest", { id: made.id }, guestReq("198.51.100.7")));
+		expect(await tally(s, made.id)).toMatchObject({ v: 4, votes: 1, live: true });
+	});
+
+	it("vote_guest POST on a 0.3.0 site before the upgrade: salt read from kv, count left to the upgrade", async () => {
+		const { site: s, items } = await busySite({ v3: true, items: 1, votesPer: 5 });
+		const answer = await measure("route vote_guest POST (0.3.0 site before the upgrade, salt in kv)", () =>
+			s.call("vote_guest", { id: items[0] }, guestReq("198.51.100.7")),
+		);
+		expect(answer).toMatchObject({ ok: true, voted: true, votes: 6 });
+		expect(await tally(s, items[0]!)).toEqual({ votes: 5 });
 	});
 
 	it("vote_guest DELETE", async () => {
 		const { site: s, items } = await busySite({ items: 1, votesPer: 500 });
 		await s.call("vote_guest", { id: items[0] }, guestReq("198.51.100.7"));
 		await measure("route vote_guest DELETE (take back)", () => s.call("vote_guest", { id: items[0] }, guestReq("198.51.100.7", "DELETE")));
+		expect(await tally(s, items[0]!)).toMatchObject({ votes: 500 });
 	});
 
-	it("vote_guest DELETE of a vote the cleanup made anonymous", async () => {
+	it("vote_guest DELETE with nothing to take back", async () => {
 		const { site: s, items } = await busySite({ items: 1 });
-		await measure("route vote_guest DELETE (nothing to take back, first guest request)", () =>
-			s.call("vote_guest", { id: items[0] }, guestReq("198.51.100.7", "DELETE")),
-		);
+		await measure("route vote_guest DELETE (nothing to take back)", () => s.call("vote_guest", { id: items[0] }, guestReq("198.51.100.7", "DELETE")));
 	});
 
 	it("suggest_guest", async () => {
 		const { site: s } = await busySite({ items: 1 });
-		await s.call("vote_guest", { id: "warm-salt" }, guestReq("203.0.113.9"));
-		await s.rt.fixtures.plugin.kv("guest:address-seen", {});
+		await s.rt.fixtures.plugin.setting("guest_seen", {});
 		await measure("route suggest_guest", () => s.call("suggest_guest", { title: "Dark mode", description: "x", name: "Sam" }, guestReq("198.51.100.7")));
+	});
+
+	it("suggest_guest on a 0.3.0 site where no guest ever wrote: the salt is made", async () => {
+		const { site: s } = await busySite({ fresh: true, items: 1 });
+		await measure("route suggest_guest (0.3.0 site, no salt yet)", () =>
+			s.call("suggest_guest", { title: "Dark mode", description: "x", name: "Sam" }, guestReq("198.51.100.7")),
+		);
+		expect(await s.rt.inspect.setting("visitor_salt")).toBeTruthy();
 	});
 });
 
 describe("member routes", () => {
-	it("vote POST, first vote, item with 500 votes", async () => {
+	it("vote POST on a live item with 500 votes", async () => {
 		const { site: s, items } = await busySite({ items: 1, votesPer: 500 });
-		await measure("route vote POST (first vote)", () => s.call("vote", { id: items[0] }, memberReq()));
+		await measure("route vote POST (live item)", () => s.call("vote", { id: items[0] }, memberReq()));
+		expect(await tally(s, items[0]!)).toMatchObject({ votes: 501 });
+	});
+
+	it("vote POST, the item's first counted vote, row not marked live", async () => {
+		const { site: s } = await busySite();
+		const made = await s.rt.fixtures.content("roadmap", { data: { title: "New", stage: "Planned" }, slug: "new", status: "published" } as never);
+		await measure("route vote POST (first counted vote, item not marked live)", () => s.call("vote", { id: made.id }, memberReq()));
+		expect(await tally(s, made.id)).toMatchObject({ v: 4, votes: 1 });
+	});
+
+	it("vote POST on a 0.3.0 row the upgrade already passed: counted again", async () => {
+		const { site: s, items } = await busySite({ items: 1, votesPer: 4 });
+		await s.rt.fixtures.plugin.storage("tallies", items[0]!, { votes: 9 });
+		await measure("route vote POST (0.3.0 row the upgrade passed)", () => s.call("vote", { id: items[0] }, memberReq()));
+		expect(await tally(s, items[0]!)).toMatchObject({ v: 4, votes: 5 });
+	});
+
+	it("vote POST on a 0.3.0 site before the upgrade", async () => {
+		const { site: s, items } = await busySite({ v3: true, items: 1, votesPer: 4 });
+		await measure("route vote POST (0.3.0 site before the upgrade)", () => s.call("vote", { id: items[0] }, memberReq()));
 	});
 
 	it("vote DELETE", async () => {
 		const { site: s, items } = await busySite({ items: 1, votesPer: 500, votedBy: ana.id });
 		await measure("route vote DELETE (take back)", () => s.call("vote", { id: items[0] }, memberReq("DELETE")));
+		expect(await tally(s, items[0]!)).toMatchObject({ votes: 500 });
 	});
 
-	it("votes GET, member who voted on 200 items", async () => {
-		const { site: s } = await busySite({ items: 200, votedBy: ana.id });
-		await measure("route votes GET (200 votes)", () => s.call("votes", {}, memberReq("GET")));
+	it("vote DELETE on a 0.3.0 row the upgrade already passed", async () => {
+		const { site: s, items } = await busySite({ items: 1, votesPer: 4, votedBy: ana.id });
+		await s.rt.fixtures.plugin.storage("tallies", items[0]!, { votes: 9 });
+		await measure("route vote DELETE (0.3.0 row the upgrade passed)", () => s.call("vote", { id: items[0] }, memberReq("DELETE")));
+		expect(await tally(s, items[0]!)).toMatchObject({ v: 4, votes: 4 });
 	});
 
-	it("votes DELETE, member who voted on 200 items", async () => {
+	it("votes GET, member with 300 votes", async () => {
 		const { site: s } = await busySite({ items: 200, votedBy: ana.id });
-		await measure("route votes DELETE (erase 200 votes)", () => s.call("votes", {}, memberReq("DELETE")));
+		for (let i = 0; i < 100; i += 1) {
+			await s.rt.fixtures.plugin.storage("votes", `gone${i}:${ana.id}`, { item: `gone${i}`, member_id: ana.id, createdAt: RECENT, visitor: "" });
+		}
+		await measure("route votes GET (300 votes)", () => s.call("votes", {}, memberReq("GET")));
 	});
+
+	it("votes DELETE, member who voted on 200 items: erased in calls of a few, every count right", async () => {
+		const { site: s, items } = await busySite({ items: 200, votesPer: 1, votedBy: ana.id });
+		let last: unknown;
+		const steps = await measureSteps(
+			"route votes DELETE (erase 200 votes), largest call",
+			async () => (last = await s.call("votes", {}, memberReq("DELETE"))),
+			async () => (last as { ok?: boolean }).ok === true,
+		);
+		expect(steps).toBeGreaterThan(1);
+		const rows = await s.rt.inspect.storage.list<Row>("votes");
+		expect(rows.filter((row) => row.data.member_id === ana.id)).toHaveLength(0);
+		for (const id of items.slice(0, 5)) expect(await tally(s, id)).toMatchObject({ votes: 1 });
+	}, 240_000);
 
 	it("suggest", async () => {
 		const { site: s } = await busySite({ items: 1 });
@@ -311,6 +431,37 @@ describe("admin", () => {
 		const { site: s } = await busySite(big);
 		await measure("admin page_load /ideas (200 items, 50 waiting)", () => adminCall(s, { type: "page_load", page: "/ideas" }));
 	});
+
+	it("page_load /ideas runs the 0.3.0 upgrade to the end, every count rebuilt from its votes", async () => {
+		const { site: s, rt, items } = await busySite({ v3: true, items: 40, votesPer: 3 });
+		// The busiest item has 150 votes; one has a stale 0.3.0 count and no votes; one has votes and no count.
+		for (let v = 0; v < 147; v += 1) await rt.fixtures.plugin.storage("votes", `${items[0]}:x${v}`, { item: items[0], member_id: `x${v}`, createdAt: RECENT, visitor: "" });
+		await rt.fixtures.plugin.storage("tallies", items[1]!, { votes: 7 });
+		for (const row of (await rt.inspect.storage.list<Row>("votes")).filter((r) => r.data.item === items[1])) {
+			await s.rt.fixtures.plugin.storage("votes", row.id, { item: "elsewhere", member_id: "z", createdAt: RECENT, visitor: "" });
+		}
+		await rt.fixtures.plugin.storage("tallies", "gone-item", { votes: 3 });
+		await measureSteps(
+			"admin page_load /ideas (0.3.0 upgrade running), largest call",
+			() => adminCall(s, { type: "page_load", page: "/ideas" }),
+			async () => ((await rt.inspect.setting<Row>("upgrade_0_4"))?.phase ?? "") === "done",
+		);
+		for (const id of [...items, "elsewhere", "gone-item"]) {
+			expect(await tally(s, id), id).toMatchObject({ v: 4, votes: await voteRows(s, id) });
+		}
+		expect(await rt.inspect.setting("visitor_salt")).toBe("old-salt");
+		expect(await rt.inspect.setting("kit_done")).toBe(true);
+	}, 240_000);
+
+	it("cron runs the 0.3.0 upgrade to the end", async () => {
+		const { site: s, rt, items } = await busySite({ v3: true, items: 30, votesPer: 4 });
+		await measureSteps(
+			"hook cron notify (0.3.0 upgrade), largest run",
+			() => cron(s),
+			async () => ((await rt.inspect.setting<Row>("upgrade_0_4"))?.phase ?? "") === "done",
+		);
+		for (const id of items) expect(await tally(s, id)).toMatchObject({ v: 4, votes: 4 });
+	}, 240_000);
 
 	it("page_load /settings", async () => {
 		const { site: s } = await busySite(big);
@@ -366,14 +517,16 @@ describe("admin", () => {
 		);
 	});
 
-	it("form_submit merge_items, 500 votes on each side", async () => {
-		const { site: s, items } = await busySite({ ...big, items: 200, votesPer: 0 });
+	it("merge_items with 500 votes on each side: started in one call, finished by page loads, one vote per person", async () => {
+		const { site: s, rt, items } = await busySite({ ...big, items: 200, votesPer: 0 });
 		// Source and kept item each with 500 votes, 250 of them from the same people.
 		for (let v = 0; v < 500; v += 1) {
-			await s.rt.fixtures.plugin.storage("votes", `${items[1]}:s${v}`, { item: items[1], member_id: `s${v}`, createdAt: RECENT, visitor: "" });
-			await s.rt.fixtures.plugin.storage("votes", `${items[0]}:s${v + 250}`, { item: items[0], member_id: `s${v + 250}`, createdAt: RECENT, visitor: "" });
+			await rt.fixtures.plugin.storage("votes", `${items[1]}:s${v}`, { item: items[1], member_id: `s${v}`, createdAt: RECENT, visitor: "" });
+			await rt.fixtures.plugin.storage("votes", `${items[0]}:s${v + 250}`, { item: items[0], member_id: `s${v + 250}`, createdAt: RECENT, visitor: "" });
 		}
-		const source = (await s.rt.inspect.content.get("roadmap", items[1]!)) as { version?: number; updatedAt?: string };
+		await rt.fixtures.plugin.storage("tallies", items[1]!, { v: 4, votes: 500, live: true, seq: 0 });
+		await rt.fixtures.plugin.storage("tallies", items[0]!, { v: 4, votes: 500, live: true, seq: 0 });
+		const source = (await rt.inspect.content.get("roadmap", items[1]!)) as { version?: number; updatedAt?: string };
 		await measure("admin form_submit merge_items (500 + 500 votes)", () =>
 			adminCall(s, {
 				type: "form_submit",
@@ -382,7 +535,30 @@ describe("admin", () => {
 				values: { source: `item|${items[1]}|${source.version ?? ""}~${source.updatedAt ?? ""}`, keep: items[0] },
 			}),
 		);
-	});
+		await measureSteps(
+			"admin page_load /ideas (500 + 500 vote merge running), largest call",
+			() => adminCall(s, { type: "page_load", page: "/ideas" }),
+			async () => !(await rt.inspect.setting("merge_job")),
+		);
+		expect(await voteRows(s, items[0]!)).toBe(750);
+		expect(await voteRows(s, items[1]!)).toBe(0);
+		expect(await tally(s, items[0]!)).toMatchObject({ votes: 750 });
+		expect(await tally(s, items[1]!)).toBeNull();
+		expect((await rt.inspect.content.get("roadmap", items[1]!))?.status).not.toBe("published");
+	}, 240_000);
+
+	it("cron finishes a merge in progress", async () => {
+		const { site: s, rt, items } = await busySite({ items: 2, votesPer: 150 });
+		const source = (await rt.inspect.content.get("roadmap", items[1]!)) as { version?: number; updatedAt?: string };
+		await adminCall(s, {
+			type: "form_submit",
+			action_id: "merge_items",
+			page: "/ideas",
+			values: { source: `item|${items[1]}|${source.version ?? ""}~${source.updatedAt ?? ""}`, keep: items[0] },
+		});
+		await measureSteps("hook cron notify (merge running), largest run", () => cron(s), async () => !(await rt.inspect.setting("merge_job")));
+		expect(await tally(s, items[0]!)).toMatchObject({ votes: 150 });
+	}, 240_000);
 
 	for (const action of ["kit_done", "kit_again", "ideas_page"]) {
 		it(`block_action ${action}`, async () => {
@@ -398,6 +574,7 @@ describe("admin", () => {
 		await measure("admin block_action idea_mod approve", () =>
 			adminCall(s, { type: "block_action", action_id: "idea_mod", page: "/ideas", value: `approve|r0|${ideas[0]}` }),
 		);
+		expect((await s.rt.inspect.content.get("roadmap", ideas[0]!))?.status).toBe("published");
 	});
 
 	it("block_action idea_mod reject", async () => {
@@ -440,11 +617,13 @@ describe("admin", () => {
 });
 
 describe("budget", () => {
-	it("lists every entry over the limit", () => {
-		const over = [...seen].filter(([, calls]) => calls.length > MAX_BRIDGE_CALLS).map(([name]) => name);
-		expect(over.sort()).toEqual(KNOWN_OVER.map(([name]) => name).sort());
-		for (const [name, count] of KNOWN_OVER) expect(MEASURED[name], name).toBe(count);
-		// Every measured entry has a recorded count.
+	it("holds every entry point to the limit", () => {
+		const over = [...seen].filter(([, calls]) => calls.length > MAX_BRIDGE_CALLS).map(([name, calls]) => [name, calls.length]);
+		expect(over).toEqual(KNOWN_OVER);
+		expect(KNOWN_OVER).toEqual([]);
+		for (const [name, calls] of seen) expect(calls.length, name).toBeLessThanOrEqual(MAX_BRIDGE_CALLS);
+		for (const count of Object.values(MEASURED)) expect(count).toBeLessThanOrEqual(MAX_BRIDGE_CALLS);
+		// Every measured entry has a recorded count, and every count was measured.
 		expect([...seen.keys()].sort()).toEqual(Object.keys(MEASURED).sort());
 	});
 });

@@ -26,13 +26,15 @@ const [termsById, commentCounts] = await Promise.all([
 	// ponytail: one count per item; switch to a bulk count if EmDash adds one.
 	Promise.all(ids.map((id) => getCommentCount("roadmap", id).catch(() => 0))),
 ]);
-const details: Record<string, { summary: string; category: string; comments: number }> = {};
+const details: Record<string, { summary: string; category: string; categories: string[]; comments: number }> = {};
 published.forEach((entry, index) => {
 	const id = ids[index];
 	const text = String(entry.data.description || "").replace(/\s+/g, " ").trim();
 	details[id] = {
 		summary: text.length > SUMMARY_MAX ? `${text.slice(0, SUMMARY_MAX - 1).trimEnd()}…` : text,
 		category: termsById.get(id)?.[0]?.label || "",
+		// Every category slug, so the board filters in the page (the engine reads no terms per item).
+		categories: (termsById.get(id) ?? []).map((term: { slug: string }) => term.slug),
 		comments: commentCounts[index] ?? 0,
 	};
 });

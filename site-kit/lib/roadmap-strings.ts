@@ -68,6 +68,7 @@ export const strings = {
 		NO_VISITOR: "Sign in to vote or suggest on this site.",
 		SPAM: "That request was not accepted.",
 		FAILED: "Something went wrong. Try again.",
+		BUSY: "Busy right now. Try again in a moment.",
 		OFFLINE: "Could not reach the site. Check your connection.",
 	} as Record<string, string>,
 };

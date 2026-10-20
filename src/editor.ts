@@ -1,9 +1,9 @@
 import type { PluginContext } from "emdash/plugin";
 
 import type { BlockResponse } from "./admin";
-import { currentStage, getItem, patchStage } from "./content";
+import { currentStage, patchStage } from "./content";
 import { ROADMAP } from "./core";
-import { findStage, loadSettings } from "./settings";
+import { findStage, loadSettings, type Settings } from "./settings";
 import { asRecord, asString } from "./util";
 
 type Ctx = PluginContext;
@@ -18,10 +18,19 @@ function entryOf(routeCtx: RouteCtx): { collection: string; id: string } | null 
 	return { collection: entry.collection, id: entry.id };
 }
 
+type Shown = {
+	item: { draftRevisionId?: string | null };
+	now: { stage: string; inDraft: boolean; live: string };
+};
+
+/**
+ * The panel. Settings, the item and, when it has unpublished changes, their revision: three calls.
+ * After a move the caller passes what the move left (`shown`), so nothing is read again.
+ */
 async function renderPanel(
 	ctx: Ctx,
 	entry: { collection: string; id: string },
-	extra?: Pick<BlockResponse, "toast"> & { refresh?: boolean },
+	extra?: Pick<BlockResponse, "toast"> & { refresh?: boolean; settings?: Settings; shown?: Shown | null },
 ): Promise<BlockResponse> {
 	if (entry.collection !== ROADMAP) {
 		return {
@@ -37,8 +46,13 @@ async function renderPanel(
 		};
 	}
 
-	const item = await getItem(ctx, entry.id);
-	if (!item) {
+	const settings = extra?.settings ?? (await loadSettings(ctx));
+	let shown = extra?.shown ?? null;
+	if (!shown) {
+		const item = await ctx.content?.get(entry.collection, entry.id).catch(() => null);
+		if (item) shown = { item, now: await currentStage(ctx, entry.collection, { ...item, id: entry.id }) };
+	}
+	if (!shown) {
 		return {
 			blocks: [
 				{
@@ -52,9 +66,8 @@ async function renderPanel(
 		};
 	}
 
-	const settings = await loadSettings(ctx);
 	// Read from the entry: the unpublished changes if there are any, otherwise the live item.
-	const now = await currentStage(ctx, { ...item, id: entry.id });
+	const { item, now } = shown;
 	const current = findStage(settings.stages, now.stage);
 	const live = findStage(settings.stages, now.live);
 	const label = (stage: { name: string; shown: boolean }) => (stage.shown === false ? `${stage.name} (hidden)` : stage.name);
@@ -102,11 +115,11 @@ async function saveStage(ctx: Ctx, entry: { collection: string; id: string }, ra
 	const settings = await loadSettings(ctx);
 	const stage = findStage(settings.stages, raw);
 	if (!stage) {
-		return renderPanel(ctx, entry, { toast: { message: "Pick a stage from the list.", type: "error" } });
+		return renderPanel(ctx, entry, { toast: { message: "Pick a stage from the list.", type: "error" }, settings });
 	}
-	const result = await patchStage(ctx, entry.id, stage.name);
+	const result = await patchStage(ctx, entry.collection, entry.id, stage.name);
 	if (result.state === "missing") {
-		return renderPanel(ctx, entry, { toast: { message: "That item is gone.", type: "error" } });
+		return renderPanel(ctx, entry, { toast: { message: "That item is gone.", type: "error" }, settings, shown: null });
 	}
 	// refresh: the editor reloads the entry, so its own Stage box shows the new stage. A later Save
 	// from a form that still holds the old stage is corrected by the content:beforeSave hook.
@@ -114,7 +127,7 @@ async function saveStage(ctx: Ctx, entry: { collection: string; id: string }, ra
 		result.state === "draft"
 			? `Moved to ${stage.name} in this item's unpublished changes. Publish them to show it on the board.`
 			: `Moved to ${stage.name}.`;
-	return renderPanel(ctx, entry, { toast: { message, type: "success" }, refresh: true });
+	return renderPanel(ctx, entry, { toast: { message, type: "success" }, refresh: true, settings, shown: result });
 }
 
 export async function handleEditorPanel(routeCtx: RouteCtx, ctx: Ctx): Promise<BlockResponse> {

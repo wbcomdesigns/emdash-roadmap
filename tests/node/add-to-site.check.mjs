@@ -45,8 +45,7 @@ describe("scripts/add-to-site.sh", () => {
 			assert.ok(existsSync(join(site, file)), file);
 		}
 		for (const text of [
-			"npx emdash seed .emdash/roadmap-seed.json --no-content",
-			"Node 22.16 or later",
+			"Seed not run: this site's database is not a local SQLite file. Create the roadmap and changelog content types and the Roadmap categories taxonomy in the admin (install guide, Content types).",
 			"open Menus",
 			"Roadmap votes  /account/roadmap-votes/",
 			"Restart the dev server",
@@ -54,6 +53,23 @@ describe("scripts/add-to-site.sh", () => {
 			assert.ok(out.includes(text), text);
 		}
 		assert.doesNotMatch(out, /\$K|path\/to\//);
+	});
+
+	it("runs the seed only on a local SQLite file, and never reports done on a Cloudflare site", () => {
+		const d1 = fakeSite();
+		writeFileSync(join(d1, "astro.config.mjs"), 'import emdash from "emdash/astro";\nexport default { database: d1({ binding: "DB" }) };\n');
+		const cloud = execFileSync("bash", [SCRIPT, d1], { encoding: "utf8" });
+		assert.match(cloud, /Seed     \.emdash\/roadmap-seed\.json: Seed not run: this site's database is not a local SQLite file\./);
+		assert.doesNotMatch(cloud, /npx emdash seed/);
+		rmSync(d1, { recursive: true, force: true });
+		const local = fakeSite();
+		writeFileSync(join(local, "astro.config.mjs"), 'import emdash from "emdash/astro";\nexport default { database: sqlite({ url: "file:./data.db" }) };\n');
+		// sqlite( but no database file yet: not run either.
+		assert.match(run(local), /Seed not run: this site's database is not a local SQLite file/);
+		writeFileSync(join(local, "data.db"), "");
+		const out = run(local);
+		assert.ok(out.includes("npx emdash seed .emdash/roadmap-seed.json --no-content -d ./data.db"));
+		assert.doesNotMatch(out, /Seed not run/);
 	});
 
 	it("never overwrites the site's layout or a newer shared file, and backs up changed wording", () => {

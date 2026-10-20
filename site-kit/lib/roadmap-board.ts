@@ -3,7 +3,17 @@ import { phrase, strings } from "./roadmap-strings";
 import { bindVoteButtons, fetchBoard, voteButtonHtml } from "./roadmap-vote";
 
 type Card = { id: string; title: string; slug: string; votes: number };
-type Details = Record<string, { summary?: string; category?: string; comments?: number }>;
+type Details = Record<string, { summary?: string; category?: string; categories?: string[]; comments?: number }>;
+
+/**
+ * Whether a card belongs on the board filtered by `slug` (empty: no filter). The page reads every
+ * item's categories in one terms read, so the 0.4.0 engine reads none; a 0.3.0 engine filters too,
+ * and filtering again changes nothing.
+ */
+export function inCategory(details: Details, id: string, slug: string): boolean {
+	if (!slug) return true;
+	return (details[id]?.categories ?? []).includes(slug);
+}
 type Column = { name: string; items: Card[]; empty: string | null };
 
 export async function loadBoard(): Promise<void> {
@@ -28,6 +38,11 @@ export async function loadBoard(): Promise<void> {
 		details = JSON.parse(root.dataset.details || "{}") as Details;
 	} catch {
 		details = {};
+	}
+	const category = root.dataset.category || "";
+	for (const column of columns) {
+		column.items = column.items.filter((item) => inCategory(details, item.id, category));
+		column.empty = column.items.length ? null : "COLUMN_EMPTY";
 	}
 	board.hidden = false;
 	board.innerHTML = columns.map((column, index) => columnHtml(column, index === 0, details)).join("");

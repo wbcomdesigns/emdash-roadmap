@@ -25,7 +25,7 @@ Checked on EmDash 1.3.1 with the `blog` template on Node.
    ```bash
    kit="$(mktemp -d)" &&
      git clone --depth 1 \
-       --branch v0.3.0 \
+       --branch v0.4.0 \
        https://github.com/wbcomdesigns/emdash-roadmap \
        "$kit/emdash-roadmap" &&
      "$kit/emdash-roadmap/scripts/add-to-site.sh" .
@@ -61,7 +61,40 @@ After the install, a **Roadmap** group with **Ideas** and **Settings** appears i
 
 **Menus:** in Admin, Menus, add `/roadmap/` (Roadmap), `/changelog/` (Changelog) and `/account/roadmap-votes/` (Roadmap votes). WB Polls has its own My votes at `/account/votes`; both pages work side by side, so give them different labels.
 
-If the seed step could not run (an older Node, or a database that is not `./data.db`), run it yourself from the site root with Node 22.16 or later: `npx emdash seed .emdash/roadmap-seed.json --no-content`, adding `-d <file>` for another database file.
+The script runs the seed only when `astro.config.mjs` uses `sqlite(` and its database file is there. If the seed step could not run on such a site (an older Node), run it yourself from the site root with Node 22.16 or later: `npx emdash seed .emdash/roadmap-seed.json --no-content -d ./data.db` (use your database file). On any other database, Cloudflare D1 included, the script prints "Seed not run: this site's database is not a local SQLite file." and you create the types in the admin: see [Content types](#content-types).
+
+## Content types
+
+On a site whose database is not a local SQLite file (Cloudflare D1, a hosted database), the seed cannot write to it, so create these in the admin once. The names and slugs must match: the plugin and the kit look for them.
+
+**1. Roadmap.** Admin, **Content Types**, **New Content Type**:
+
+| Box | Enter |
+| --- | --- |
+| Slug | `roadmap` |
+| Label (Singular) | Roadmap item |
+| Label (Plural) | Roadmap |
+| URL Pattern | `/roadmap/{slug}` |
+
+Turn on **Drafts**, **Revisions** and **Comments**, then **Create Content Type**. Then **Add Field** three times:
+
+| Field Label | Slug | Type | Also |
+| --- | --- | --- | --- |
+| Title | `title` | Short Text | Required, Searchable |
+| Description | `description` | Long Text | Searchable |
+| Stage (set it in the Stage panel) | `stage` | Short Text | Indexed |
+
+**2. Changelog.** **New Content Type** again: Slug `changelog`, Label (Singular) Release, Label (Plural) Changelog, URL Pattern `/changelog/{slug}`, **Drafts** and **Revisions** on. Fields:
+
+| Field Label | Slug | Type | Also |
+| --- | --- | --- | --- |
+| Title | `title` | Short Text | Required, Searchable |
+| Summary | `summary` | Long Text | Searchable |
+| Released | `released` | Date & Time | |
+
+**3. Roadmap categories.** Admin, **Taxonomies**, **New Taxonomy**: Label Roadmap categories, singular Roadmap category, name `roadmap_category`, used by **Roadmap**. Add the categories you want (for example Core, Mobile, Docs).
+
+Open Ideas in the plugin's admin: the "Create the roadmap content type" notice is gone once the slug matches.
 
 **Layout:** `src/layouts/RoadmapLayout.astro` hands every roadmap page to `src/layouts/Base.astro`, the blog template's layout. If your layout has another name or place, change the import on that one line.
 
@@ -105,3 +138,5 @@ Restart the site. In a post or page, type `/roadmap` and choose **Roadmap**. The
 ## After you update the plugin
 
 Run step 2 of Install again with the new version's tag. The kit and the plugin are released together, and an older kit may not reach a newer plugin. Your `RoadmapLayout.astro` is kept, and a changed wording file is backed up first.
+
+**Updating from 0.3.0 to 0.4.0:** copy the kit again. Until you do, the 0.3.0 kit shows every item on a category-filtered board, and Take back all my votes removes 7 votes and then shows an error (press it again to remove the next 7).

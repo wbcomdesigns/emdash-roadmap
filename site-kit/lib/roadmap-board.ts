@@ -3,7 +3,21 @@ import { phrase, strings } from "./roadmap-strings";
 import { bindVoteButtons, fetchBoard, voteButtonHtml } from "./roadmap-vote";
 
 type Card = { id: string; title: string; slug: string; votes: number };
-type Details = Record<string, { summary?: string; category?: string; comments?: number }>;
+type Details = Record<string, { summary?: string; category?: string; categories?: string[]; categoryNames?: string[]; comments?: number }>;
+
+/**
+ * Whether a card belongs on the board filtered by `wanted` (empty: no filter): a category slug or
+ * name, in any case, as 0.3.0 matched (old links like ?category=Bugs keep working). The page reads
+ * every item's categories in one terms read, so the 0.4.0 engine reads none; a 0.3.0 engine filters
+ * too, and filtering again changes nothing. ponytail: the page reads the first 100 items, the same
+ * window the board shows; an item outside it has no categories here and drops out of a filtered view.
+ */
+export function inCategory(details: Details, id: string, wanted: string): boolean {
+	const needle = wanted.trim().toLowerCase();
+	if (!needle) return true;
+	const row = details[id];
+	return [...(row?.categories ?? []), ...(row?.categoryNames ?? [])].some((value) => value.toLowerCase() === needle);
+}
 type Column = { name: string; items: Card[]; empty: string | null };
 
 export async function loadBoard(): Promise<void> {
@@ -28,6 +42,11 @@ export async function loadBoard(): Promise<void> {
 		details = JSON.parse(root.dataset.details || "{}") as Details;
 	} catch {
 		details = {};
+	}
+	const category = root.dataset.category || "";
+	for (const column of columns) {
+		column.items = column.items.filter((item) => inCategory(details, item.id, category));
+		column.empty = column.items.length ? null : "COLUMN_EMPTY";
 	}
 	board.hidden = false;
 	board.innerHTML = columns.map((column, index) => columnHtml(column, index === 0, details)).join("");

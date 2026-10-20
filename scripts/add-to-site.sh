@@ -4,7 +4,7 @@
 #
 #   kit="$(mktemp -d)" &&
 #     git clone --depth 1 \
-#       --branch v0.3.0 \
+#       --branch v0.4.0 \
 #       https://github.com/wbcomdesigns/emdash-roadmap \
 #       "$kit/emdash-roadmap" &&
 #     "$kit/emdash-roadmap/scripts/add-to-site.sh" .
@@ -109,10 +109,32 @@ mkdir -p "$SITE/.emdash"
 cp "$KIT/seed/roadmap-seed.json" "$SITE/.emdash/roadmap-seed.json"
 seed_cmd="npx emdash seed .emdash/roadmap-seed.json --no-content"
 seed_state="not run"
+# The seed writes to a local SQLite file only. On any other database (Cloudflare D1, a hosted one)
+# it would report success and write nothing, so it runs only when astro.config uses sqlite( and its
+# database file is there; otherwise the owner creates the types in the admin.
+config="$(cat "$SITE"/astro.config.* 2>/dev/null || true)"
+db="$(printf '%s\n' "$config" | sed -n 's/.*sqlite(.*url:[[:space:]]*["'"'"']file:\([^"'"'"']*\)["'"'"'].*/\1/p' | head -n 1)"
+if [[ -z "$db" ]] && printf '%s\n' "$config" | grep -q 'sqlite('; then db="./data.db"; fi
+db_file="$db"
+[[ "$db_file" == /* ]] || db_file="$SITE/${db#./}"
+local_db=0
+NO_LOCAL_DB="Seed not run: this site's database is not a local SQLite file. Create the roadmap and changelog content types and the Roadmap categories taxonomy in the admin (install guide, Content types)."
+if printf '%s\n' "$config" | grep -q 'sqlite(' && [[ -n "$db" ]]; then
+	seed_cmd="$seed_cmd -d $(printf '%q' "$db")"
+	if [[ -f "$db_file" ]]; then
+		local_db=1
+	else
+		# A SQLite site that has not started yet: the database file appears on the first run.
+		local_db=2
+		NO_LOCAL_DB="Seed not run: this site's SQLite database (${db}) does not exist yet. Run npm run dev once, stop it, then run this script again."
+	fi
+fi
 if (( SEED )); then
-	if node -e 'const [a,b]=process.versions.node.split(".").map(Number);process.exit(a>22||(a===22&&b>=16)?0:1)' 2>/dev/null; then
-		if (cd "$SITE" && $seed_cmd >/dev/null 2>&1); then
-			seed_state="done (content types that already existed were left alone)"
+	if (( local_db != 1 )); then
+		seed_state="$NO_LOCAL_DB"
+	elif node -e 'const [a,b]=process.versions.node.split(".").map(Number);process.exit(a>22||(a===22&&b>=16)?0:1)' 2>/dev/null; then
+		if (cd "$SITE" && eval "$seed_cmd" >/dev/null 2>&1); then
+			seed_state="done on ${db#./} (content types that already existed were left alone)"
 		else
 			seed_state="failed, run it yourself (below)"
 		fi
@@ -145,9 +167,7 @@ fi
 cat <<DONE
 Left for you:
 
-  1. Content types. If the seed above did not run, from the site root (Node 22.16 or later):
-       cd "$SITE" && $seed_cmd
-     Add -d <file> if your database is not ./data.db.
+$(if (( local_db == 1 )); then printf '%s\n' "  1. Content types. If the seed above did not run, from the site root (Node 22.16 or later):" "       cd \"$SITE\" && $seed_cmd"; else printf '%s\n' "  1. Content types. $NO_LOCAL_DB"; fi)
   2. Templates: nothing to paste. The kit brings its own pages.
   3. Restart the dev server (stop it, then npm run dev). New pages are not picked up until then.
   4. In the admin, open Menus and add these links:

@@ -1,4 +1,18 @@
+import { validateBlockResponse } from "@emdash-cms/blocks/server";
 import { createPluginRuntimeTestHost } from "@emdash-cms/plugin-test";
+
+/**
+ * Every admin page and editor panel answer in every test goes through EmDash's own Block Kit check,
+ * the one the host runs before showing it. An invalid block passes the plugin's own tests but
+ * breaks the screen on a real site (502 INVALID_BLOCK_RESPONSE; WB Reviews walk, 2026-10-20).
+ */
+const BLOCK_ROUTES = new Set(["admin", "editor_stage"]);
+const POLICY = { pluginPagePaths: ["/ideas", "/settings"] };
+
+export function assertValidBlocks(route: string, result: unknown): void {
+	const check = validateBlockResponse(result, POLICY);
+	if (!check.valid) throw new Error(`${route} returned invalid Block Kit: ${JSON.stringify(check.errors)}`);
+}
 
 export const member = (id: string, role = 10) => ({
 	id,
@@ -17,7 +31,12 @@ export const admin = member("root", 50);
  */
 export async function openSite() {
 	const rt = await createPluginRuntimeTestHost();
-	const call = rt.transport.invokeRoute.bind(rt.transport);
+	const invoke = rt.transport.invokeRoute.bind(rt.transport);
+	const call = (async (name: string, ...rest: unknown[]) => {
+		const result = await (invoke as (...args: unknown[]) => Promise<unknown>)(name, ...rest);
+		if (BLOCK_ROUTES.has(name)) assertValidBlocks(name, result);
+		return result;
+	}) as typeof invoke;
 	const asGuest = { method: "POST" };
 	const as = (user: ReturnType<typeof member>, method = "POST") => ({ method, user });
 	return { rt, call, as, asGuest, dispose: () => rt.dispose() };

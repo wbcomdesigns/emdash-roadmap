@@ -94,6 +94,28 @@ Three roles, in this order: guest (private window), member (subscriber), admin. 
 | A-21 | Ideas at 1440, 768, 390 | Nothing cut at 1440 and 768, no sideways scroll; at 390 the guide link sits under the command |
 | A-22 | 0.2.1 engine with the 0.3.0 kit, and 0.3.0 engine with the 0.2.1 kit, guest with no address | Every mix shows a sign-in line with a Sign in link: the old kit says "Sign in to continue.", the new kit "Sign in to vote or suggest on this site." No generic error |
 
+## Cloudflare (0.4.0)
+
+On the Cloudflare testbed (https://emdash-plugin-testbed.vapvarun.workers.dev), registry install, kit from tag v0.4.0. A failure shows as "Too many subrequests" in the Worker log or "Something went wrong" on screen.
+
+| # | Case | Expected |
+| --- | --- | --- |
+| CF-1 | Run add-to-site.sh on the testbed checkout | The Seed line says "Seed not run: this site's database is not a local SQLite file..." and step 1 points to the install guide. Never "done" |
+| CF-2 | Create the roadmap and changelog types and Roadmap categories in the admin, as Install, Content types says | Ideas shows no "Create the roadmap content type" notice; /roadmap/ shows the stages |
+| CF-3 | Board with 100+ items, then `?category=<slug>` with the 0.4.0 kit | Board loads; the category view shows only that category's items, column counts match |
+| CF-4 | Admin votes on an item, then a guest votes on the same item (the 2026-10-19 walk finding) | Guest vote counts, the count goes up by one. Never "That item is not on the board" |
+| CF-5 | Guest takes the vote back; double-click Vote; two tabs | Count matches the voters, one vote per guest, no "Something went wrong" |
+| CF-6 | Member votes, takes back, suggests; guest suggests | All answer, ideas appear in Ideas |
+| CF-7 | Roadmap votes with 20+ votes, Take back all my votes | The page repeats by itself and says done only when the list is empty; board counts drop by one each |
+| CF-8 | Ideas page load, Find, Next, Approve, Reject, Visitor pages are set up | Every action answers with the page; no error toast |
+| CF-9 | Merge two items with votes on both (some shared voters) | "Merging ... into ..." banner with Continue; Continue until it ends; kept item's count = its voters, each voter once; old address redirects |
+| CF-10 | Settings: every tab, Save, add/rename/move/remove stage, Move an item | Every action answers with the page |
+| CF-11 | Stage panel on a published item and on one with unpublished changes: load, Move to | Panel answers each time; board follows after publish |
+| CF-12 | Update a 0.3.0 install with votes to 0.4.0, open Ideas, press Continue until the banner goes | "Updating roadmap data for 0.4.0" shows, then goes; every item's count equals its votes; a guest who voted before the update can still take that vote back |
+| CF-13 | Hourly task (trigger it or wait an hour) with waiting ideas and mail set up | One notice; the Worker log shows no "Too many subrequests" |
+| CF-15 | Old link `/roadmap/?category=Core` (name, capital letter) | Shows only Core items |
+| CF-14 | Mix: 0.3.0 kit on the 0.4.0 engine, and 0.4.0 kit on the 0.3.0 engine | Votes, suggest and Roadmap votes work in both; with the 0.3.0 kit a category link shows every item (expected) |
+
 ## Presentation, every screen
 
 | ID | Steps | Expected |

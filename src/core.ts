@@ -1,7 +1,5 @@
 import type { PluginContext } from "emdash/plugin";
 
-import { asString } from "./util";
-
 // Lowest signed-in role (subscriber). Private routes get a host-verified routeCtx.user.
 // A public route never gets a user, and a member id in the request is never trusted.
 export const MEMBER = "content:read";
@@ -29,64 +27,84 @@ export const INVALID = { ok: false, error: { code: "INVALID", message: "Check th
 export const STALE = { ok: false, error: { code: "STALE", message: "That idea changed after this page loaded." } };
 export const NAME_REQUIRED = { ok: false, error: { code: "NAME_REQUIRED", message: "Give a name." } };
 export const FAILED = { ok: false, error: { code: "FAILED", message: "Something went wrong. Try again." } };
+/** Another request from the same visitor landed at the same moment. Nothing was written. */
+export const BUSY = { ok: false, error: { code: "BUSY", message: "Busy. Try again in a moment." } };
 
 export const ROADMAP = "roadmap";
 export const CHANGELOG = "changelog";
 
 export const EMAIL_RE = /^[^\s@<>,;]+@[^\s@<>,;]+\.[^\s@<>,;]+$/;
 
-const RATE_WINDOW_MS = 60 * 60 * 1000;
-const RATE_MAX = 8;
+/**
+ * Bridge calls one plugin call may make. On Cloudflare each route, hook, admin action and cron run
+ * gets 10 requests to the site, and every ctx.storage, ctx.kv, ctx.settings, ctx.content,
+ * ctx.schema, ctx.redirects and ctx.email call is one. One under the limit, for headroom
+ * (tests/bridge-budget.test.ts holds every entry point to it).
+ */
+export const MAX_CALLS = 9;
 
-/** Compare-and-set so requests arriving together cannot each slip under the limit. */
-export async function rateLimited(ctx: Pick<PluginContext, "kv">, who: string): Promise<boolean> {
-	if (!who) return false;
-	const key = `rate:${who}`;
-	for (let attempt = 0; attempt < 4; attempt += 1) {
-		const seen = await ctx.kv.getVersioned<string>(key);
-		const [start, count] = (seen?.value || "0|0").split("|").map(Number);
-		const now = Date.now();
-		const fresh = now - start > RATE_WINDOW_MS;
-		if (!fresh && count >= RATE_MAX) return true;
-		const next = fresh ? `${now}|1` : `${start}|${count + 1}`;
-		if ((await ctx.kv.compareAndSet(key, seen?.revision ?? null, next)).applied) return false;
-	}
+/** Calls made so far in this plugin call. Optional work spends from it and stops when it is empty. */
+export type Budget = { used: number };
+
+export const budget = (used = 0): Budget => ({ used });
+
+/** Take `n` calls. False, and nothing taken, when they would pass MAX_CALLS. */
+export function spend(b: Budget, n = 1): boolean {
+	if (b.used + n > MAX_CALLS) return false;
+	b.used += n;
 	return true;
 }
 
-export async function collectionName(ctx: PluginContext): Promise<string> {
-	return asString(await ctx.settings.get<string>("collection")) || ROADMAP;
+/** Calls still free. */
+export const left = (b: Budget) => MAX_CALLS - b.used;
+
+const RATE_WINDOW_MS = 60 * 60 * 1000;
+const RATE_MAX = 8;
+
+export const RATE_WINDOW = RATE_WINDOW_MS;
+
+/**
+ * The hourly limit, in two calls: read the counter and move it with one compare-and-set. A lost
+ * compare-and-set means another request from the same person landed at the same moment: "busy",
+ * never a retry loop. One `rates` row per person and action (`<action>:<who>`, `{ start, count }`),
+ * indexed on `start`, so the hourly task drops finished ones 100 per query (0.3.0 kept them in kv,
+ * which can only be listed whole; the upgrade removes those).
+ */
+export async function rateLimit(ctx: Pick<PluginContext, "storage">, who: string): Promise<"ok" | "limited" | "busy"> {
+	if (!who) return "ok";
+	const seen = await ctx.storage.rates.getVersioned(who);
+	const row = (seen?.value ?? {}) as { start?: number; count?: number };
+	const start = Number(row.start) || 0;
+	const count = Number(row.count) || 0;
+	const now = Date.now();
+	const fresh = now - start > RATE_WINDOW_MS;
+	if (!fresh && count >= RATE_MAX) return "limited";
+	const next = fresh ? { start: now, count: 1 } : { start, count: count + 1 };
+	return (await ctx.storage.rates.compareAndSet(who, seen?.revision ?? null, next)).applied ? "ok" : "busy";
 }
 
-export async function listCollectionSlugs(ctx: PluginContext): Promise<string[]> {
+/** The answer for a rate limit that did not pass, or null when it passed. */
+export function rateRefusal(result: "ok" | "limited" | "busy") {
+	if (result === "limited") return RATE_LIMITED;
+	if (result === "busy") return BUSY;
+	return null;
+}
+
+/** Which content types exist. One call. Null when the read failed: never taken for "none". */
+export async function collectionsHere(ctx: PluginContext): Promise<Set<string> | null> {
 	try {
-		return ((await ctx.schema?.listCollections()) ?? []).map((item) => item.slug);
+		return new Set(((await ctx.schema?.listCollections()) ?? []).map((item) => item.slug));
 	} catch {
-		return [];
+		return null;
 	}
 }
 
-export async function hasCollection(ctx: PluginContext, slug: string): Promise<boolean> {
-	return (await listCollectionSlugs(ctx)).includes(slug);
-}
-
-const ready = new WeakMap<object, { at: number; found: Promise<boolean> }>();
-// The context object can outlive one request in the sandbox, so the answer is kept only briefly:
-// long enough to cover one request's many reads, short enough that a site that just ran the
-// seed sees its collection on the next request.
-const READY_MS = 2000;
-
 /**
- * Whether the roadmap content type exists. Every content read checks this first: before the seed
- * step, a content list or get on a missing collection rejects inside EmDash's sandbox bridge and
- * the request hangs until the runtime cancels it.
+ * Whether the roadmap content type exists, in one call. Every content read on a visitor route
+ * checks this first (null: the check itself failed, so the caller answers FAILED, never NOT_FOUND): before the seed step, a content read on a missing collection fails inside
+ * EmDash's sandbox bridge as an uncaught error (and on some hosts hangs until the runtime cancels).
  */
-export function roadmapReady(ctx: PluginContext): Promise<boolean> {
-	const seen = ready.get(ctx);
-	if (seen && Date.now() - seen.at < READY_MS) return seen.found;
-	const found = collectionName(ctx)
-		.then((name) => hasCollection(ctx, name))
-		.catch(() => false);
-	ready.set(ctx, { at: Date.now(), found });
-	return found;
+export async function roadmapReady(ctx: PluginContext, collection: string): Promise<boolean | null> {
+	const here = await collectionsHere(ctx);
+	return here ? here.has(collection) : null;
 }

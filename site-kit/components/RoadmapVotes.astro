@@ -68,6 +68,11 @@ import { strings as S } from "../lib/roadmap-strings";
 		bind(root, ideas);
 	}
 
+	function isMore(result: Payload): boolean {
+		const error = result.error as { code?: string; reason?: string } | undefined;
+		return !result.ok && error?.code === "BUSY" && error.reason === "MORE";
+	}
+
 	function bind(root: HTMLElement, ideas: Idea[]) {
 		const button = root.querySelector<HTMLButtonElement>("[data-roadmap-erase]");
 		const status = root.querySelector<HTMLElement>("[data-roadmap-mine-status]");
@@ -80,7 +85,12 @@ import { strings as S } from "../lib/roadmap-strings";
 			}
 			button.setAttribute("aria-busy", "true");
 			root.setAttribute("aria-busy", "true");
-			const result = (await api("roadmap", "votes", undefined, "DELETE")) as Payload;
+			// The 0.4.0 engine removes a few votes per call (Cloudflare's request limit) and answers
+			// BUSY with reason MORE until none are left. Keep calling; done only when it says ok.
+			let result = (await api("roadmap", "votes", undefined, "DELETE")) as Payload;
+			for (let round = 0; round < 500 && isMore(result); round += 1) {
+				result = (await api("roadmap", "votes", undefined, "DELETE")) as Payload;
+			}
 			button.removeAttribute("aria-busy");
 			root.removeAttribute("aria-busy");
 			if (!result.ok) {

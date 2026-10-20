@@ -9,6 +9,8 @@ import { ana, ben, openSite } from "./site";
 
 let dispose: (() => Promise<void>) | undefined;
 afterEach(async () => {
+	// Content hooks run without being awaited: let them end before the site goes away.
+	await new Promise((resolve) => setTimeout(resolve, 200));
 	await dispose?.();
 	dispose = undefined;
 });
@@ -18,6 +20,8 @@ async function openRoadmap() {
 	dispose = site.dispose;
 	await site.rt.fixtures.collection(roadmapCollection as never);
 	await site.rt.fixtures.collection(changelogCollection as never);
+	// A real install runs this hook: no 0.3.0 data, so the 0.4.0 upgrade starts finished.
+	await site.rt.transport.invokeHook("plugin:install", {});
 	return site;
 }
 
@@ -41,6 +45,15 @@ function admin(
 		blocks: Array<Record<string, unknown> & { type: string }>;
 		toast?: { type: string; message: string };
 	}>;
+}
+
+/** A merge moves its votes in steps: press Continue until the page no longer shows it running. */
+async function finishMerge(site: Awaited<ReturnType<typeof openSite>>): Promise<number> {
+	for (let step = 1; step <= 50; step += 1) {
+		const page = textOf(await admin(site.call, { type: "block_action", action_id: "bg_continue", page: "/ideas" }));
+		if (!page.includes("Merging ")) return step;
+	}
+	throw new Error("The merge did not finish in 50 steps");
 }
 
 /** The merge value the Ideas page renders for an item, read from the page itself. */
@@ -366,12 +379,18 @@ describe("board route", () => {
 		expect(JSON.stringify(after)).not.toContain("Old idea");
 	});
 
-	it("category filter hides items that have no matching term", async () => {
+	it("leaves the category filter to the kit: the engine reads no terms per item", async () => {
 		const site = await openRoadmap();
 		await addItem(site.rt, "Unsorted idea", "Planned");
 		const board = (await site.call("board", { category: "core" })) as Board;
-		expect(board.columns.flatMap((column) => column.items)).toEqual([]);
-		expect(board.columns.every((column) => column.empty === "COLUMN_EMPTY")).toBe(true);
+		expect(board.columns.flatMap((column) => column.items).map((item) => item.title)).toEqual(["Unsorted idea"]);
+		const { inCategory } = await import("../site-kit/lib/roadmap-board");
+		expect(inCategory({}, "x", "core")).toBe(false);
+		expect(inCategory({ x: { categories: ["core"] } }, "x", "core")).toBe(true);
+		expect(inCategory({ x: { categories: ["core"] } }, "x", "")).toBe(true);
+		// 0.3.0 matched a slug or a name in any case: old links keep working.
+		expect(inCategory({ x: { categories: ["bugs"], categoryNames: ["Bugs"] } }, "x", "Bugs")).toBe(true);
+		expect(inCategory({ x: { categories: ["core"], categoryNames: ["Core"] } }, "x", "CORE")).toBe(true);
 	});
 });
 
@@ -770,8 +789,8 @@ describe("guest participation", () => {
 		for (const row of await site.rt.inspect.storage.list<Record<string, unknown>>("ideas")) {
 			await site.rt.fixtures.plugin.storage("ideas", row.id, { ...row.data, createdAt: old });
 		}
-		for (const entry of await site.rt.inspect.kv.list()) {
-			if (entry.id.startsWith("rate:")) await site.rt.fixtures.plugin.kv(entry.id, `${Date.parse(old)}|1`);
+		for (const row of await site.rt.inspect.storage.list<Record<string, unknown>>("rates")) {
+			await site.rt.fixtures.plugin.storage("rates", row.id, { ...row.data, start: Date.parse(old) });
 		}
 		await site.rt.transport.invokeHook("cron", { name: "notify", data: {}, scheduledAt: new Date().toISOString() });
 		const votes = await site.rt.inspect.storage.list<{ visitor: string; member_id: string }>("votes");
@@ -782,7 +801,7 @@ describe("guest participation", () => {
 		expect(ideas.find((row) => row.id === idea.id)?.data).toMatchObject({ visitor: "", guest: true });
 		const board = (await site.call("board")) as { columns: Array<{ items: Array<{ id: string; votes: number }> }> };
 		expect(board.columns.flatMap((column) => column.items).find((row) => row.id === item.id)?.votes).toBe(2);
-		expect(JSON.stringify(await site.rt.inspect.kv.list())).not.toMatch(/rate:vote:v-/);
+		expect(await site.rt.inspect.storage.list("rates")).toHaveLength(0);
 		expect(textOf(await admin(site.call, { type: "page_load", page: "/ideas" }))).toContain("Sam (guest)");
 	});
 
@@ -957,6 +976,7 @@ describe("merge", () => {
 			values: { source: await itemSource(site, drop.id), keep: keep.id },
 		});
 		expect(merged.toast?.type).toBe("success");
+		await finishMerge(site);
 		const board = (await site.call("board")) as {
 			columns: Array<{ items: Array<{ id: string; votes: number; title: string }> }>;
 		};
@@ -1156,6 +1176,7 @@ describe("storage pages of 100", () => {
 			values: { source: await itemSource(site, drop.id), keep: keep.id },
 		});
 		expect(merged.toast?.type).toBe("success");
+		await finishMerge(site);
 		const votes = await site.rt.inspect.storage.list<{ item: string; member_id: string }>("votes");
 		const onKeep = votes.filter((row) => row.data.item === keep.id);
 		expect(onKeep).toHaveLength(270);
@@ -1165,7 +1186,7 @@ describe("storage pages of 100", () => {
 		expect(board.columns.flatMap((column) => column.items).find((row) => row.id === keep.id)?.votes).toBe(270);
 	}, 120_000);
 
-	it("clears more than 100 old guest votes in one hourly run", async () => {
+	it("clears more than 100 old guest votes over hourly runs", async () => {
 		const site = await openRoadmap();
 		const item = await addItem(site.rt, "Many guests");
 		const old = new Date(Date.now() - 31 * 24 * 60 * 60 * 1000).toISOString();
@@ -1178,7 +1199,10 @@ describe("storage pages of 100", () => {
 				visitor: hash,
 			});
 		}
-		await site.rt.transport.invokeHook("cron", { name: "notify", data: {}, scheduledAt: new Date().toISOString() });
+		// 100 a run, within Cloudflare's limit per call: two hourly runs.
+		for (let run = 0; run < 2; run += 1) {
+			await site.rt.transport.invokeHook("cron", { name: "notify", data: {}, scheduledAt: new Date().toISOString() });
+		}
 		const votes = await site.rt.inspect.storage.list<{ visitor: string }>("votes");
 		expect(votes).toHaveLength(130);
 		expect(votes.every((row) => row.data.visitor === "")).toBe(true);
@@ -1214,22 +1238,29 @@ describe("round 3 checks", () => {
 				},
 			},
 		};
-		const result = await approveIdea(ctx as never, "i1", "r1");
+		const { DEFAULT_STAGES } = await import("../src/settings");
+		const settings = { stages: DEFAULT_STAGES, collection: "roadmap" };
+		const result = await approveIdea(ctx as never, settings as never, "i1", "r1");
 		expect(result).toMatchObject({ ok: false, error: expect.stringContaining("back in the list") });
 		expect(ideas.get("i1")?.status).toBe("pending");
 	});
 
-	it("does not bring back a guest vote taken back while the cleanup ran", async () => {
-		const { forgetVote } = await import("../src/ideas");
+	it("moves an old guest vote to its anonymous id before removing the old row", async () => {
+		const { forgetGuestVotes } = await import("../src/ideas");
+		const { budget } = await import("../src/core");
 		const puts: string[] = [];
-		// The cleanup read this row, then the guest took the vote back: the delete finds nothing.
-		const ctx = { storage: { votes: { delete: async () => false, put: async (id: string) => void puts.push(id) } } };
-		const done = await forgetVote(ctx as never, { id: "item1:v-abc", item: "item1", visitor: "abc", createdAt: "" });
-		expect(done).toBe(0);
-		expect(puts).toHaveLength(0);
-		// Without the race the vote moves to its anonymous key.
-		const ok = { storage: { votes: { delete: async () => true, put: async (id: string) => void puts.push(id) } } };
-		expect(await forgetVote(ok as never, { id: "item1:v-abc", item: "item1", visitor: "abc", createdAt: "" })).toBe(1);
+		const row = { id: "item1:v-abc", data: { item: "item1", visitor: "abc", createdAt: "" } };
+		const ctx = (deleted: number) => ({
+			storage: {
+				votes: {
+					query: async () => ({ items: [row], hasMore: false }),
+					deleteMany: async () => deleted,
+					putMany: async (items: Array<{ id: string }>) => void puts.push(...items.map((item) => item.id)),
+				},
+			},
+		});
+		// The anonymous row is written before the old one is removed, so nothing is lost either way.
+		expect(await forgetGuestVotes(ctx(1) as never, budget())).toBe(1);
 		expect(puts[0]).toMatch(/^item1:g-[a-f0-9]{40}$/);
 	});
 

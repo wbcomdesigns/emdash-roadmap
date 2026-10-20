@@ -50,7 +50,13 @@
 		},
 		"tallies": {
 			"indexes": [
-				"votes"
+				"votes",
+				"v"
+			]
+		},
+		"rates": {
+			"indexes": [
+				"start"
 			]
 		},
 		"ideas": {

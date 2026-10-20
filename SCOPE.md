@@ -19,6 +19,18 @@ This file is the contract for the plugin. Code, tests, docs and cards all follow
 - **Admin pages:** Ideas (waiting list, merge), Settings (suggestions on or off, who can take part, stages, email), plus the dashboard card.
 - **Changelog** is a normal EmDash collection with a list page and a page per release. No plugin logic.
 
+## Cloudflare budget (0.4.0, 2026-10-20)
+
+**This section wins over older lines below about counts, hooks and settings.**
+
+- Every route, hook, admin action and cron run makes 9 or fewer bridge calls (Cloudflare allows 10). `tests/bridge-budget.test.ts` pins each count.
+- `tallies` rows are `{ v: 4, votes, live, seq }`: moved by in-database increments in the same call as the vote, never recounted per vote. `live` (item published) is kept by the content hooks below. 0.3.0 rows are rebuilt from the vote rows by the stepped upgrade (`upgrade_0_4` setting).
+- Hooks: `content:beforeSave` (Stage panel guard), `content:afterPublish`, `content:afterUnpublish`, `content:afterDelete`, `content:afterRestore` (all covered by content:read and content:write; no new capability).
+- Settings hold, besides the owner's choices: `visitor_salt`, `guest_seen`, `kit_done`, `upgrade_0_4`, `merge_job`. All are read in one call.
+- Hourly-limit counters live in a `rates` storage collection (`<action>:<who>`, `{ start, count }`, indexed on `start`); the hourly task deletes finished ones 100 per query. 0.3.0's kv `rate:*` keys are removed by the upgrade.
+- The board route does not filter by category; the kit page does, from its one terms read (slug or name, any case).
+- Merge, member erase and the hourly cleanup run in steps; Ideas shows a running merge or upgrade with a Continue button.
+
 ## Purpose
 
 Show customers what is planned, let signed-in members vote and suggest ideas, and let the owner decide what moves forward. A changelog shows what shipped.
@@ -153,7 +165,7 @@ Row id: `<itemId>`. Indexes: `votes`.
 
 | Field | Type | Notes |
 | --- | --- | --- |
-| `votes` | number | Recounted with `storage.count` on every vote change |
+| `votes` | number | Moved by +1 / -1 in the vote call (0.4.0). `v: 4`, `live`, `seq` alongside |
 
 ### `ideas`
 
@@ -201,7 +213,7 @@ Base: `/_emdash/api/plugins/<id>/<name>`. Local installs use the slug `roadmap`.
 
 ## Hooks
 
-None.
+See "Cloudflare budget (0.4.0)" above.
 
 ## Admin screens
 

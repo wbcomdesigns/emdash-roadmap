@@ -2,6 +2,35 @@
 
 Versions match `package.json`, the git tag and the registry release. Newest first.
 
+## [0.4.0]
+
+Every page, vote, hourly run and admin screen now stays within Cloudflare's limit of 10 requests per plugin call, measured on a busy test site. Cloudflare stays marked not supported until it is checked there. No new permission. Copy the kit again after you update. Until you do, the 0.3.0 kit shows every item on a category-filtered board, and Take back all my votes removes 7 votes and then shows an error (press it again to remove the next 7).
+
+```bash
+kit="$(mktemp -d)" &&
+  git clone --depth 1 \
+    --branch v0.4.0 \
+    https://github.com/wbcomdesigns/emdash-roadmap \
+    "$kit/emdash-roadmap" &&
+  "$kit/emdash-roadmap/scripts/add-to-site.sh" .
+```
+
+- New      - Each item keeps a running vote count, moved in the same step as the vote, so the board shows counts in one read on any size of roadmap.
+- New      - Counts from 0.3.0 are rebuilt from the stored votes a few steps at a time, on Ideas page loads and in the hourly task; Ideas says so while it runs and has a Continue button.
+- New      - Install guide: create the content types in the admin when the site's database is not a local SQLite file.
+- Improve  - Merging a duplicate starts at once and moves its votes in steps; Ideas shows the merge in progress, and the kept item's count is checked again at the end.
+- Improve  - Taking back all your votes on Roadmap votes runs in steps the page repeats by itself, and says done only when none are left.
+- Improve  - The board filters by category in the page, from the one category read the page already makes.
+- Improve  - The hourly task works through old guest data a batch at a time.
+- Improve  - An idea whose draft you publish from the content editor leaves Ideas at once.
+- Fix      - On Cloudflare a guest vote was refused as "That item is not on the board" on a busy item. A failed read now says "Something went wrong", never that the item is gone.
+- Fix      - On Cloudflare the board, votes, suggestions, Roadmap votes, Ideas, Settings, merge and the Stage panel no longer fail with too many requests.
+- Fix      - A double click or two tabs store one vote and count it once.
+- Fix      - scripts/add-to-site.sh no longer reports the content types as created on a Cloudflare site: it runs the seed only on a local SQLite file and otherwise points to the install guide.
+- Security - Hourly-limit counters, which carry the guest's hash, move to their own storage and are cleared every hour; 0.3.0's are removed by the update.
+- Dev      - Settings are read in one call, the guest salt and setup answer moved into settings, and tests/bridge-budget.test.ts holds every entry point to 9 calls.
+- Compat   - Checked against the 0.3.0 kit and engine: the 0.3.0 kit works on this engine with the two gaps above, and this kit works on the 0.3.0 engine. Cloudflare is still marked not supported until the testbed walk passes.
+
 ## [0.3.0] - 2026-10-19
 
 New permission: Read retained content revision history, so the Stage panel can see and move an item while it has unpublished changes. You approve it once when you update. Guests can now vote and suggest only when your host tells EmDash the visitor's address. Copy the kit again after you update:

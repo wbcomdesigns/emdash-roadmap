@@ -1,8 +1,9 @@
 import type { PluginContext } from "emdash/plugin";
 
-import { CHANGELOG, ROADMAP, collectionName, hasCollection, roadmapReady } from "./core";
-import { findStage, loadSettings, type Stage } from "./settings";
-import { allRows, asNumber, asRecord, asString } from "./util";
+import { FAILED, ROADMAP, roadmapReady } from "./core";
+import { findStage, loadSettings, type Settings, type Stage } from "./settings";
+import { readTally } from "./tally";
+import { asRecord, asString } from "./util";
 
 export const BOARD_MAX = 100;
 
@@ -35,17 +36,16 @@ export type BoardColumn = {
 };
 
 const PAGE = 100;
-const MAX_PAGES = 2;
 
-async function listByStatus(
-	ctx: PluginContext,
-	collection: string,
-	status: string,
-): Promise<RoadmapItem[]> {
+/**
+ * Items in one status, newest first by the host's order, `pages` reads of 100. The caller has
+ * checked the content type exists. Throws when a read fails: callers decide what that means.
+ */
+export async function listItems(ctx: PluginContext, collection: string, status: "published" | "draft", pages = 1): Promise<RoadmapItem[]> {
 	if (!ctx.content) return [];
 	const items: RoadmapItem[] = [];
 	let cursor: string | undefined;
-	for (let read = 0; read < MAX_PAGES; read += 1) {
+	for (let read = 0; read < pages; read += 1) {
 		const page = await ctx.content.list(collection, { limit: PAGE, cursor, where: { status } });
 		for (const item of page.items) {
 			const data = asRecord(item.data);
@@ -65,20 +65,6 @@ async function listByStatus(
 	return items;
 }
 
-export async function listRoadmapItems(ctx: PluginContext): Promise<RoadmapItem[]> {
-	if (!(await roadmapReady(ctx))) return [];
-	const collection = await collectionName(ctx);
-	try {
-		const [live, drafts] = await Promise.all([
-			listByStatus(ctx, collection, "published"),
-			listByStatus(ctx, collection, "draft"),
-		]);
-		return [...live, ...drafts];
-	} catch {
-		return [];
-	}
-}
-
 export function countInStage(items: RoadmapItem[], stage: Stage): number {
 	return items.filter((item) => findStage([stage], item.stage)?.id === stage.id).length;
 }
@@ -96,51 +82,39 @@ export function stageCounts(items: RoadmapItem[], stages: Stage[]): Map<string, 
 	return counts;
 }
 
-/** One tally per item. Paged: a storage query returns 100 rows at most, and items can pass 100. */
-async function votesMap(ctx: PluginContext): Promise<Map<string, number>> {
-	const found = await allRows(ctx.storage.tallies, {}, MAX_PAGES * 2);
-	return new Map(found.map((row) => [row.id, asNumber(row.votes) ?? 0]));
-}
-
-async function inCategory(ctx: PluginContext, id: string, collection: string, wanted: string): Promise<boolean> {
-	if (!ctx.taxonomies) return false;
-	try {
-		const terms = await ctx.taxonomies.getEntryTerms(collection, id);
-		const needle = wanted.toLowerCase();
-		return terms.some((term) => term.slug.toLowerCase() === needle || term.label.toLowerCase() === needle);
-	} catch {
-		return false;
-	}
-}
-
-export async function loadBoard(
-	ctx: PluginContext,
-	input: unknown,
-): Promise<{ ok: true; sort: "votes" | "newest"; columns: BoardColumn[] }> {
+/**
+ * The public board: settings, the type check, one read of up to 100 published items and one read of
+ * their counts. Four calls. A `category` from a 0.3.0 kit is not applied here: the 0.4.0 kit filters
+ * by category in the page, from the one terms read it already makes (one read per item here did
+ * not fit Cloudflare's limit).
+ */
+export async function loadBoard(ctx: PluginContext, input: unknown) {
 	const raw = asRecord(input);
 	const sort = asString(raw.sort) === "newest" ? "newest" : "votes";
-	const category = asString(raw.category);
 	const settings = await loadSettings(ctx);
 	const shown = settings.stages.filter((stage) => stage.shown);
-	let items = (await listRoadmapItems(ctx)).filter((item) => item.published);
-	if (category) {
-		const collection = await collectionName(ctx);
-		const keep: RoadmapItem[] = [];
-		// ponytail: one terms read per item. Fine at BOARD_MAX; batch if the host adds getEntriesByTerm.
-		for (const item of items) {
-			if (await inCategory(ctx, item.id, collection, category)) keep.push(item);
+	let items: RoadmapItem[] = [];
+	const votes = new Map<string, number>();
+	const ready = ctx.content ? await roadmapReady(ctx, settings.collection) : false;
+	if (ready === null) return FAILED;
+	if (ready) {
+		try {
+			items = (await listItems(ctx, settings.collection, "published")).slice(0, BOARD_MAX);
+			if (items.length) {
+				const found = await ctx.storage.tallies.getMany(items.map((item) => item.id));
+				for (const [id, data] of found) votes.set(id, readTally(data)?.votes ?? 0);
+			}
+		} catch {
+			return FAILED;
 		}
-		items = keep;
 	}
-	items = items.slice(0, BOARD_MAX);
-	const votes = await votesMap(ctx);
 	items.sort((a, b) => {
 		if (sort === "newest") return (b.createdAt || "").localeCompare(a.createdAt || "");
 		const diff = (votes.get(b.id) ?? 0) - (votes.get(a.id) ?? 0);
 		return diff || (b.createdAt || "").localeCompare(a.createdAt || "");
 	});
 	return {
-		ok: true,
+		ok: true as const,
 		sort,
 		columns: shown.map((stage, index) => {
 			const cards = items
@@ -156,24 +130,13 @@ export async function loadBoard(
 					slug: item.slug,
 					votes: votes.get(item.id) ?? 0,
 				}));
-			return { name: stage.name, items: cards, empty: cards.length ? null : "COLUMN_EMPTY" };
+			return { name: stage.name, items: cards, empty: cards.length ? null : ("COLUMN_EMPTY" as const) };
 		}),
 	};
 }
 
-export async function hasCollections(ctx: PluginContext): Promise<{ roadmap: boolean; changelog: boolean }> {
-	const [roadmap, changelog] = await Promise.all([hasCollection(ctx, ROADMAP), hasCollection(ctx, CHANGELOG)]);
-	return { roadmap, changelog };
-}
-
-export async function getItem(ctx: PluginContext, id: string) {
-	if (!id || !(await roadmapReady(ctx))) return null;
-	const collection = await collectionName(ctx);
-	return ctx.content?.get?.(collection, id).catch(() => null) ?? null;
-}
-
-export async function publishNow(ctx: PluginContext, id: string): Promise<boolean> {
-	const collection = await collectionName(ctx);
+/** Publish an entry: read its revision, then publish. Two calls. */
+export async function publishNow(ctx: PluginContext, collection: string, id: string): Promise<boolean> {
 	if (!ctx.content?.getVersioned || !ctx.content.publish) return false;
 	const versioned = await ctx.content.getVersioned(collection, id);
 	if (!versioned) return false;
@@ -181,11 +144,12 @@ export async function publishNow(ctx: PluginContext, id: string): Promise<boolea
 	return true;
 }
 
-export async function unpublishNow(ctx: PluginContext, id: string): Promise<boolean> {
-	const collection = await collectionName(ctx);
+/** Unpublish an entry that is published. Two calls, one when it is not published. */
+export async function unpublishNow(ctx: PluginContext, collection: string, id: string): Promise<boolean> {
 	if (!ctx.content?.getVersioned || !ctx.content.unpublish) return false;
 	const versioned = await ctx.content.getVersioned(collection, id);
 	if (!versioned) return false;
+	if (versioned.item.status !== "published") return true;
 	await ctx.content.unpublish(collection, id, { _rev: versioned._rev });
 	return true;
 }
@@ -206,34 +170,40 @@ function readMove(raw: unknown): StageMove | null {
 	return { to, left };
 }
 
+type Entry = { id: string; data: unknown; status?: string; draftRevisionId?: string | null };
+
 /**
  * The item's stage as the next publish would show it: the unpublished changes if there are any,
  * otherwise the live entry. Read from the entry every time, never from the plugin's own record.
+ * One call when the item has unpublished changes, none otherwise.
  */
-export async function currentStage(ctx: PluginContext, item: { id: string; data: unknown; draftRevisionId?: string | null }): Promise<{ stage: string; inDraft: boolean; live: string }> {
+export async function currentStage(ctx: PluginContext, collection: string, item: Entry): Promise<{ stage: string; inDraft: boolean; live: string }> {
 	const live = asString(asRecord(item.data).stage);
 	if (!item.draftRevisionId || !ctx.content?.getRevision) return { stage: live, inDraft: false, live };
-	const collection = await collectionName(ctx);
 	const draft = await ctx.content.getRevision(collection, item.id, item.draftRevisionId).catch(() => null);
 	const stage = draft ? asString(asRecord(draft.data).stage) : live;
 	return { stage: stage || live, inDraft: Boolean(draft), live };
 }
+
+export type StageResult =
+	| { state: "missing" }
+	| { state: "done" | "draft"; item: Entry; now: { stage: string; inDraft: boolean; live: string } };
 
 /**
  * Change the stage on an item. Published with no unpublished changes: the change goes live at
  * once. With unpublished changes: only the stage in that draft changes, and it goes live when the
  * owner publishes. Either way the move is recorded as {from, to} so keepPanelStage can turn away an
  * editor form that was opened before the move and still holds the old stage.
+ *
+ * Six calls at most (read, the move record read and write, the update, and the revision and
+ * publish for a live item), five with unpublished changes (read, their revision, record, update).
+ * Returns the item's state after the move, so a screen redraws without reading it again.
  */
-export async function patchStage(
-	ctx: PluginContext,
-	id: string,
-	stage: string,
-): Promise<{ state: "done" | "draft" | "missing" }> {
-	const collection = await collectionName(ctx);
-	const item = await getItem(ctx, id);
+export async function patchStage(ctx: PluginContext, collection: string, id: string, stage: string): Promise<StageResult> {
+	const item = await ctx.content?.get(collection, id).catch(() => null);
 	if (!item || !ctx.content?.update) return { state: "missing" };
-	const from = (await currentStage(ctx, item)).stage;
+	const was = await currentStage(ctx, collection, item);
+	const from = was.stage;
 	// Recorded before the write, so the hook sees this move when the plugin's own update saves.
 	if (from && from !== stage) {
 		// A move from the stage the last move set continues the record, so a form opened before
@@ -247,14 +217,11 @@ export async function patchStage(
 	}
 	if (item.draftRevisionId) {
 		await ctx.content.update(collection, id, { stage });
-		return { state: "draft" };
+		return { state: "draft", item, now: { stage, inDraft: true, live: was.live } };
 	}
 	await ctx.content.update(collection, id, { ...item.data, stage });
-	if (item.status === "published" && ctx.content.getVersioned && ctx.content.publish) {
-		const versioned = await ctx.content.getVersioned(collection, id);
-		if (versioned) await ctx.content.publish(collection, id, { _rev: versioned._rev });
-	}
-	return { state: "done" };
+	if (item.status === "published") await publishNow(ctx, collection, id);
+	return { state: "done", item: { ...item, data: { ...item.data, stage } }, now: { stage, inDraft: false, live: stage } };
 }
 
 export const STALE_STAGE_REASON = (to: string) =>
@@ -271,14 +238,17 @@ export async function keepPanelStage(
 	ctx: PluginContext,
 	event: { collection: string; isNew: boolean; id?: string; content: Record<string, unknown> },
 ): Promise<Record<string, unknown> | { __emdashSandboxHookResult: true; version: 1; error: { code: "SAVE_REJECTED"; reason: string } } | void> {
+	// This hook also runs inside the plugin's own content.update (a Stage panel move). The usual
+	// save costs one call (the move record); the plugin's own save then stops there, because it
+	// carries the stage the record was just set to. At most four calls.
 	if (event.isNew || !event.id || !("stage" in event.content)) return;
-	if (event.collection !== (await collectionName(ctx))) return;
+	if (event.collection !== ROADMAP) return;
 	const move = readMove(await ctx.kv.get(stageKey(event.id)));
 	if (!move) return;
 	const incoming = asString(event.content.stage);
 	if (incoming === move.to) return;
 	const item = await ctx.content?.get?.(event.collection, event.id).catch(() => null);
-	const now = item ? (await currentStage(ctx, item)).stage : "";
+	const now = item ? (await currentStage(ctx, event.collection, item)).stage : "";
 	if (move.left.includes(incoming) && now === move.to) {
 		return {
 			__emdashSandboxHookResult: true,

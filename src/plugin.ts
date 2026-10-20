@@ -3,36 +3,95 @@ import type { SandboxedPlugin } from "emdash/plugin";
 import { handleAdmin } from "./admin";
 import { keepPanelStage, loadBoard } from "./content";
 import { handleEditorPanel } from "./editor";
-import { CHANGELOG, MEMBER, ROADMAP, hasCollection } from "./core";
-import { forgetOldGuests } from "./ideas";
+import { CHANGELOG, MEMBER, ROADMAP, budget, collectionsHere, left } from "./core";
+import { forgetGuestIdeas, forgetGuestVotes, forgetRates, mergeStep, readJob, settleIdea } from "./ideas";
 import { ensureNotifyTask, notifyOwners } from "./notify";
-import { loadSettings, seedDefaults } from "./settings";
+import { loadSettings, SALT_KEY, UPGRADE_KEY } from "./settings";
 import { handleSuggest, handleSuggestGuest } from "./suggest";
+import { ensureTally, setLive } from "./tally";
+import { guestCleanupSafe, upgradeDone, upgradeStep, UPGRADE_STEP } from "./upgrade";
 import { handleVote, handleVoteGuest, listMyVotes } from "./vote";
 import { requestGuest } from "./visitor";
+import { asRecord, asString } from "./util";
+
+/** The entry id a content hook is about, for items of the roadmap type (from settings, one call) only. */
+async function roadmapEntry(ctx: Parameters<typeof loadSettings>[0], event: { collection?: string; id?: string; content?: unknown }): Promise<string> {
+	if (!event.collection || event.collection !== (await loadSettings(ctx)).collection) return "";
+	return asString(event.id) || asString(asRecord(event.content).id);
+}
+
+/**
+ * Hourly, within the call's budget, most important first: the owner notice (five calls at most),
+ * finished hourly-limit rows, guest hashes older than 30 days, a step of a running merge or of the
+ * 0.3.0 upgrade, a batch at a time. What does not fit waits for the next hour.
+ */
+async function hourly(ctx: Parameters<typeof notifyOwners>[0]): Promise<void> {
+	const b = budget(1);
+	const settings = await loadSettings(ctx);
+	await notifyOwners(ctx, b, settings);
+	await forgetRates(ctx, b);
+	const job = readJob(settings.mergeJob);
+	// Moving old guest votes to anonymous ids writes the new rows before it removes the old ones, so
+	// a recount running at the same time (the 0.3.0 rebuild, a merge) could count both: it waits.
+	if (!job && guestCleanupSafe(settings)) await forgetGuestVotes(ctx, b);
+	if (job) await mergeStep(ctx, b, settings);
+	else if (!upgradeDone(settings) && left(b) >= UPGRADE_STEP) await upgradeStep(ctx, b, settings);
+	await forgetGuestIdeas(ctx, b);
+	await forgetRates(ctx, b, 4);
+}
 
 const plugin: SandboxedPlugin = {
 	hooks: {
+		// Settings need no defaults written: an unset key reads as its default. Five calls: the hourly
+		// task (two), the guest salt, and on a site with no 0.3.0 counts the upgrade is marked done.
 		"plugin:install": {
 			handler: async (_event, ctx) => {
-				await seedDefaults(ctx);
 				await ensureNotifyTask(ctx);
+				await ctx.settings.compareAndSet(SALT_KEY, null, crypto.randomUUID()).catch(() => undefined);
+				if ((await ctx.storage.tallies.count({ v: null })) === 0) {
+					await ctx.settings.compareAndSet(UPGRADE_KEY, null, { phase: "done", after: "", big: "" }).catch(() => undefined);
+				}
 			},
 		},
 		"plugin:activate": {
-			handler: async (_event, ctx) => {
-				await seedDefaults(ctx);
-				await ensureNotifyTask(ctx);
-			},
+			handler: async (_event, ctx) => ensureNotifyTask(ctx),
 		},
 		"content:beforeSave": {
 			handler: async (event, ctx) => keepPanelStage(ctx, event),
 		},
+		// Published: the item's count row is marked live (made, at zero, when it has none), and a
+		// waiting idea for it is done. Four calls at most: settings, the row (two), the idea.
+		"content:afterPublish": {
+			handler: async (event, ctx) => {
+				const id = await roadmapEntry(ctx, event);
+				if (!id) return;
+				if (!(await setLive(ctx, id, true))) await ensureTally(ctx, id);
+				await settleIdea(ctx, id);
+			},
+		},
+		"content:afterUnpublish": {
+			handler: async (event, ctx) => {
+				const id = await roadmapEntry(ctx, event);
+				if (id) await setLive(ctx, id, false);
+			},
+		},
+		"content:afterDelete": {
+			handler: async (event, ctx) => {
+				const id = await roadmapEntry(ctx, event);
+				if (id) await setLive(ctx, id, false);
+			},
+		},
+		// Restored from the trash: live again only when it comes back published.
+		"content:afterRestore": {
+			handler: async (event, ctx) => {
+				const id = await roadmapEntry(ctx, event);
+				if (id) await setLive(ctx, id, asRecord(event.content).status === "published");
+			},
+		},
 		cron: {
 			handler: async (event, ctx) => {
 				if (event.name !== "notify") return;
-				await notifyOwners(ctx);
-				await forgetOldGuests(ctx);
+				await hourly(ctx);
 			},
 		},
 	},
@@ -46,16 +105,13 @@ const plugin: SandboxedPlugin = {
 			public: true,
 			handler: async (routeCtx, ctx) => {
 				const settings = await loadSettings(ctx);
-				const [roadmap, changelog] = await Promise.all([
-					hasCollection(ctx, ROADMAP),
-					hasCollection(ctx, CHANGELOG),
-				]);
+				const here = await collectionsHere(ctx);
 				return {
 					ok: true,
 					plugin: ctx.plugin.id,
 					version: ctx.plugin.version,
-					collection: roadmap,
-					changelog,
+					collection: Boolean(here?.has(ROADMAP)),
+					changelog: Boolean(here?.has(CHANGELOG)),
 					allowIdeas: settings.allowIdeas,
 					who: settings.who,
 					// Guests can vote and suggest only when the host gives the visitor's address.

@@ -1,6 +1,6 @@
 import type { PluginContext } from "emdash/plugin";
 
-import { asBoolean, asNumber, asString, parseJson } from "./util";
+import { asNumber, asString, parseJson } from "./util";
 
 export type Stage = {
 	id: string;
@@ -17,7 +17,25 @@ export type Settings = {
 	notify: boolean;
 	notifyTo: string;
 	stages: Stage[];
+	/** Content type that holds the items. Internal: never shown on the Settings page. */
+	collection: string;
+	/** Per-site salt for guest keys. Empty until the first guest or the 0.4.0 upgrade copies it from kv. */
+	salt: string;
+	/** When a guest write last came with and without a usable visitor address (hour starts). */
+	guestSeen: { with?: number; without?: number };
+	/** The owner said the visitor pages are set up. Null: not answered here yet (0.3.0 kept it in kv). */
+	kitDone: boolean | null;
+	/** Where the 0.3.0 to 0.4.0 data upgrade is (src/upgrade.ts). */
+	upgrade: Record<string, unknown>;
+	/** A merge whose votes are still moving (src/merge.ts), or null. */
+	mergeJob: Record<string, unknown> | null;
 };
+
+export const SALT_KEY = "visitor_salt";
+export const GUEST_SEEN_KEY = "guest_seen";
+export const KIT_DONE_KEY = "kit_done";
+export const UPGRADE_KEY = "upgrade_0_4";
+export const MERGE_KEY = "merge_job";
 
 export const DEFAULT_STAGES: Stage[] = [
 	{ id: "under-review", name: "Under review", order: 0, shown: true, aliases: [] },
@@ -57,14 +75,30 @@ function normalizeStages(input: unknown): Stage[] {
 	return stages.length ? sortStages(stages) : DEFAULT_STAGES.map((stage) => ({ ...stage }));
 }
 
+/**
+ * Every setting in one call (ctx.settings.list). Read once per plugin call and passed down: no path
+ * pays one call per key. Unset keys read as their defaults, so nothing has to be written at install.
+ */
 export async function loadSettings(ctx: PluginContext): Promise<Settings> {
-	const who = asString(await ctx.settings.get<string>("who"));
+	const all = new Map((await ctx.settings.list()).map((row) => [row.key, row.value]));
+	const record = (value: unknown) => (value && typeof value === "object" && !Array.isArray(value) ? (value as Record<string, unknown>) : null);
+	const seen = record(all.get(GUEST_SEEN_KEY)) ?? {};
+	const kit = all.get(KIT_DONE_KEY);
 	return {
-		allowIdeas: (await ctx.settings.get<boolean>("allow_ideas")) !== false,
-		who: who === "members" ? "members" : "anyone",
-		notify: (await ctx.settings.get<boolean>("notify")) !== false,
-		notifyTo: asString(await ctx.settings.get<string>("notify_to")),
-		stages: normalizeStages(await ctx.settings.get("stages")),
+		allowIdeas: all.get("allow_ideas") !== false,
+		who: asString(all.get("who")) === "members" ? "members" : "anyone",
+		notify: all.get("notify") !== false,
+		notifyTo: asString(all.get("notify_to")),
+		stages: normalizeStages(all.get("stages")),
+		collection: asString(all.get("collection")) || "roadmap",
+		salt: asString(all.get(SALT_KEY)),
+		guestSeen: {
+			with: asNumber(seen.with) ?? undefined,
+			without: asNumber(seen.without) ?? undefined,
+		},
+		kitDone: typeof kit === "boolean" ? kit : null,
+		upgrade: record(all.get(UPGRADE_KEY)) ?? {},
+		mergeJob: record(all.get(MERGE_KEY)),
 	};
 }
 
@@ -191,12 +225,4 @@ export function removeStage(stages: Stage[], id: string): { ok: true; stages: St
 	if (stages.length <= 1) return { ok: false, error: "Keep at least one stage." };
 	if (!stages.some((stage) => stage.id === id)) return { ok: false, error: "That stage is no longer on the list." };
 	return { ok: true, stages: stages.filter((stage) => stage.id !== id) };
-}
-
-export async function seedDefaults(ctx: PluginContext): Promise<void> {
-	if ((await ctx.settings.get("stages")) == null) await ctx.settings.set("stages", JSON.stringify(DEFAULT_STAGES));
-	if ((await ctx.settings.get("allow_ideas")) == null) await ctx.settings.set("allow_ideas", true);
-	if ((await ctx.settings.get("who")) == null) await ctx.settings.set("who", "anyone");
-	if ((await ctx.settings.get("notify")) == null) await ctx.settings.set("notify", true);
-	if ((await ctx.settings.get("collection")) == null) await ctx.settings.set("collection", "roadmap");
 }

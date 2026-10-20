@@ -64,12 +64,18 @@ describe("scripts/add-to-site.sh", () => {
 		rmSync(d1, { recursive: true, force: true });
 		const local = fakeSite();
 		writeFileSync(join(local, "astro.config.mjs"), 'import emdash from "emdash/astro";\nexport default { database: sqlite({ url: "file:./data.db" }) };\n');
-		// sqlite( but no database file yet: not run either.
-		assert.match(run(local), /Seed not run: this site's database is not a local SQLite file/);
+		// sqlite( but no database file yet: start the site once, then run again. Not the admin route.
+		const early = execFileSync("bash", [SCRIPT, local], { encoding: "utf8" });
+		assert.match(early, /does not exist yet\. Run npm run dev once, stop it, then run this script again\./);
+		assert.doesNotMatch(early, /not a local SQLite file/);
 		writeFileSync(join(local, "data.db"), "");
 		const out = run(local);
 		assert.ok(out.includes("npx emdash seed .emdash/roadmap-seed.json --no-content -d ./data.db"));
 		assert.doesNotMatch(out, /Seed not run/);
+		// A path with a space is quoted.
+		writeFileSync(join(local, "astro.config.mjs"), 'import emdash from "emdash/astro";\nexport default { database: sqlite({ url: "file:./my data.db" }) };\n');
+		writeFileSync(join(local, "my data.db"), "");
+		assert.ok(run(local).includes("-d ./my\\ data.db"));
 	});
 
 	it("never overwrites the site's layout or a newer shared file, and backs up changed wording", () => {

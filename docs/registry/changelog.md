@@ -7,7 +7,7 @@ Every page, vote and admin screen now stays within Cloudflare's limit of 10 requ
 - Fix: on Cloudflare a guest vote was refused as "not on the board".
 - Fix: the kit script no longer claims the content types were created on a Cloudflare site.
 
-Copy the kit again after you update:
+Copy the kit again after you update. Until then, a category-filtered board shows every item and Take back all my votes stops with an error after 7.
 
 ```bash
 kit="$(mktemp -d)" &&

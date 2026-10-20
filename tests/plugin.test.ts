@@ -388,6 +388,9 @@ describe("board route", () => {
 		expect(inCategory({}, "x", "core")).toBe(false);
 		expect(inCategory({ x: { categories: ["core"] } }, "x", "core")).toBe(true);
 		expect(inCategory({ x: { categories: ["core"] } }, "x", "")).toBe(true);
+		// 0.3.0 matched a slug or a name in any case: old links keep working.
+		expect(inCategory({ x: { categories: ["bugs"], categoryNames: ["Bugs"] } }, "x", "Bugs")).toBe(true);
+		expect(inCategory({ x: { categories: ["core"], categoryNames: ["Core"] } }, "x", "CORE")).toBe(true);
 	});
 });
 
@@ -786,8 +789,8 @@ describe("guest participation", () => {
 		for (const row of await site.rt.inspect.storage.list<Record<string, unknown>>("ideas")) {
 			await site.rt.fixtures.plugin.storage("ideas", row.id, { ...row.data, createdAt: old });
 		}
-		for (const entry of await site.rt.inspect.kv.list()) {
-			if (entry.id.startsWith("rate:")) await site.rt.fixtures.plugin.kv(entry.id, `${Date.parse(old)}|1`);
+		for (const row of await site.rt.inspect.storage.list<Record<string, unknown>>("rates")) {
+			await site.rt.fixtures.plugin.storage("rates", row.id, { ...row.data, start: Date.parse(old) });
 		}
 		await site.rt.transport.invokeHook("cron", { name: "notify", data: {}, scheduledAt: new Date().toISOString() });
 		const votes = await site.rt.inspect.storage.list<{ visitor: string; member_id: string }>("votes");
@@ -798,7 +801,7 @@ describe("guest participation", () => {
 		expect(ideas.find((row) => row.id === idea.id)?.data).toMatchObject({ visitor: "", guest: true });
 		const board = (await site.call("board")) as { columns: Array<{ items: Array<{ id: string; votes: number }> }> };
 		expect(board.columns.flatMap((column) => column.items).find((row) => row.id === item.id)?.votes).toBe(2);
-		expect(JSON.stringify(await site.rt.inspect.kv.list())).not.toMatch(/rate:vote:v-/);
+		expect(await site.rt.inspect.storage.list("rates")).toHaveLength(0);
 		expect(textOf(await admin(site.call, { type: "page_load", page: "/ideas" }))).toContain("Sam (guest)");
 	});
 

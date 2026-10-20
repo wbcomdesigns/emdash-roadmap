@@ -4,7 +4,7 @@ Versions match `package.json`, the git tag and the registry release. Newest firs
 
 ## [0.4.0]
 
-Every page, vote, hourly run and admin screen now stays within Cloudflare's limit of 10 requests per plugin call, measured on a busy test site. Cloudflare stays marked not supported until it is checked there. No new permission. Copy the kit again after you update:
+Every page, vote, hourly run and admin screen now stays within Cloudflare's limit of 10 requests per plugin call, measured on a busy test site. Cloudflare stays marked not supported until it is checked there. No new permission. Copy the kit again after you update. Until you do, the 0.3.0 kit shows every item on a category-filtered board, and Take back all my votes removes 7 votes and then shows an error (press it again to remove the next 7).
 
 ```bash
 kit="$(mktemp -d)" &&
@@ -27,8 +27,9 @@ kit="$(mktemp -d)" &&
 - Fix      - On Cloudflare the board, votes, suggestions, Roadmap votes, Ideas, Settings, merge and the Stage panel no longer fail with too many requests.
 - Fix      - A double click or two tabs store one vote and count it once.
 - Fix      - scripts/add-to-site.sh no longer reports the content types as created on a Cloudflare site: it runs the seed only on a local SQLite file and otherwise points to the install guide.
+- Security - Hourly-limit counters, which carry the guest's hash, move to their own storage and are cleared every hour; 0.3.0's are removed by the update.
 - Dev      - Settings are read in one call, the guest salt and setup answer moved into settings, and tests/bridge-budget.test.ts holds every entry point to 9 calls.
-- Compat   - Checked against the 0.3.0 kit and engine: the 0.3.0 kit works on this engine (its category links show every item until you copy the kit again), and this kit works on the 0.3.0 engine. Cloudflare is still marked not supported until the testbed walk passes.
+- Compat   - Checked against the 0.3.0 kit and engine: the 0.3.0 kit works on this engine with the two gaps above, and this kit works on the 0.3.0 engine. Cloudflare is still marked not supported until the testbed walk passes.
 
 ## [0.3.0] - 2026-10-19
 

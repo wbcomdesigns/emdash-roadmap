@@ -20,6 +20,8 @@ import { OLD_SALT_KEY } from "./visitor";
  *    0.4.0 row. An item with more than 100 votes is counted on its own (`big`).
  * 4. `leftover`: 0.3.0 rows the rebuild did not write (items with no votes left, or a vote that
  *    landed after the rebuild passed) become 0.4.0 rows counted from their vote rows.
+ * 5. `rates`: 0.3.0 hourly-limit keys (kv `rate:*`, which carry guest hashes) are deleted as many
+ *    per step as the budget allows; 0.4.0 keeps these counters in the `rates` collection.
  *
  * Nothing reads content, so a site whose roadmap type is missing never stalls here. Old rows are
  * shown until they are rebuilt; no 0.4.0 change is applied to them (src/tally.ts).
@@ -29,13 +31,13 @@ import { OLD_SALT_KEY } from "./visitor";
  */
 export const UPGRADE_STEP = 4;
 
-export type UpgradeState = { phase: "salt" | "kit" | "rebuild" | "leftover" | "done"; after: string; big: string };
+export type UpgradeState = { phase: "salt" | "kit" | "rebuild" | "leftover" | "rates" | "done"; after: string; big: string };
 
 export function readUpgrade(raw: unknown): UpgradeState {
 	const row = asRecord(raw);
 	const phase = asString(row.phase);
 	return {
-		phase: (["salt", "kit", "rebuild", "leftover", "done"].includes(phase) ? phase : "salt") as UpgradeState["phase"],
+		phase: (["salt", "kit", "rebuild", "leftover", "rates", "done"].includes(phase) ? phase : "salt") as UpgradeState["phase"],
 		after: asString(row.after),
 		big: asString(row.big),
 	};
@@ -43,10 +45,14 @@ export function readUpgrade(raw: unknown): UpgradeState {
 
 export const upgradeDone = (settings: Pick<Settings, "upgrade">) => readUpgrade(settings.upgrade).phase === "done";
 
+/** No recount is running: the rebuild and leftover passes are over (the 0.3.0 rate keys may still be going). */
+export const guestCleanupSafe = (settings: Pick<Settings, "upgrade">) => ["rates", "done"].includes(readUpgrade(settings.upgrade).phase);
+
 /** What the Ideas page says while the upgrade runs. */
 export function upgradeLabel(settings: Pick<Settings, "upgrade">): string {
 	const phase = readUpgrade(settings.upgrade).phase;
-	return phase === "rebuild" || phase === "leftover" ? "Recounting votes from 0.3.0" : "Moving 0.3.0 settings";
+	if (phase === "rebuild" || phase === "leftover") return "Recounting votes from 0.3.0";
+	return phase === "rates" ? "Removing 0.3.0 hourly-limit records" : "Moving 0.3.0 settings";
 }
 
 /**
@@ -122,12 +128,23 @@ export async function upgradeStep(ctx: PluginContext, b: Budget, settings: Setti
 			await ctx.storage.tallies.putMany(complete.map((id) => ({ id, data: freshTally(byItem.get(id) ?? 0, false) })));
 			return false;
 		}
+		if (state.phase === "rates") {
+			// Deleting is safe to repeat, so only the move to done is claimed.
+			spend(b);
+			const keys = await ctx.kv.list("rate:");
+			if (!keys.length) return await claim({ phase: "done", after: "", big: "" });
+			for (const { key } of keys) {
+				if (!spend(b)) break;
+				await ctx.kv.delete(key);
+			}
+			return false;
+		}
 		// leftover: 0.3.0 rows the rebuild did not write. Normally they have no votes; a vote that
 		// landed after the rebuild passed, or a rebuild write that failed, is counted here. The batch
 		// is safe to run twice, so only the move to done is claimed.
 		spend(b);
 		const old = await ctx.storage.tallies.query({ where: { v: null }, limit: 100 });
-		if (!old.items.length) return await claim({ phase: "done", after: "", big: "" });
+		if (!old.items.length) return await claim({ phase: "rates", after: "", big: "" }) && false;
 		const ids = old.items.map((row) => row.id);
 		spend(b);
 		const found = await ctx.storage.votes.query({ where: { item: { in: ids } }, orderBy: { item: "asc" }, limit: 100 });

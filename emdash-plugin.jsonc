@@ -54,6 +54,11 @@
 				"v"
 			]
 		},
+		"rates": {
+			"indexes": [
+				"start"
+			]
+		},
 		"ideas": {
 			"indexes": [
 				"status",

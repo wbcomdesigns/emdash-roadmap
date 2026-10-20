@@ -38,7 +38,7 @@ export function freshTally(votes: number, live = true): Record<string, unknown> 
  */
 export function counted(settings: Pick<Settings, "upgrade">, item: string): boolean {
 	const phase = String(settings.upgrade.phase ?? "");
-	if (phase === "leftover" || phase === "done") return true;
+	if (phase === "leftover" || phase === "rates" || phase === "done") return true;
 	return phase === "rebuild" && typeof settings.upgrade.after === "string" && settings.upgrade.after !== "" && item <= settings.upgrade.after;
 }
 

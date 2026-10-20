@@ -27,7 +27,7 @@ afterEach(async () => {
 });
 
 const proto = PluginBridge.prototype as unknown as Record<string, (...args: unknown[]) => unknown>;
-for (const name of ["storageCompareAndSet", "storageDelete", "storageCount", "kvCompareAndSet"]) {
+for (const name of ["storageCompareAndSet", "storageDelete", "storageDeleteMany", "storageCount", "kvCompareAndSet"]) {
 	const method = proto[name]!;
 	proto[name] = async function (this: unknown, ...args: unknown[]) {
 		if (race?.method === name && --race.nth === 0) {
@@ -61,7 +61,8 @@ describe("vote counts under races", () => {
 	it("a double click stores one vote and counts it once", async () => {
 		const s = await open();
 		const id = await item(s, "Double");
-		race = { method: "storageCompareAndSet", nth: 1, run: () => s.call("vote", { id }, s.as(ana)) };
+		// Right before the first click's vote row (its hourly-limit write is the first compare-and-set).
+		race = { method: "storageCompareAndSet", nth: 2, run: () => s.call("vote", { id }, s.as(ana)) };
 		const first = await s.call("vote", { id }, s.as(ana));
 		expect(race).toBeNull();
 		expect(first).toMatchObject({ ok: true, voted: true });
@@ -105,7 +106,7 @@ describe("vote counts under races", () => {
 		const s = await open();
 		const id = await item(s, "Busy");
 		const other = await item(s, "Other");
-		race = { method: "kvCompareAndSet", nth: 1, run: () => s.call("vote", { id: other }, s.as(ana)) };
+		race = { method: "storageCompareAndSet", nth: 1, run: () => s.call("vote", { id: other }, s.as(ana)) };
 		expect(await s.call("vote", { id }, s.as(ana))).toMatchObject({ ok: false, error: { code: "BUSY" } });
 		expect(await rowsOf(s, id)).toBe(0);
 		expect(await count(s, other)).toBe(1);
@@ -176,6 +177,36 @@ describe("security review fixes", () => {
 		// A second run writes the same anonymous ids: still one row each.
 		await forgetGuestVotes(ctx as never, budget());
 		expect(new Set(put).size).toBe(3);
+	});
+});
+
+describe("independent review fixes", () => {
+	it("an erase that loses one row to a take-back in another tab still takes the other counts down", async () => {
+		const s = await open();
+		const ids: string[] = [];
+		for (let i = 0; i < 7; i += 1) ids.push(await item(s, `Short ${i}`));
+		for (const id of ids) await s.call("vote", { id }, s.as(ana));
+		await settle();
+		// The take-back of the first item lands right before the erase's delete.
+		race = { method: "storageDeleteMany", nth: 1, run: () => s.call("vote", { id: ids[0] }, s.as(ana, "DELETE")) };
+		expect(await s.call("votes", {}, s.as(ana, "DELETE"))).toMatchObject({ ok: true });
+		expect(race).toBeNull();
+		for (const id of ids) expect(await count(s, id), id).toBe(0);
+	});
+
+	it("the hourly guest cleanup waits while a merge or the 0.3.0 recount runs", async () => {
+		const s = await open();
+		const keep = await item(s, "Keep g");
+		const drop = await item(s, "Drop g");
+		const old = new Date(Date.now() - 40 * 24 * 60 * 60 * 1000).toISOString();
+		await s.rt.fixtures.plugin.storage("votes", `${keep}:v-aa`, { item: keep, member_id: "v-aa", createdAt: old, visitor: "aa" });
+		await s.rt.fixtures.plugin.setting("merge_job", { from: drop, keep, kind: "item", phase: "count", fromTitle: "d", keepTitle: "k", fromSlug: "", keepSlug: "" });
+		await s.rt.transport.invokeHook("cron", { name: "notify", data: {}, scheduledAt: new Date().toISOString() });
+		expect(await s.rt.inspect.storage.get("votes", `${keep}:v-aa`)).not.toBeNull();
+		await s.rt.fixtures.plugin.setting("merge_job", null);
+		await s.rt.fixtures.plugin.setting("upgrade_0_4", { phase: "leftover", after: "", big: "" });
+		await s.rt.transport.invokeHook("cron", { name: "notify", data: {}, scheduledAt: new Date().toISOString() });
+		expect(await s.rt.inspect.storage.get("votes", `${keep}:v-aa`)).not.toBeNull();
 	});
 });
 
@@ -279,6 +310,7 @@ describe("Cloudflare walk finding: a guest vote refused as not on the board", ()
 			schema: { listCollections: async () => [{ slug: "roadmap" }] },
 			content: { get: tooMany, list: tooMany },
 			storage: {
+				rates: { getVersioned: async () => null, compareAndSet: async () => ({ applied: true }) },
 				tallies: { get: async () => null, getMany: async () => new Map() },
 				votes: { compareAndSet: async (id: string) => (written.push(id), { applied: true }) },
 			},

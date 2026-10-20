@@ -4,12 +4,12 @@ import { handleAdmin } from "./admin";
 import { keepPanelStage, loadBoard } from "./content";
 import { handleEditorPanel } from "./editor";
 import { CHANGELOG, MEMBER, ROADMAP, budget, collectionsHere, left } from "./core";
-import { forgetGuestIdeas, forgetGuestVotes, forgetRateKeys, mergeStep, readJob, settleIdea } from "./ideas";
+import { forgetGuestIdeas, forgetGuestVotes, forgetRates, mergeStep, readJob, settleIdea } from "./ideas";
 import { ensureNotifyTask, notifyOwners } from "./notify";
 import { loadSettings, SALT_KEY, UPGRADE_KEY } from "./settings";
 import { handleSuggest, handleSuggestGuest } from "./suggest";
 import { ensureTally, setLive } from "./tally";
-import { upgradeDone, upgradeStep, UPGRADE_STEP } from "./upgrade";
+import { guestCleanupSafe, upgradeDone, upgradeStep, UPGRADE_STEP } from "./upgrade";
 import { handleVote, handleVoteGuest, listMyVotes } from "./vote";
 import { requestGuest } from "./visitor";
 import { asRecord, asString } from "./util";
@@ -22,18 +22,22 @@ async function roadmapEntry(ctx: Parameters<typeof loadSettings>[0], event: { co
 
 /**
  * Hourly, within the call's budget, most important first: the owner notice (five calls at most),
- * a step of a running merge or of the 0.3.0 upgrade, then dropping guest hashes older than 30 days
- * and finished hourly-limit counters a batch at a time. What does not fit waits for the next hour.
+ * finished hourly-limit rows, guest hashes older than 30 days, a step of a running merge or of the
+ * 0.3.0 upgrade, a batch at a time. What does not fit waits for the next hour.
  */
 async function hourly(ctx: Parameters<typeof notifyOwners>[0]): Promise<void> {
 	const b = budget(1);
 	const settings = await loadSettings(ctx);
 	await notifyOwners(ctx, b, settings);
-	if (readJob(settings.mergeJob)) await mergeStep(ctx, b, settings);
+	await forgetRates(ctx, b);
+	const job = readJob(settings.mergeJob);
+	// Moving old guest votes to anonymous ids writes the new rows before it removes the old ones, so
+	// a recount running at the same time (the 0.3.0 rebuild, a merge) could count both: it waits.
+	if (!job && guestCleanupSafe(settings)) await forgetGuestVotes(ctx, b);
+	if (job) await mergeStep(ctx, b, settings);
 	else if (!upgradeDone(settings) && left(b) >= UPGRADE_STEP) await upgradeStep(ctx, b, settings);
-	if ((await forgetGuestVotes(ctx, b)) === null) return;
-	if ((await forgetGuestIdeas(ctx, b)) === null) return;
-	await forgetRateKeys(ctx, b);
+	await forgetGuestIdeas(ctx, b);
+	await forgetRates(ctx, b, 4);
 }
 
 const plugin: SandboxedPlugin = {

@@ -3,16 +3,20 @@ import { phrase, strings } from "./roadmap-strings";
 import { bindVoteButtons, fetchBoard, voteButtonHtml } from "./roadmap-vote";
 
 type Card = { id: string; title: string; slug: string; votes: number };
-type Details = Record<string, { summary?: string; category?: string; categories?: string[]; comments?: number }>;
+type Details = Record<string, { summary?: string; category?: string; categories?: string[]; categoryNames?: string[]; comments?: number }>;
 
 /**
- * Whether a card belongs on the board filtered by `slug` (empty: no filter). The page reads every
- * item's categories in one terms read, so the 0.4.0 engine reads none; a 0.3.0 engine filters too,
- * and filtering again changes nothing.
+ * Whether a card belongs on the board filtered by `wanted` (empty: no filter): a category slug or
+ * name, in any case, as 0.3.0 matched (old links like ?category=Bugs keep working). The page reads
+ * every item's categories in one terms read, so the 0.4.0 engine reads none; a 0.3.0 engine filters
+ * too, and filtering again changes nothing. ponytail: the page reads the first 100 items, the same
+ * window the board shows; an item outside it has no categories here and drops out of a filtered view.
  */
-export function inCategory(details: Details, id: string, slug: string): boolean {
-	if (!slug) return true;
-	return (details[id]?.categories ?? []).includes(slug);
+export function inCategory(details: Details, id: string, wanted: string): boolean {
+	const needle = wanted.trim().toLowerCase();
+	if (!needle) return true;
+	const row = details[id];
+	return [...(row?.categories ?? []), ...(row?.categoryNames ?? [])].some((value) => value.toLowerCase() === needle);
 }
 type Column = { name: string; items: Card[]; empty: string | null };
 

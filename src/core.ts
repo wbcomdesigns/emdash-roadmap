@@ -61,21 +61,26 @@ export const left = (b: Budget) => MAX_CALLS - b.used;
 const RATE_WINDOW_MS = 60 * 60 * 1000;
 const RATE_MAX = 8;
 
+export const RATE_WINDOW = RATE_WINDOW_MS;
+
 /**
  * The hourly limit, in two calls: read the counter and move it with one compare-and-set. A lost
  * compare-and-set means another request from the same person landed at the same moment: "busy",
- * never a retry loop. Kept in kv under `rate:<who>`, the same key and value 0.3.0 used.
+ * never a retry loop. One `rates` row per person and action (`<action>:<who>`, `{ start, count }`),
+ * indexed on `start`, so the hourly task drops finished ones 100 per query (0.3.0 kept them in kv,
+ * which can only be listed whole; the upgrade removes those).
  */
-export async function rateLimit(ctx: Pick<PluginContext, "kv">, who: string): Promise<"ok" | "limited" | "busy"> {
+export async function rateLimit(ctx: Pick<PluginContext, "storage">, who: string): Promise<"ok" | "limited" | "busy"> {
 	if (!who) return "ok";
-	const key = `rate:${who}`;
-	const seen = await ctx.kv.getVersioned<string>(key);
-	const [start = 0, count = 0] = (seen?.value || "0|0").split("|").map(Number);
+	const seen = await ctx.storage.rates.getVersioned(who);
+	const row = (seen?.value ?? {}) as { start?: number; count?: number };
+	const start = Number(row.start) || 0;
+	const count = Number(row.count) || 0;
 	const now = Date.now();
 	const fresh = now - start > RATE_WINDOW_MS;
 	if (!fresh && count >= RATE_MAX) return "limited";
-	const next = fresh ? `${now}|1` : `${start}|${count + 1}`;
-	return (await ctx.kv.compareAndSet(key, seen?.revision ?? null, next)).applied ? "ok" : "busy";
+	const next = fresh ? { start: now, count: 1 } : { start, count: count + 1 };
+	return (await ctx.storage.rates.compareAndSet(who, seen?.revision ?? null, next)).applied ? "ok" : "busy";
 }
 
 /** The answer for a rate limit that did not pass, or null when it passed. */

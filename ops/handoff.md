@@ -22,6 +22,8 @@ What 0.4.0 changed in the data (read before touching counts):
 - The guest salt (`visitor_salt`), the setup answer (`kit_done`), the guest address note (`guest_seen`) and a running merge (`merge_job`) are settings, read in one `settings.list` call.
 - New hooks: `content:afterPublish/afterUnpublish/afterDelete/afterRestore` keep `live` and settle ideas (covered by content:read, no new capability).
 - Merge and member erase run in steps (`mergeStep`, BUSY with reason MORE).
+- Hourly-limit counters are in the `rates` storage collection; the upgrade's last phase (`rates`) deletes 0.3.0's kv `rate:*` keys. The 30-day guest cleanup waits while a merge or the rebuild/leftover recount runs.
+- `tests/site.ts` runs every admin and editor panel answer through EmDash's Block Kit validator.
 
 ## Next
 

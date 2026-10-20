@@ -138,3 +138,5 @@ Restart the site. In a post or page, type `/roadmap` and choose **Roadmap**. The
 ## After you update the plugin
 
 Run step 2 of Install again with the new version's tag. The kit and the plugin are released together, and an older kit may not reach a newer plugin. Your `RoadmapLayout.astro` is kept, and a changed wording file is backed up first.
+
+**Updating from 0.3.0 to 0.4.0:** copy the kit again. Until you do, the 0.3.0 kit shows every item on a category-filtered board, and Take back all my votes removes 7 votes and then shows an error (press it again to remove the next 7).

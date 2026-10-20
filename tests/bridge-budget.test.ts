@@ -22,7 +22,7 @@ const MEASURED: Record<string, number> = {
 	"hook content:afterUnpublish": 2,
 	"hook content:afterDelete": 2,
 	"hook content:afterRestore": 2,
-	"hook cron notify (sends, 150 old guest votes, 120 old guest ideas, 10 rate keys), largest run": 9,
+	"hook cron notify (sends, 150 old guest votes, 120 old guest ideas, 520 rate rows), largest run": 9,
 	"hook cron notify (merge running), largest run": 8,
 	"hook cron notify (0.3.0 upgrade), largest run": 8,
 	"route board (200 items, votes sort)": 4,
@@ -279,15 +279,15 @@ describe("hooks", () => {
 		for (let i = 0; i < 120; i += 1) {
 			await rt.fixtures.plugin.storage("ideas", `gi${i}`, { title: "g", status: "rejected", rev: "r", createdAt: OLD, visitor: `old${i}`, guest: true });
 		}
-		for (let i = 0; i < 10; i += 1) await rt.fixtures.plugin.kv(`rate:vote:v-${i}`, `${Date.parse(OLD)}|1`);
+		for (let i = 0; i < 520; i += 1) await rt.fixtures.plugin.storage("rates", `vote:v-${i}`, { start: Date.parse(OLD), count: 1 });
 		await rt.fixtures.plugin.kv("notify:last", "0");
 		const hashed = async () => {
 			const votes = (await rt.inspect.storage.list<Row>("votes")).filter((row) => row.data.visitor);
 			const ideas = (await rt.inspect.storage.list<Row>("ideas")).filter((row) => row.data.visitor);
-			const rate = (await rt.inspect.kv.list()).filter((row) => String((row as { id?: string; key?: string }).id ?? (row as { key?: string }).key).startsWith("rate:"));
+			const rate = await rt.inspect.storage.list("rates");
 			return votes.length + ideas.length + rate.length === 0;
 		};
-		await measureSteps("hook cron notify (sends, 150 old guest votes, 120 old guest ideas, 10 rate keys), largest run", () => cron(s), hashed, 80);
+		await measureSteps("hook cron notify (sends, 150 old guest votes, 120 old guest ideas, 520 rate rows), largest run", () => cron(s), hashed, 80);
 		const votes = await rt.inspect.storage.list<Row>("votes");
 		expect(votes).toHaveLength(150);
 	}, 240_000);
@@ -443,17 +443,21 @@ describe("admin", () => {
 			await s.rt.fixtures.plugin.storage("votes", row.id, { item: "elsewhere", member_id: "z", createdAt: RECENT, visitor: "" });
 		}
 		await rt.fixtures.plugin.storage("tallies", "gone-item", { votes: 3 });
+		// 0.3.0 hourly-limit keys carry guest hashes and must go too.
+		for (let i = 0; i < 520; i += 1) await rt.fixtures.plugin.kv(`rate:vote:v-${i}`, `${Date.parse(OLD)}|1`);
 		await measureSteps(
 			"admin page_load /ideas (0.3.0 upgrade running), largest call",
 			() => adminCall(s, { type: "page_load", page: "/ideas" }),
 			async () => ((await rt.inspect.setting<Row>("upgrade_0_4"))?.phase ?? "") === "done",
+			300,
 		);
 		for (const id of [...items, "elsewhere", "gone-item"]) {
 			expect(await tally(s, id), id).toMatchObject({ v: 4, votes: await voteRows(s, id) });
 		}
 		expect(await rt.inspect.setting("visitor_salt")).toBe("old-salt");
 		expect(await rt.inspect.setting("kit_done")).toBe(true);
-	}, 240_000);
+		expect((await rt.inspect.kv.list()).filter((row) => String((row as { id?: string }).id).startsWith("rate:"))).toHaveLength(0);
+	}, 600_000);
 
 	it("cron runs the 0.3.0 upgrade to the end", async () => {
 		const { site: s, rt, items } = await busySite({ v3: true, items: 30, votesPer: 4 });

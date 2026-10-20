@@ -1,7 +1,7 @@
 import type { PluginContext } from "emdash/plugin";
 
 import { itemStamp, publishNow, unpublishNow } from "./content";
-import { left, spend, type Budget } from "./core";
+import { RATE_WINDOW, left, spend, type Budget } from "./core";
 import { firstStage, MERGE_KEY, type Settings } from "./settings";
 import { freshTally, setLive, V } from "./tally";
 import { asRecord, asString, rows } from "./util";
@@ -372,16 +372,23 @@ export async function forgetGuestIdeas(ctx: PluginContext, b: Budget, now = Date
 	return done;
 }
 
-/** Hourly: drop hourly-limit counters whose hour is over (their key carries the hash), as many as the budget allows. */
-export async function forgetRateKeys(ctx: PluginContext, b: Budget, now = Date.now()): Promise<number | null> {
+/**
+ * Hourly: drop hourly-limit rows whose hour is over (their id carries the guest's hash). One query
+ * of 100 and one delete per round, `rounds` rounds while the budget allows. Returns how many went,
+ * or null when the budget had no room for a round.
+ * ponytail: past 100 new rows an hour per spare round, rows wait for the next run; they are still
+ * gone hours later, well inside the 30 days.
+ */
+export async function forgetRates(ctx: PluginContext, b: Budget, rounds = 1, now = Date.now()): Promise<number | null> {
 	if (left(b) < 2) return null;
-	spend(b);
 	let done = 0;
-	for (const entry of await ctx.kv.list("rate:")) {
-		const start = Number(String(entry.value ?? "").split("|")[0]) || 0;
-		if (now - start <= 60 * 60 * 1000) continue;
-		if (!spend(b)) break;
-		if (await ctx.kv.delete(entry.key)) done += 1;
+	for (let round = 0; round < rounds && left(b) >= 2; round += 1) {
+		spend(b);
+		const old = await ctx.storage.rates.query({ where: { start: { lt: now - RATE_WINDOW } }, limit: 100 });
+		if (!old.items.length) break;
+		spend(b);
+		done += await ctx.storage.rates.deleteMany(old.items.map((row) => row.id));
+		if (!old.hasMore) break;
 	}
 	return done;
 }

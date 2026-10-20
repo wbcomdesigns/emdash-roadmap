@@ -113,6 +113,7 @@ On the Cloudflare testbed (https://emdash-plugin-testbed.vapvarun.workers.dev), 
 | CF-11 | Stage panel on a published item and on one with unpublished changes: load, Move to | Panel answers each time; board follows after publish |
 | CF-12 | Update a 0.3.0 install with votes to 0.4.0, open Ideas, press Continue until the banner goes | "Updating roadmap data for 0.4.0" shows, then goes; every item's count equals its votes; a guest who voted before the update can still take that vote back |
 | CF-13 | Hourly task (trigger it or wait an hour) with waiting ideas and mail set up | One notice; the Worker log shows no "Too many subrequests" |
+| CF-15 | Old link `/roadmap/?category=Core` (name, capital letter) | Shows only Core items |
 | CF-14 | Mix: 0.3.0 kit on the 0.4.0 engine, and 0.4.0 kit on the 0.3.0 engine | Votes, suggest and Roadmap votes work in both; with the 0.3.0 kit a category link shows every item (expected) |
 
 ## Presentation, every screen

@@ -19,3 +19,11 @@ describe("in-text roadmap block", () => {
 		expect(manifest).not.toContain("portableTextBlocks");
 	});
 });
+
+describe("Block Kit check on every admin and panel answer", () => {
+	it("refuses what EmDash refuses, so tests/site.ts catches it in every test", async () => {
+		const { assertValidBlocks } = await import("./site");
+		expect(() => assertValidBlocks("admin", { blocks: [{ type: "code", language: "text", code: "x" }] })).toThrow(/invalid Block Kit/);
+		expect(() => assertValidBlocks("admin", { blocks: [{ type: "header", text: "Ideas" }] })).not.toThrow();
+	});
+});

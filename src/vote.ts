@@ -312,14 +312,13 @@ async function eraseMyVotes(ctx: PluginContext, userId: string) {
 	if (!found.items.length) return { ok: true, erased: 0 };
 	const ids = found.items.map((row) => row.id);
 	const gone = await ctx.storage.votes.deleteMany(ids);
-	// The votes are gone: nothing below can fail the answer. Each member vote is on its own item.
+	// The votes are gone: nothing below can fail the answer. Each member vote is on its own item, and
+	// every one of them takes its count down by one (never below zero).
 	// ponytail: when a take-back in another tab removed one of these at the same moment, this call
-	// cannot tell which, so it moves no counts (they stay one high per such vote).
-	if (gone === ids.length) {
-		for (const row of found.items) {
-			const item = asString(asRecord(row.data).item);
-			if (item) await moveTally(ctx, item, -1);
-		}
+	// cannot tell which; that item's count ends one low instead of the other six one high.
+	for (const row of found.items) {
+		const item = asString(asRecord(row.data).item);
+		if (item) await moveTally(ctx, item, -1);
 	}
 	if (found.hasMore) return { ok: false, erased: gone, error: { code: "BUSY", reason: "MORE", message: "More votes to remove. Try again." } };
 	return { ok: true, erased: gone };

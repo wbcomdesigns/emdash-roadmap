@@ -27,7 +27,8 @@ This file is the contract for the plugin. Code, tests, docs and cards all follow
 - `tallies` rows are `{ v: 4, votes, live, seq }`: moved by in-database increments in the same call as the vote, never recounted per vote. `live` (item published) is kept by the content hooks below. 0.3.0 rows are rebuilt from the vote rows by the stepped upgrade (`upgrade_0_4` setting).
 - Hooks: `content:beforeSave` (Stage panel guard), `content:afterPublish`, `content:afterUnpublish`, `content:afterDelete`, `content:afterRestore` (all covered by content:read and content:write; no new capability).
 - Settings hold, besides the owner's choices: `visitor_salt`, `guest_seen`, `kit_done`, `upgrade_0_4`, `merge_job`. All are read in one call.
-- The board route does not filter by category; the kit page does, from its one terms read.
+- Hourly-limit counters live in a `rates` storage collection (`<action>:<who>`, `{ start, count }`, indexed on `start`); the hourly task deletes finished ones 100 per query. 0.3.0's kv `rate:*` keys are removed by the upgrade.
+- The board route does not filter by category; the kit page does, from its one terms read (slug or name, any case).
 - Merge, member erase and the hourly cleanup run in steps; Ideas shows a running merge or upgrade with a Continue button.
 
 ## Purpose

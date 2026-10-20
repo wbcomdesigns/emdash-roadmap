@@ -20,6 +20,8 @@ let site: Site | undefined;
 let race: { method: string; nth: number; run: () => Promise<unknown> } | null = null;
 afterEach(async () => {
 	race = null;
+	// Content hooks run without being awaited: let them end before the site goes away.
+	if (site) await new Promise((resolve) => setTimeout(resolve, 200));
 	await site?.dispose();
 	site = undefined;
 });
@@ -123,6 +125,57 @@ describe("vote counts under races", () => {
 		for (let i = 0; i < 10 && (last as { ok?: boolean }).ok !== true; i += 1) last = await s.call("votes", {}, s.as(ana, "DELETE"));
 		expect(last).toMatchObject({ ok: true });
 		for (const id of ids) expect(await count(s, id)).toBe(0);
+	});
+});
+
+describe("security review fixes", () => {
+	it("refuses a vote on an item taken off the board even when its count row still says live", async () => {
+		const s = await open();
+		const id = await item(s, "Gone");
+		await s.call("vote", { id }, s.as(ana));
+		// The unpublish hook never ran (or failed): the row still says live.
+		const versioned = await s.rt.inspect.content.get("roadmap", id);
+		await s.rt.actions.content.unpublish("roadmap", id, { _rev: undefined } as never).catch(() => undefined);
+		await settle();
+		if ((await s.rt.inspect.content.get("roadmap", id))?.status === "published") throw new Error(`unpublish did not run (${versioned?.status})`);
+		await s.rt.fixtures.plugin.storage("tallies", id, { v: 4, votes: 1, live: true, seq: 1 });
+		expect(await s.call("vote", { id }, s.as(ben))).toMatchObject({ ok: false, error: { code: "NOT_FOUND" } });
+		expect(await s.call("vote_guest", { id }, guest("198.51.100.30"))).toMatchObject({ ok: false, error: { code: "NOT_FOUND" } });
+		expect(await rowsOf(s, id)).toBe(1);
+	});
+
+	it("a merge marks the dropped item's count row as off the board", async () => {
+		const s = await open();
+		const keep = await item(s, "Kept one");
+		const drop = await item(s, "Dropped one");
+		await s.call("vote", { id: drop }, s.as(ana));
+		await s.rt.fixtures.plugin.storage("tallies", drop, { v: 4, votes: 1, live: true, seq: 1 });
+		const stamp = (await s.rt.inspect.content.get("roadmap", drop)) as { version?: number; updatedAt?: string };
+		await s.call("admin", { type: "form_submit", action_id: "merge_items", page: "/ideas", values: { source: `item|${drop}|${stamp.version}~${stamp.updatedAt}`, keep } }, s.as(admin));
+		await s.call("admin", { type: "block_action", action_id: "bg_continue", page: "/ideas" }, s.as(admin));
+		expect(await s.rt.inspect.setting<Row>("merge_job")).toMatchObject({ phase: "votes" });
+		expect(await s.rt.inspect.storage.get("tallies", drop)).toMatchObject({ live: false });
+	});
+
+	it("the 30-day cleanup keeps every vote when the delete removes only some rows", async () => {
+		const { forgetGuestVotes } = await import("../src/ideas");
+		const { budget } = await import("../src/core");
+		const put: string[] = [];
+		const batch = [0, 1, 2].map((n) => ({ id: `item1:v-h${n}`, data: { item: "item1", visitor: `h${n}`, createdAt: "" } }));
+		const ctx = {
+			storage: {
+				votes: {
+					query: async () => ({ items: batch, hasMore: false }),
+					putMany: async (items: Array<{ id: string }>) => void put.push(...items.map((row) => row.id)),
+					deleteMany: async () => 1,
+				},
+			},
+		};
+		await forgetGuestVotes(ctx as never, budget());
+		expect(put).toHaveLength(3);
+		// A second run writes the same anonymous ids: still one row each.
+		await forgetGuestVotes(ctx as never, budget());
+		expect(new Set(put).size).toBe(3);
 	});
 });
 

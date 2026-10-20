@@ -9,8 +9,8 @@ import { asNumber, asRecord } from "./util";
  *
  * 0.4.0 rows carry `v: 4` and are moved by in-database increments (`updateIf` with a delta) in the
  * same call as the vote write, never by counting the votes again. `live` is true while the item is
- * published, kept by the content hooks and by the first vote that confirms it, so a vote can skip
- * the content read. `seq` goes up with every change, so a recount that raced a vote is not stored.
+ * published, kept by the content hooks, a merge and the first vote that confirms it; a vote never
+ * trusts it and reads the entry itself. `seq` goes up with every change, so a recount that raced a vote is not stored.
  *
  * 0.3.0 rows (`{ votes }`, no `v`) were recounted on every vote, and on Cloudflare a vote could stop
  * before that recount. They are shown until the upgrade (src/upgrade.ts) rebuilds them from the

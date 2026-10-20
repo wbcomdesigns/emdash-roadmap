@@ -18,25 +18,25 @@ const MEASURED: Record<string, number> = {
 	"hook plugin:activate (already set up)": 1,
 	"hook content:beforeSave (panel-moved, draft)": 4,
 	"hook content:beforeSave (inside the plugin's own Stage move)": 1,
-	"hook content:afterPublish (no count row, waiting idea)": 3,
-	"hook content:afterUnpublish": 1,
-	"hook content:afterDelete": 1,
-	"hook content:afterRestore": 1,
+	"hook content:afterPublish (no count row, waiting idea)": 4,
+	"hook content:afterUnpublish": 2,
+	"hook content:afterDelete": 2,
+	"hook content:afterRestore": 2,
 	"hook cron notify (sends, 150 old guest votes, 120 old guest ideas, 10 rate keys), largest run": 9,
 	"hook cron notify (merge running), largest run": 8,
 	"hook cron notify (0.3.0 upgrade), largest run": 8,
 	"route board (200 items, votes sort)": 4,
 	"route board (200 items, category=core)": 4,
 	"route health": 2,
-	"route vote POST (live item)": 5,
+	"route vote POST (live item)": 7,
 	"route vote POST (first counted vote, item not marked live)": 8,
-	"route vote POST (0.3.0 row the upgrade passed)": 9,
-	"route vote POST (0.3.0 site before the upgrade)": 7,
+	"route vote POST (0.3.0 row the upgrade passed)": 8,
+	"route vote POST (0.3.0 site before the upgrade)": 6,
 	"route vote DELETE (take back)": 2,
 	"route vote DELETE (0.3.0 row the upgrade passed)": 6,
-	"route vote_guest POST (live item)": 7,
+	"route vote_guest POST (live item)": 8,
 	"route vote_guest POST (first counted vote, item not marked live)": 9,
-	"route vote_guest POST (0.3.0 site before the upgrade, salt in kv)": 9,
+	"route vote_guest POST (0.3.0 site before the upgrade, salt in kv)": 8,
 	"route vote_guest DELETE (take back)": 3,
 	"route vote_guest DELETE (nothing to take back)": 5,
 	"route suggest_guest": 7,
@@ -79,6 +79,8 @@ const seen = new Map<string, string[]>();
 type Site = Awaited<ReturnType<typeof openSite>>;
 let site: Site | undefined;
 afterEach(async () => {
+	// Content hooks run without being awaited: let them end before the site goes away.
+	await new Promise((resolve) => setTimeout(resolve, 200));
 	await site?.dispose();
 	site = undefined;
 });

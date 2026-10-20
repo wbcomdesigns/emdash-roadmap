@@ -3,7 +3,7 @@ import type { PluginContext } from "emdash/plugin";
 import { itemStamp, publishNow, unpublishNow } from "./content";
 import { left, spend, type Budget } from "./core";
 import { firstStage, MERGE_KEY, type Settings } from "./settings";
-import { freshTally, V } from "./tally";
+import { freshTally, setLive, V } from "./tally";
 import { asRecord, asString, rows } from "./util";
 import { anonymousVoteId } from "./vote";
 
@@ -228,7 +228,7 @@ export async function mergeItems(
 }
 
 /** Calls one merge step needs at most. */
-export const MERGE_STEP = 4;
+export const MERGE_STEP = 5;
 
 /**
  * One step of the merge in progress, when MERGE_STEP calls are free. Every step can run twice
@@ -250,9 +250,11 @@ export async function mergeStep(ctx: PluginContext, b: Budget, settings: Setting
 		if (job.phase === "unpublish") {
 			spend(b, 2);
 			await unpublishNow(ctx, collection, job.from);
+			// Off the board now: its count row says so too (the hook may not run for the plugin's own unpublish).
+			if (spend(b)) await setLive(ctx, job.from, false);
 			const fromPath = `/${collection}/${job.fromSlug || job.from}`;
 			const toPath = `/${collection}/${job.keepSlug || job.keep}`;
-			if (ctx.redirects?.create && job.fromSlug && job.keepSlug && fromPath !== toPath && spend(b)) {
+			if (ctx.redirects?.create && job.fromSlug && job.keepSlug && fromPath !== toPath && left(b) >= 2 && spend(b)) {
 				await ctx.redirects.create({ source: fromPath, destination: toPath, type: 301 }).catch(() => undefined);
 			}
 			return await next("votes");
@@ -329,19 +331,18 @@ const oldGuest = (now: number) => ({
 /**
  * Hourly, a batch at a time: drop the salted visitor hash from guest votes older than the window.
  * The vote stays. Its row id carries the hash, so it moves to an anonymous id with the same item:
- * the count does not change. Three calls for up to 100 votes. Returns how many moved, or null when
- * the budget had no room.
- * ponytail: a guest taking a vote back in the same second as this batch reads it can see it come
- * back under the anonymous id (the delete of 100 cannot say which rows another call removed).
+ * the count does not change. The anonymous rows are written first (their id comes from the old row,
+ * so writing them twice is one row), then the old rows are removed: a run that stops in between,
+ * or a delete that removes only some, is finished by the next run. Three calls for up to 100 votes.
+ * Returns how many moved, or null when the budget had no room.
+ * ponytail: a guest taking a vote back in the same second as this batch can see it come back under
+ * the anonymous id.
  */
 export async function forgetGuestVotes(ctx: PluginContext, b: Budget, now = Date.now()): Promise<number | null> {
 	if (left(b) < 3) return null;
 	spend(b);
 	const batch = rows(await ctx.storage.votes.query({ where: oldGuest(now), limit: 100 }));
 	if (!batch.length) return 0;
-	spend(b);
-	const gone = await ctx.storage.votes.deleteMany(batch.map((row) => row.id));
-	if (gone !== batch.length) return 0;
 	const moved = await Promise.all(
 		batch.map(async (row) => {
 			const item = asString(row.item);
@@ -351,6 +352,8 @@ export async function forgetGuestVotes(ctx: PluginContext, b: Budget, now = Date
 	);
 	spend(b);
 	await ctx.storage.votes.putMany(moved);
+	spend(b);
+	await ctx.storage.votes.deleteMany(batch.map((row) => row.id));
 	return moved.length;
 }
 

@@ -56,18 +56,20 @@ async function settingsOf(ctx: PluginContext, b: Budget, settings: Settings | nu
 }
 
 /**
- * Whether the item is on the board. A 0.4.0 row marked live answers with no call. Otherwise the
- * entry itself is read (after checking the content type exists). A read that fails answers
- * "failed", never "missing": on Cloudflare a call past the limit fails, and 0.3.0 turned that into
- * "That item is not on the board" for guests (walk finding, 2026-10-19).
+ * Whether the item is on the board, read from the entry on every vote write: a stored flag can be
+ * stale (a hook that failed, an unpublish it never saw), so it is never trusted for this. The type
+ * check runs only when the item has no count row yet (a row means the type existed). A read that
+ * fails answers "failed", never "missing": on Cloudflare a call past the limit fails, and 0.3.0
+ * turned that into "That item is not on the board" for guests (walk finding, 2026-10-19).
  */
-async function onBoard(ctx: PluginContext, b: Budget, settings: Settings, item: string, tally: Tally | null): Promise<"live" | "missing" | "failed"> {
-	if (tally?.live) return "live";
+async function onBoard(ctx: PluginContext, b: Budget, settings: Settings, item: string, hasRow: boolean): Promise<"live" | "missing" | "failed"> {
 	if (!ctx.content) return "missing";
-	spend(b);
-	const ready = await roadmapReady(ctx, settings.collection);
-	if (ready === null) return "failed";
-	if (!ready) return "missing";
+	if (!hasRow) {
+		spend(b);
+		const ready = await roadmapReady(ctx, settings.collection);
+		if (ready === null) return "failed";
+		if (!ready) return "missing";
+	}
 	spend(b);
 	try {
 		const entry = await ctx.content.get(settings.collection, item);
@@ -81,7 +83,8 @@ async function onBoard(ctx: PluginContext, b: Budget, settings: Settings, item: 
  * One vote per voter per published item. The vote row is created with a compare-and-set, so a
  * double click or two tabs store it once and count it once. The count moves in the same call:
  * +1 on a 0.4.0 row; a 0.3.0 row the upgrade already passed is counted again from the vote rows;
- * a row the upgrade has not reached yet is left to it. Worst case 7 calls after the caller's own.
+ * a row the upgrade has not reached yet is left to it. Worst case 7 calls after the caller's own
+ * (settings, type check, entry, vote, count row, +1).
  */
 async function castVote(
 	ctx: PluginContext,
@@ -99,14 +102,11 @@ async function castVote(
 	} catch {
 		return FAILED;
 	}
-	// Settings are needed only when the row does not settle it: not live, or not a 0.4.0 row.
-	const settings = tally?.live && tally.v4 ? known : await settingsOf(ctx, b, known);
-	if (settings) {
-		const here = await onBoard(ctx, b, settings, item, tally);
-		if (here === "failed") return FAILED;
-		if (here === "missing") return NOT_FOUND;
-	}
-	const isCounted = settings ? counted(settings, item) : true;
+	const settings = await settingsOf(ctx, b, known);
+	const here = await onBoard(ctx, b, settings, item, tally !== null);
+	if (here === "failed") return FAILED;
+	if (here === "missing") return NOT_FOUND;
+	const isCounted = counted(settings, item);
 	const plan = tally?.v4 ? "move" : !tally && isCounted ? "create" : tally && isCounted ? "recount" : "upgrade";
 	// The write and the count change it needs must both fit, or nothing is written.
 	const need = { move: 2, create: 3, recount: 3, upgrade: 1 }[plan];

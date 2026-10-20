@@ -14,9 +14,9 @@ import { handleVote, handleVoteGuest, listMyVotes } from "./vote";
 import { requestGuest } from "./visitor";
 import { asRecord, asString } from "./util";
 
-/** The entry id a content hook is about, for roadmap items only. */
-function roadmapEntry(event: { collection?: string; id?: string; content?: unknown }): string {
-	if (event.collection !== ROADMAP) return "";
+/** The entry id a content hook is about, for items of the roadmap type (from settings, one call) only. */
+async function roadmapEntry(ctx: Parameters<typeof loadSettings>[0], event: { collection?: string; id?: string; content?: unknown }): Promise<string> {
+	if (!event.collection || event.collection !== (await loadSettings(ctx)).collection) return "";
 	return asString(event.id) || asString(asRecord(event.content).id);
 }
 
@@ -55,11 +55,11 @@ const plugin: SandboxedPlugin = {
 		"content:beforeSave": {
 			handler: async (event, ctx) => keepPanelStage(ctx, event),
 		},
-		// Published: the item's count row is marked live (made, at zero, when it has none) so a
-		// vote can skip the content read, and a waiting idea for it is done. Three calls at most.
+		// Published: the item's count row is marked live (made, at zero, when it has none), and a
+		// waiting idea for it is done. Four calls at most: settings, the row (two), the idea.
 		"content:afterPublish": {
 			handler: async (event, ctx) => {
-				const id = roadmapEntry(event);
+				const id = await roadmapEntry(ctx, event);
 				if (!id) return;
 				if (!(await setLive(ctx, id, true))) await ensureTally(ctx, id);
 				await settleIdea(ctx, id);
@@ -67,20 +67,20 @@ const plugin: SandboxedPlugin = {
 		},
 		"content:afterUnpublish": {
 			handler: async (event, ctx) => {
-				const id = roadmapEntry(event);
+				const id = await roadmapEntry(ctx, event);
 				if (id) await setLive(ctx, id, false);
 			},
 		},
 		"content:afterDelete": {
 			handler: async (event, ctx) => {
-				const id = roadmapEntry(event);
+				const id = await roadmapEntry(ctx, event);
 				if (id) await setLive(ctx, id, false);
 			},
 		},
 		// Restored from the trash: live again only when it comes back published.
 		"content:afterRestore": {
 			handler: async (event, ctx) => {
-				const id = roadmapEntry(event);
+				const id = await roadmapEntry(ctx, event);
 				if (id) await setLive(ctx, id, asRecord(event.content).status === "published");
 			},
 		},

@@ -261,3 +261,44 @@ describe("0.4.2 the configured roadmap content type", () => {
 		expect(JSON.stringify(panel.blocks)).toContain("This panel is for roadmap items");
 	});
 });
+
+describe("0.4.2 no false changelog alert after an action", () => {
+	it("keeps the changelog alert off after Approve, Reject and a merge when the type exists", async () => {
+		const site = await openRoadmap();
+		const keep = await item(site, "Keep me");
+		const drop = await item(site, "Drop me");
+		const ideas: string[] = [];
+		for (const title of ["Approve me", "Reject me"]) {
+			const draft = await site.rt.fixtures.content("roadmap", { data: { title, description: "d", stage: "Under review" }, slug: title.toLowerCase().replace(" ", "-") } as never);
+			await site.rt.fixtures.plugin.storage("ideas", draft.id, {
+				member_id: "", title, description: "d", status: "pending", rev: "r1", createdAt: "2026-10-01T00:00:00.000Z", visitor: "", guest: true, name: "Sam",
+			});
+			ideas.push(draft.id);
+		}
+		const alert = "Create the changelog content type";
+		const approved = await adminCall(site, { type: "block_action", action_id: "idea_mod", page: "/ideas", value: `approve|r1|${ideas[0]}` });
+		expect(approved.toast).toMatchObject({ type: "success" });
+		expect(JSON.stringify(approved.blocks)).not.toContain(alert);
+		const rejected = await adminCall(site, { type: "block_action", action_id: "idea_mod", page: "/ideas", value: `reject|r1|${ideas[1]}` });
+		expect(rejected.toast).toMatchObject({ type: "info" });
+		expect(JSON.stringify(rejected.blocks)).not.toContain(alert);
+		const source = (await site.rt.inspect.content.get("roadmap", drop)) as { version?: number; updatedAt?: string };
+		const merged = await adminCall(site, {
+			type: "form_submit",
+			action_id: "merge_items",
+			page: "/ideas",
+			values: { source: `item|${drop}|${source.version ?? ""}~${source.updatedAt ?? ""}`, keep },
+		});
+		expect(merged.toast).toMatchObject({ type: "success" });
+		expect(JSON.stringify(merged.blocks)).not.toContain(alert);
+	});
+
+	it("still shows the changelog alert on a page load when that type is missing", async () => {
+		const site = await openSite();
+		dispose = site.dispose;
+		await site.rt.fixtures.collection(roadmapCollection as never);
+		await site.rt.transport.invokeHook("plugin:install", {});
+		const page = (await site.call("admin", { type: "page_load", page: "/ideas" })) as Page;
+		expect(JSON.stringify(page.blocks)).toContain("Create the changelog content type");
+	});
+});

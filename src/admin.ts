@@ -155,6 +155,8 @@ type IdeasExtra = Pick<BlockResponse, "toast"> & {
 	items?: RoadmapItem[];
 	/** The content types, when the action already knows the roadmap type exists. */
 	here?: Set<string>;
+	/** `here` holds only the roadmap type an action just read from, not every type on the site. */
+	partial?: true;
 	/** Run a step of a merge or the 0.3.0 upgrade with the calls left (page loads and Continue). */
 	background?: boolean;
 };
@@ -200,7 +202,9 @@ async function publishedItems(a: Admin, here: Set<string> | null): Promise<Roadm
 export async function renderIdeas(a: Admin, extra?: IdeasExtra): Promise<BlockResponse> {
 	const { ctx, settings } = a;
 	const here = await typesHere(a, extra?.here);
-	const collections = { roadmap: Boolean(here?.has(settings.collection)), changelog: Boolean(here?.has(CHANGELOG)) };
+	// After an action only the roadmap type is known: whether the changelog type exists was not read,
+	// so its alert waits for the next page load instead of showing falsely.
+	const collections = { roadmap: Boolean(here?.has(settings.collection)), changelog: extra?.partial === true || Boolean(here?.has(CHANGELOG)) };
 	const q = asString(extra?.q).trim().slice(0, 80);
 	const needle = q.toLowerCase();
 	const at = extra?.at ?? "";
@@ -795,8 +799,11 @@ async function handleMoveItem(a: Admin, values: Record<string, unknown>): Promis
 	return saved(a, `Moved to ${stage.name}.`, items);
 }
 
-/** The roadmap type exists whenever an idea or an item was just read from it. */
-const known = (a: Admin) => new Set([a.settings.collection]);
+/**
+ * The roadmap type exists whenever an idea or an item was just read from it. Only that type is
+ * known (no call is spent listing the others), so the screen does not judge the changelog type.
+ */
+const known = (a: Admin) => ({ here: new Set([a.settings.collection]), partial: true as const });
 
 async function handleIdeaMod(a: Admin, value: unknown): Promise<BlockResponse> {
 	const { action, rev, id } = parseStamped(value);
@@ -806,16 +813,16 @@ async function handleIdeaMod(a: Admin, value: unknown): Promise<BlockResponse> {
 		const result = await approveIdea(a.ctx, a.settings, id, rev);
 		if (!result.ok) {
 			spend(a.b);
-			return renderIdeas(a, { toast: { message: result.error, type: "error" }, here: known(a) });
+			return renderIdeas(a, { toast: { message: result.error, type: "error" }, ...known(a) });
 		}
 		const message = result.settled ? "That idea was already published. It left the list." : "Idea published to the board.";
-		return renderIdeas(a, { toast: { message, type: "success" }, here: known(a) });
+		return renderIdeas(a, { toast: { message, type: "success" }, ...known(a) });
 	}
 	if (action === "reject") {
 		spend(a.b);
 		const result = await rejectIdea(a.ctx, id, rev);
-		if (!result.ok) return renderIdeas(a, { toast: { message: result.error, type: "error" }, here: known(a) });
-		return renderIdeas(a, { toast: { message: "Idea rejected. It stays a draft.", type: "info" }, here: known(a) });
+		if (!result.ok) return renderIdeas(a, { toast: { message: result.error, type: "error" }, ...known(a) });
+		return renderIdeas(a, { toast: { message: "Idea rejected. It stays a draft.", type: "info" }, ...known(a) });
 	}
 	return renderIdeas(a, { toast: { message: "Unknown decision.", type: "error" } });
 }
@@ -851,11 +858,11 @@ async function handleMergeReview(a: Admin, values: Record<string, unknown>): Pro
 async function handleMerge(a: Admin, values: Record<string, unknown>): Promise<BlockResponse> {
 	spend(a.b, 5);
 	const result = await mergeItems(a.ctx, a.settings, parseMergeSource(asString(values.source)), asString(values.keep));
-	if (!result.ok) return renderIdeas(a, { toast: { message: result.error, type: "error" }, here: known(a) });
+	if (!result.ok) return renderIdeas(a, { toast: { message: result.error, type: "error" }, ...known(a) });
 	a.settings.mergeJob = result.job;
 	return renderIdeas(a, {
 		toast: { message: "Merge started. Its votes move to the item you kept over the next steps.", type: "success" },
-		here: known(a),
+		...known(a),
 	});
 }
 

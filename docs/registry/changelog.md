@@ -5,6 +5,7 @@ Authors and Editors can use the Stage panel, and the Ideas admin reaches every w
 - Improve: Editors move any item with the Stage panel, Authors their own.
 - Improve: Ideas pages through every waiting idea, 25 at a time; Find looks 100 at a time.
 - Improve: Roadmap votes shows a member's ideas 50 at a time, with Show more ideas.
+- Fix: no false changelog alert after Approve or Reject.
 - Fix: the Stage panel guard follows the content type set for the site.
 - Compat: needs EmDash 1.2.0 or later.
 

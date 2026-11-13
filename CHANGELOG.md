@@ -11,6 +11,7 @@ Authors and Editors can use the Stage panel, and the Ideas admin reaches every w
 - Improve  - Find on Ideas looks through 100 waiting ideas at a time, and Next looks through older ones.
 - Improve  - The Roadmap votes page shows a member's ideas 50 at a time, with Show more ideas for the rest. Before, it stopped at 50.
 - Fix      - The Stage panel guard and the health check follow the roadmap content type set for the site.
+- Fix      - After Approve, Reject or a merge, Ideas no longer shows a false "Create the changelog content type" alert.
 - Fix      - A vote for an item id longer than 64 characters is turned away at once.
 - Compat   - Declares EmDash 1.2.0 or later in the registry.
 

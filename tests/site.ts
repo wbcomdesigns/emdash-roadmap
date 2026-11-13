@@ -56,3 +56,16 @@ export async function withPosts(rt: Awaited<ReturnType<typeof openSite>>["rt"]) 
 	const draft = await rt.fixtures.content("posts", { data: { title: "Secret Draft" }, slug: "secret-draft" } as never);
 	return { live: live.id, draft: draft.id };
 }
+
+/**
+ * Since plugin-test 0.2.12 (EmDash 1.5) the host runs plugin:install on the empty site it starts
+ * with, and nothing the test can reach deletes what it wrote. So a 0.3.0 site is seeded as EmDash 1.5
+ * leaves one: install kept the 0.3.0 salt (saveSalt copies it from kv) and found no 0.4.0 upgrade
+ * record, so the upgrade starts from its first phase. The path with no salt saved at all (a registry
+ * update, where install does not run) is covered by tests/salt.test.ts.
+ */
+export async function asV3Site(rt: Awaited<ReturnType<typeof openSite>>["rt"], salt = "old-salt"): Promise<void> {
+	await rt.fixtures.plugin.kv("visitor-salt", salt);
+	await rt.fixtures.plugin.setting("visitor_salt", salt);
+	await rt.fixtures.plugin.setting("upgrade_0_4", { phase: "salt", after: "", big: "" });
+}

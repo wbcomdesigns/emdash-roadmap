@@ -2,6 +2,16 @@
 
 Versions match `package.json`, the git tag and the registry release. Newest first.
 
+## [0.4.1]
+
+Guests keep their 0.3.0 votes on sites that move to EmDash 1.5. No new permission. The site kit is unchanged; copy it with the new tag.
+
+- Fix      - A site that added Product Roadmap in its config file and still held 0.3.0 data keeps its guest key when EmDash 1.5 runs the install step, so guests can take back votes cast before the update.
+- Fix      - An error while Product Roadmap sets up is logged instead of switching the plugin off on EmDash 1.5.
+- Compat   - Tested on EmDash 1.2, 1.3 and 1.5.0.
+
+A site already moved to EmDash 1.5 under 0.4.0 keeps the guest key it has: changing it again would break the guest votes cast since. Guests who voted under 0.3.0 can vote again there once.
+
 ## [0.4.0]
 
 Every page, vote, hourly run and admin screen now stays within Cloudflare's limit of 10 requests per plugin call, measured on a busy test site. Cloudflare stays marked not supported until it is checked there. No new permission. Copy the kit again after you update. Until you do, the 0.3.0 kit shows every item on a category-filtered board, and Take back all my votes removes 7 votes and then shows an error (press it again to remove the next 7).

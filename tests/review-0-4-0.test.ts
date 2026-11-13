@@ -6,7 +6,7 @@ import { afterEach, describe, expect, it } from "vitest";
 
 // @ts-expect-error plain module shared with the lab seed
 import { changelogCollection, roadmapCollection } from "../site-kit/seed/collection.mjs";
-import { admin, ana, ben, member, openSite } from "./site";
+import { admin, ana, asV3Site, ben, member, openSite } from "./site";
 
 /**
  * 0.4.0 counters under races, and the Cloudflare walk finding. Each race test runs the competing
@@ -47,6 +47,7 @@ async function open(install = true) {
 	await site.rt.fixtures.collection(roadmapCollection as never);
 	await site.rt.fixtures.collection(changelogCollection as never);
 	if (install) await site.rt.transport.invokeHook("plugin:install", {});
+	else await asV3Site(site.rt);
 	return site;
 }
 

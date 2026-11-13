@@ -6,12 +6,12 @@ import { handleEditorPanel } from "./editor";
 import { CHANGELOG, MEMBER, ROADMAP, budget, collectionsHere, left } from "./core";
 import { forgetGuestIdeas, forgetGuestVotes, forgetRates, mergeStep, readJob, settleIdea } from "./ideas";
 import { ensureNotifyTask, notifyOwners } from "./notify";
-import { loadSettings, SALT_KEY, UPGRADE_KEY } from "./settings";
+import { loadSettings, UPGRADE_KEY } from "./settings";
 import { handleSuggest, handleSuggestGuest } from "./suggest";
 import { ensureTally, setLive } from "./tally";
 import { guestCleanupSafe, upgradeDone, upgradeStep, UPGRADE_STEP } from "./upgrade";
 import { handleVote, handleVoteGuest, listMyVotes } from "./vote";
-import { requestGuest } from "./visitor";
+import { requestGuest, saveSalt } from "./visitor";
 import { asRecord, asString } from "./util";
 
 /** The entry id a content hook is about, for items of the roadmap type (from settings, one call) only. */
@@ -42,12 +42,13 @@ async function hourly(ctx: Parameters<typeof notifyOwners>[0]): Promise<void> {
 
 const plugin: SandboxedPlugin = {
 	hooks: {
-		// Settings need no defaults written: an unset key reads as its default. Five calls: the hourly
-		// task (two), the guest salt, and on a site with no 0.3.0 counts the upgrade is marked done.
+		// Settings need no defaults written: an unset key reads as its default. Six calls: the hourly
+		// task (two), the guest salt (two: a 0.3.0 site keeps its old one), and on a site with no 0.3.0
+		// counts the upgrade is marked done. Safe to run again: it only sets missing values.
 		"plugin:install": {
 			handler: async (_event, ctx) => {
 				await ensureNotifyTask(ctx);
-				await ctx.settings.compareAndSet(SALT_KEY, null, crypto.randomUUID()).catch(() => undefined);
+				await saveSalt(ctx);
 				if ((await ctx.storage.tallies.count({ v: null })) === 0) {
 					await ctx.settings.compareAndSet(UPGRADE_KEY, null, { phase: "done", after: "", big: "" }).catch(() => undefined);
 				}

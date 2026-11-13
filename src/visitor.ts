@@ -30,6 +30,18 @@ export async function siteSalt(ctx: Ctx, b: Budget, settings: Pick<Settings, "sa
 }
 
 /**
+ * Store the site's salt once: the 0.3.0 copy in kv when there is one, so guests keep their votes,
+ * else a new one. Sets only a missing value, so install and the upgrade can both run it, in any
+ * order and more than once (EmDash 1.5 can run install again). Two calls. The salt now stored, or
+ * null when another call stored one first.
+ */
+export async function saveSalt(ctx: Ctx): Promise<string | null> {
+	const old = await ctx.kv.get<string>(OLD_SALT_KEY).catch(() => null);
+	const salt = typeof old === "string" && old ? old : crypto.randomUUID();
+	return (await ctx.settings.compareAndSet(SALT_KEY, null, salt).catch(() => ({ applied: false }))).applied ? salt : null;
+}
+
+/**
  * The guest's key from the address EmDash gives the route: on Cloudflare, or when the site sets
  * trustedProxyHeaders. Null on any other host, or for an address that does not parse; then
  * guests cannot write (owner, 2026-10-16). One key per IPv4 address or IPv6 /64.

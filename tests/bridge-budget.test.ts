@@ -5,7 +5,7 @@ import { afterEach, describe, expect, it } from "vitest";
 
 // @ts-expect-error plain module shared with the lab seed
 import { changelogCollection, roadmapCollection } from "../site-kit/seed/collection.mjs";
-import { admin as adminUser, ana, openSite } from "./site";
+import { admin as adminUser, ana, asV3Site, openSite } from "./site";
 
 /**
  * Bridge calls per entry point, each in its worst realistic case (a busy site). On Cloudflare a
@@ -36,11 +36,13 @@ const MEASURED: Record<string, number> = {
 	"route vote DELETE (0.3.0 row the upgrade passed)": 6,
 	"route vote_guest POST (live item)": 8,
 	"route vote_guest POST (first counted vote, item not marked live)": 9,
-	"route vote_guest POST (0.3.0 site before the upgrade, salt in kv)": 8,
+	// A registry update runs no install, so a guest reads the 0.3.0 salt from kv (+1, 8 on the 1.3 host)
+	// or makes one (+2, 9). tests/salt.test.ts holds those call counts; this host always has install's salt.
+	"route vote_guest POST (0.3.0 site before the upgrade, salt kept by install)": 7,
 	"route vote_guest DELETE (take back)": 3,
 	"route vote_guest DELETE (nothing to take back)": 5,
 	"route suggest_guest": 7,
-	"route suggest_guest (0.3.0 site, no salt yet)": 9,
+	"route suggest_guest (0.3.0 site, salt kept by install)": 7,
 	"route suggest": 6,
 	"route votes GET (300 votes)": 8,
 	"route votes DELETE (erase 200 votes), largest call": 9,
@@ -113,6 +115,7 @@ async function busySite(opts: Busy = {}) {
 	await rt.fixtures.plugin.setting("notify_to", "owner@example.com");
 	// A 0.4.0 site ran install: the hourly task, the salt, and no 0.3.0 data to bring over.
 	if (!opts.fresh && !opts.v3) await rt.transport.invokeHook("plugin:install", {});
+	if (opts.v3) await asV3Site(rt);
 	if (opts.v3) {
 		await rt.fixtures.plugin.kv("visitor-salt", "old-salt");
 		await rt.fixtures.plugin.kv("kit_pages_done", "1");
@@ -323,9 +326,9 @@ describe("public routes", () => {
 		expect(await tally(s, made.id)).toMatchObject({ v: 4, votes: 1, live: true });
 	});
 
-	it("vote_guest POST on a 0.3.0 site before the upgrade: salt read from kv, count left to the upgrade", async () => {
+	it("vote_guest POST on a 0.3.0 site before the upgrade: count left to the upgrade", async () => {
 		const { site: s, items } = await busySite({ v3: true, items: 1, votesPer: 5 });
-		const answer = await measure("route vote_guest POST (0.3.0 site before the upgrade, salt in kv)", () =>
+		const answer = await measure("route vote_guest POST (0.3.0 site before the upgrade, salt kept by install)", () =>
 			s.call("vote_guest", { id: items[0] }, guestReq("198.51.100.7")),
 		);
 		expect(answer).toMatchObject({ ok: true, voted: true, votes: 6 });
@@ -350,9 +353,9 @@ describe("public routes", () => {
 		await measure("route suggest_guest", () => s.call("suggest_guest", { title: "Dark mode", description: "x", name: "Sam" }, guestReq("198.51.100.7")));
 	});
 
-	it("suggest_guest on a 0.3.0 site where no guest ever wrote: the salt is made", async () => {
+	it("suggest_guest on a 0.3.0 site where no guest ever wrote", async () => {
 		const { site: s } = await busySite({ fresh: true, items: 1 });
-		await measure("route suggest_guest (0.3.0 site, no salt yet)", () =>
+		await measure("route suggest_guest (0.3.0 site, salt kept by install)", () =>
 			s.call("suggest_guest", { title: "Dark mode", description: "x", name: "Sam" }, guestReq("198.51.100.7")),
 		);
 		expect(await s.rt.inspect.setting("visitor_salt")).toBeTruthy();

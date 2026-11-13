@@ -32,10 +32,10 @@
 		"emdash": ">=1.2.0"
 	},
 	"devDependencies": {
-		"@emdash-cms/plugin-cli": "0.13.3",
-		"@emdash-cms/plugin-test": "^0.2.8",
+		"@emdash-cms/plugin-cli": "^0.13.6",
+		"@emdash-cms/plugin-test": "^0.2.12",
 		"astro": "^7.3.2",
-		"emdash": "^1.2.0",
+		"emdash": "^1.5.0",
 		"react": "19.2.4",
 		"react-dom": "19.2.4",
 		"typescript": "^5.9.0",

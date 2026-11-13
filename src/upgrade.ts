@@ -1,10 +1,10 @@
 import type { PluginContext } from "emdash/plugin";
 
 import { left, spend, type Budget } from "./core";
-import { KIT_DONE_KEY, SALT_KEY, UPGRADE_KEY, type Settings } from "./settings";
+import { KIT_DONE_KEY, UPGRADE_KEY, type Settings } from "./settings";
 import { freshTally } from "./tally";
 import { asRecord, asString } from "./util";
-import { OLD_SALT_KEY } from "./visitor";
+import { saveSalt } from "./visitor";
 
 /**
  * Bringing 0.3.0 data into 0.4.0, one small step per call (Cloudflare allows 10 requests per plugin
@@ -77,9 +77,8 @@ export async function upgradeStep(ctx: PluginContext, b: Budget, settings: Setti
 			if (!(await claim({ ...state, phase: "kit" }))) return false;
 			if (settings.salt) return false;
 			spend(b, 2);
-			const old = await ctx.kv.get<string>(OLD_SALT_KEY);
-			const salt = typeof old === "string" && old ? old : crypto.randomUUID();
-			if ((await ctx.settings.compareAndSet(SALT_KEY, null, salt)).applied) settings.salt = salt;
+			const salt = await saveSalt(ctx);
+			if (salt) settings.salt = salt;
 			return false;
 		}
 		if (state.phase === "kit") {

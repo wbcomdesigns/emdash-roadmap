@@ -7,7 +7,10 @@ Versions match `package.json`, the git tag and the registry release. Newest firs
 Guests keep their 0.3.0 votes on sites that move to EmDash 1.5. No new permission. The site kit is unchanged; copy it with the new tag.
 
 - Fix      - A site that added Product Roadmap in its config file and still held 0.3.0 data keeps its guest key when EmDash 1.5 runs the install step, so guests can take back votes cast before the update.
+- Fix      - An error while Product Roadmap sets up is logged instead of switching the plugin off on EmDash 1.5.
 - Compat   - Tested on EmDash 1.2, 1.3 and 1.5.0.
+
+A site already moved to EmDash 1.5 under 0.4.0 keeps the guest key it has: changing it again would break the guest votes cast since. Guests who voted under 0.3.0 can vote again there once.
 
 ## [0.4.0]
 

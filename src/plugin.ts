@@ -1,4 +1,4 @@
-import type { SandboxedPlugin } from "emdash/plugin";
+import type { PluginContext, SandboxedPlugin } from "emdash/plugin";
 
 import { handleAdmin } from "./admin";
 import { keepPanelStage, loadBoard } from "./content";
@@ -40,22 +40,38 @@ async function hourly(ctx: Parameters<typeof notifyOwners>[0]): Promise<void> {
 	await forgetRates(ctx, b, 4);
 }
 
+/**
+ * Run an install or activate step. Since EmDash 1.5 a throw from either hook leaves the plugin
+ * disabled, which would take the board down over a missed schedule. An error is logged instead: the
+ * routes keep working, the upgrade fills in the salt, and activating again schedules the hourly task.
+ */
+async function setUp(ctx: PluginContext, step: () => Promise<unknown>): Promise<void> {
+	try {
+		await step();
+	} catch (error) {
+		ctx.log.error("Product Roadmap could not finish setting up. Deactivate and activate it again.", {
+			error: error instanceof Error ? error.message : String(error),
+		});
+	}
+}
+
 const plugin: SandboxedPlugin = {
 	hooks: {
 		// Settings need no defaults written: an unset key reads as its default. Six calls: the hourly
 		// task (two), the guest salt (two: a 0.3.0 site keeps its old one), and on a site with no 0.3.0
 		// counts the upgrade is marked done. Safe to run again: it only sets missing values.
 		"plugin:install": {
-			handler: async (_event, ctx) => {
-				await ensureNotifyTask(ctx);
-				await saveSalt(ctx);
-				if ((await ctx.storage.tallies.count({ v: null })) === 0) {
-					await ctx.settings.compareAndSet(UPGRADE_KEY, null, { phase: "done", after: "", big: "" }).catch(() => undefined);
-				}
-			},
+			handler: async (_event, ctx) =>
+				setUp(ctx, async () => {
+					await ensureNotifyTask(ctx);
+					await saveSalt(ctx);
+					if ((await ctx.storage.tallies.count({ v: null })) === 0) {
+						await ctx.settings.compareAndSet(UPGRADE_KEY, null, { phase: "done", after: "", big: "" }).catch(() => undefined);
+					}
+				}),
 		},
 		"plugin:activate": {
-			handler: async (_event, ctx) => ensureNotifyTask(ctx),
+			handler: async (_event, ctx) => setUp(ctx, () => ensureNotifyTask(ctx)),
 		},
 		"content:beforeSave": {
 			handler: async (event, ctx) => keepPanelStage(ctx, event),

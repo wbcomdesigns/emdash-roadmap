@@ -3,6 +3,7 @@
 Guests keep their 0.3.0 votes on sites that move to EmDash 1.5. No new permission.
 
 - Fix: install keeps a 0.3.0 site's guest key, so guests can take back earlier votes.
+- Fix: a setup error is logged instead of switching the plugin off on EmDash 1.5.
 - Compat: tested on EmDash 1.2, 1.3 and 1.5.0.
 
 Copy the kit with tag v0.4.1 after you update (same files as 0.4.0).

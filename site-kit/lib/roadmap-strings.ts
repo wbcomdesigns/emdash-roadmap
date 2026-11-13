@@ -27,6 +27,7 @@ export const strings = {
 	myVotesEmpty: "You have not voted yet.",
 	myVotesEmptyHelp: "Votes you cast while signed in show up here.",
 	yourIdeas: "Ideas you sent",
+	moreIdeas: "Show more ideas",
 	erase: "Take back all my votes",
 	eraseArm: "Take them back",
 	eraseHelp: "This takes back every vote you cast. You will be asked to confirm.",

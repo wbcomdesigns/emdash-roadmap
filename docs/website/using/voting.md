@@ -36,7 +36,7 @@ What this means for you:
 
 ## Roadmap votes
 
-A signed-in member opens `/account/roadmap-votes/`. Each item is a link, with its stage in plain words. Ideas they sent are listed with a status: waiting for a decision, on the board, or not published. **Take back all my votes** asks for a second click. Guests see a sign-in link. Add a menu link labelled **Roadmap votes** (WB Polls uses My votes for its own page).
+A signed-in member opens `/account/roadmap-votes/`. Each item is a link, with its stage in plain words. Ideas they sent are listed with a status: waiting for a decision, on the board, or not published. The page lists 50 at a time; **Show more ideas** adds the next 50. **Take back all my votes** asks for a second click. Guests see a sign-in link. Add a menu link labelled **Roadmap votes** (WB Polls uses My votes for its own page).
 
 ## Limits
 

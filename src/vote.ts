@@ -4,6 +4,7 @@ import {
 	BUSY,
 	FAILED,
 	GUEST_UNAVAILABLE,
+	INVALID,
 	MAX_CALLS,
 	MEMBERS_ONLY,
 	NO_VISITOR,
@@ -20,7 +21,7 @@ import {
 } from "./core";
 import { findStage, loadSettings, type Settings } from "./settings";
 import { counted, freshTally, moveTally, readTally, type Tally } from "./tally";
-import { asRecord, asString, nowIso } from "./util";
+import { asRecord, asString, nowIso, readCursor } from "./util";
 import { noteGuestAddress, requestGuest, siteSalt, visitorHash, visitorWho } from "./visitor";
 
 export const NOT_FOUND = {
@@ -36,6 +37,13 @@ type Route = {
 };
 
 export type VoteOk = { ok: true; votes: number; voted: boolean };
+
+/**
+ * Longest item id a vote takes. Entry ids are 26-character ULIDs; anything longer is not an item
+ * and would only grow the vote row's key (item id + voter).
+ */
+export const ITEM_ID_MAX = 64;
+const notItem = (item: string) => !item || item.length > ITEM_ID_MAX;
 
 export function voteRowId(itemId: string, who: string): string {
 	return `${itemId}:${who}`;
@@ -94,7 +102,7 @@ async function castVote(
 	who: string,
 	row: { member_id: string; visitor: string },
 ) {
-	if (!item) return NOT_FOUND;
+	if (notItem(item)) return NOT_FOUND;
 	let tally: Tally | null;
 	spend(b);
 	try {
@@ -153,7 +161,7 @@ async function recount(ctx: PluginContext, b: Budget, item: string): Promise<num
  * one off the count. Nothing to take back: no write, no recount, and the reason is said plainly.
  */
 async function dropVote(ctx: PluginContext, b: Budget, known: Settings | null, item: string, who: string) {
-	if (!item) return NOT_FOUND;
+	if (notItem(item)) return NOT_FOUND;
 	const id = voteRowId(item, who);
 	let removed: boolean;
 	spend(b);
@@ -252,11 +260,39 @@ function ideaStatus(status: string): string {
 const MINE_PAGES = 3;
 const ITEM_PAGES = 2;
 
-/** Ids the caller voted for, so the board can mark them after a cached page loads. At most 8 calls. */
+/** Ideas a member sent, per page of the list on their account page. */
+const MY_IDEAS_PAGE = 50;
+
+/**
+ * A page of the ideas this member sent, newest first, from `at` (one read). `ideasNext` is the
+ * cursor for the page after, "" on the last one.
+ */
+async function myIdeas(ctx: PluginContext, userId: string, at = "") {
+	const found = await ctx.storage.ideas.query({
+		where: { member_id: userId },
+		orderBy: { createdAt: "desc" },
+		limit: MY_IDEAS_PAGE,
+		...(at ? { cursor: at } : {}),
+	});
+	const ideas = found.items
+		.map((row) => asRecord(row.data))
+		.map((row) => ({ title: asString(row.title), status: ideaStatus(asString(row.status)) }))
+		.filter((idea) => idea.title);
+	return { ideas, ideasNext: found.hasMore && found.cursor ? found.cursor : "" };
+}
+
+/**
+ * Ids the caller voted for, so the board can mark them after a cached page loads, and the first page
+ * of the ideas they sent. At most 8 calls. With `ideas_after` (the cursor the last answer gave), only
+ * the next page of ideas: one call.
+ */
 export async function listMyVotes(routeCtx: Route, ctx: PluginContext) {
 	const user = routeCtx.user;
 	if (!user) return SIGN_IN;
 	if (routeCtx.request.method === "DELETE") return eraseMyVotes(ctx, user.id);
+	const after = readCursor(asRecord(routeCtx.input).ideas_after);
+	if (after === null) return INVALID;
+	if (after) return { ok: true, ...(await myIdeas(ctx, user.id, after)) };
 	const ids: string[] = [];
 	let cursor: string | undefined;
 	for (let page = 0; page < MINE_PAGES; page += 1) {
@@ -291,12 +327,7 @@ export async function listMyVotes(routeCtx: Route, ctx: PluginContext) {
 		if (!item) return [];
 		return [{ id, title: item.title, slug: item.slug, stage: findStage(settings.stages, item.stage)?.name || item.stage }];
 	});
-	const ideaRows = await ctx.storage.ideas.query({ where: { member_id: user.id }, limit: 50 });
-	const ideas = ideaRows.items
-		.map((row) => asRecord(row.data))
-		.map((row) => ({ title: asString(row.title), status: ideaStatus(asString(row.status)) }))
-		.filter((idea) => idea.title);
-	return { ok: true, ids, items, ideas };
+	return { ok: true, ids, items, ...(await myIdeas(ctx, user.id)) };
 }
 
 /** Votes one erase call removes. Each needs its own count change; the kit calls again on MORE. */

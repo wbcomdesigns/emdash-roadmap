@@ -30,7 +30,7 @@ import {
 	type Stage,
 } from "./settings";
 import { upgradeDone, upgradeLabel, upgradeStep } from "./upgrade";
-import { asBoolean, asRecord, asString } from "./util";
+import { asBoolean, asRecord, asString, readCursor } from "./util";
 
 type Toast = { message: string; type: "success" | "error" | "info" };
 export type BlockMap = Record<string, unknown> & { type: string };
@@ -148,9 +148,10 @@ export function kitBlocks(ctx: PluginContext, settings: Settings): BlockMap[] {
 type IdeasExtra = Pick<BlockResponse, "toast"> & {
 	mergeConfirm?: { source: string; keep: string; sourceTitle: string; keepTitle: string };
 	q?: string;
-	offset?: number;
+	/** The storage cursor of the page shown ("" for the first) and of the pages before it. */
+	at?: string;
+	back?: string[];
 	/** Already read by the action: not read again. */
-	pending?: { ideas: IdeaRow[]; more: boolean };
 	items?: RoadmapItem[];
 	/** The content types, when the action already knows the roadmap type exists. */
 	here?: Set<string>;
@@ -190,19 +191,22 @@ async function publishedItems(a: Admin, here: Set<string> | null): Promise<Roadm
 }
 
 /**
- * The Ideas page. Settings (read by the caller), the content types, the waiting ideas and the
+ * The Ideas page. Settings (read by the caller), the content types, a page of waiting ideas and the
  * published items: four calls. On a page load a step of a running merge or of the 0.3.0 upgrade
- * then takes up to four more, and the weekly vote count takes the last one when it is free.
+ * then takes up to four more; the waiting count and the weekly vote count take the last ones when
+ * they are free. Waiting ideas are read 25 at a time with the storage cursor, and Next and Previous
+ * carry the cursors in their values, so paging stores nothing. Find searches 100 at a time.
  */
 export async function renderIdeas(a: Admin, extra?: IdeasExtra): Promise<BlockResponse> {
 	const { ctx, settings } = a;
 	const here = await typesHere(a, extra?.here);
 	const collections = { roadmap: Boolean(here?.has(settings.collection)), changelog: Boolean(here?.has(CHANGELOG)) };
-	let waiting = extra?.pending;
-	if (!waiting) {
-		spend(a.b);
-		waiting = await listPendingIdeas(ctx).catch(() => ({ ideas: [] as IdeaRow[], more: false }));
-	}
+	const q = asString(extra?.q).trim().slice(0, 80);
+	const needle = q.toLowerCase();
+	const at = extra?.at ?? "";
+	const back = extra?.back ?? [];
+	spend(a.b);
+	const waiting = await listPendingIdeas(ctx, at, needle ? 100 : PAGE).catch(() => ({ ideas: [] as IdeaRow[], next: "" }));
 	const items = extra?.items ?? (await publishedItems(a, here));
 	// An idea whose draft was published from the content editor before 0.4.0 is done: it is not
 	// shown as waiting (since 0.4.0 the content:afterPublish hook marks it approved).
@@ -214,16 +218,14 @@ export async function renderIdeas(a: Admin, extra?: IdeasExtra): Promise<BlockRe
 		else await upgradeStep(ctx, a.b, settings);
 		await settleShown(a, waiting.ideas.filter((idea) => live.has(idea.id)));
 	}
+	// Every waiting idea, counted, when a call is free (an approve leaves one). Otherwise this page's.
+	const total = spend(a.b) ? await ctx.storage.ideas.count({ status: "pending" }).catch(() => null) : null;
 	const week = await votesThisWeek(ctx, a.b);
 	// Stage counts are what the board shows. A waiting idea is a draft: it counts as waiting only.
 	const counts = stageCounts(items, settings.stages);
-	const q = asString(extra?.q).trim();
-	const needle = q.toLowerCase();
-	const matched = needle
+	const pageRows = needle
 		? pending.filter((idea) => `${idea.title} ${idea.description}`.toLowerCase().includes(needle))
 		: pending;
-	const offset = Math.max(0, extra?.offset ?? 0);
-	const pageRows = matched.slice(offset, offset + PAGE);
 	const keepOptions = withChoice(items.map((item) => ({ label: item.title, value: item.id })));
 	const sourceOptions = withChoice([
 		...pending.map((idea) => ({
@@ -247,26 +249,16 @@ export async function renderIdeas(a: Admin, extra?: IdeasExtra): Promise<BlockRe
 		},
 	}));
 	const pager: BlockMap[] = [];
-	if (offset > 0 || offset + PAGE < matched.length) {
-		const elements: Array<Record<string, unknown>> = [];
-		if (offset > 0) {
-			elements.push({
-				type: "button",
-				label: "Previous",
-				action_id: "ideas_page",
-				value: `${Math.max(0, offset - PAGE)}|${q}`,
-			});
-		}
-		if (offset + PAGE < matched.length) {
-			elements.push({
-				type: "button",
-				label: "Next",
-				action_id: "ideas_page",
-				value: `${offset + PAGE}|${q}`,
-			});
-		}
-		if (elements.length) pager.push({ type: "actions", elements });
+	const elements: Array<Record<string, unknown>> = [];
+	if (at) {
+		elements.push({ type: "button", label: "Previous", action_id: "ideas_page", value: { at: back[back.length - 1] ?? "", back: back.slice(0, -1), q } });
 	}
+	if (waiting.next) {
+		// Up to 20 pages back are kept; further back, Previous starts again at the first page.
+		elements.push({ type: "button", label: "Next", action_id: "ideas_page", value: { at: waiting.next, back: [...back, at].slice(-20), q } });
+	}
+	if (needle && waiting.next) pager.push({ type: "context", text: "Find looks through 100 waiting ideas at a time, newest first. Next looks through older ones." });
+	if (elements.length) pager.push({ type: "actions", elements });
 	const missing: BlockMap[] = [];
 	if (!collections.roadmap) {
 		missing.push({
@@ -315,7 +307,7 @@ export async function renderIdeas(a: Admin, extra?: IdeasExtra): Promise<BlockRe
 		: [
 		{
 			type: "context",
-			text: "Pick the item to drop and the item to keep. Votes move across, one per person.",
+			text: "Pick the item to drop and the item to keep. Votes move across, one per person. The waiting ideas listed are the ones on this page.",
 		},
 		...(extra?.mergeConfirm
 			? [
@@ -389,7 +381,7 @@ export async function renderIdeas(a: Admin, extra?: IdeasExtra): Promise<BlockRe
 			{
 				type: "stats",
 				items: [
-					{ label: "Ideas waiting", value: waiting.more ? `${pending.length}+` : String(pending.length) },
+					{ label: "Ideas waiting", value: total === null ? `${pending.length}${waiting.next ? "+" : ""}` : String(total) },
 					...(week === null ? [] : [{ label: "Votes this week", value: String(week) }]),
 				],
 			},
@@ -421,7 +413,9 @@ export async function renderIdeas(a: Admin, extra?: IdeasExtra): Promise<BlockRe
 						type: "empty",
 						title: q ? "No ideas match that search" : "No ideas waiting",
 						description: q
-							? "Try a different search."
+							? waiting.next
+								? "None in these 100 waiting ideas. Next looks through older ones."
+								: "Try a different search."
 							: "Suggestions from the site wait here. Approve one to put it on the board.",
 					}
 				: {
@@ -834,12 +828,16 @@ async function handleMergeReview(a: Admin, values: Record<string, unknown>): Pro
 		return renderIdeas(a, { toast: { message: "Choose both items.", type: "error" } });
 	}
 	const here = await typesHere(a);
-	spend(a.b);
-	const pending = await listPendingIdeas(a.ctx).catch(() => ({ ideas: [] as IdeaRow[], more: false }));
 	const items = await publishedItems(a, here);
-	const sourceTitle = (from.kind === "idea" ? pending.ideas : items).find((row) => row.id === from.id)?.title || "";
+	let sourceTitle = "";
+	if (from.kind === "idea") {
+		// The idea may be on any page of the list: read it by id (one call).
+		spend(a.b);
+		const row = await a.ctx.storage.ideas.get(from.id).catch(() => null);
+		sourceTitle = row && asString(asRecord(row).status) === "pending" ? asString(asRecord(row).title) : "";
+	} else sourceTitle = items.find((row) => row.id === from.id)?.title || "";
 	const keepTitle = items.find((item) => item.id === keep)?.title || "";
-	const reuse = { here: here ?? undefined, pending, items };
+	const reuse = { here: here ?? undefined, items };
 	if (!sourceTitle || !keepTitle) {
 		return renderIdeas(a, { toast: { message: "Choose both items.", type: "error" }, ...reuse });
 	}
@@ -902,8 +900,11 @@ export async function handleAdmin(input: unknown, ctx: PluginContext): Promise<B
 		if (action === "bg_continue") return renderIdeas(a, { background: true });
 		if (action === "idea_mod") return handleIdeaMod(a, raw.value);
 		if (action === "ideas_page") {
-			const [offset = "0", ...rest] = asString(raw.value).split("|");
-			return renderIdeas(a, { q: rest.join("|"), offset: Number(offset) || 0 });
+			const value = asRecord(raw.value);
+			const at = readCursor(value.at);
+			const back = (Array.isArray(value.back) ? value.back : []).map(readCursor).filter((cursor): cursor is string => cursor !== null).slice(-20);
+			if (at === null) return renderIdeas(a, { toast: { message: "That page is out of date. Showing the first page.", type: "info" } });
+			return renderIdeas(a, { q: asString(value.q), at, back });
 		}
 		if (action.startsWith("stage_up:")) return handleMoveStage(a, action.slice(9), "up");
 		if (action.startsWith("stage_down:")) return handleMoveStage(a, action.slice(11), "down");

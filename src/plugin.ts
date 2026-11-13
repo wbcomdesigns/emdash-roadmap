@@ -3,7 +3,7 @@ import type { PluginContext, SandboxedPlugin } from "emdash/plugin";
 import { handleAdmin } from "./admin";
 import { keepPanelStage, loadBoard } from "./content";
 import { handleEditorPanel } from "./editor";
-import { CHANGELOG, MEMBER, ROADMAP, budget, collectionsHere, left } from "./core";
+import { CHANGELOG, MEMBER, budget, collectionsHere, left } from "./core";
 import { forgetGuestIdeas, forgetGuestVotes, forgetRates, mergeStep, readJob, settleIdea } from "./ideas";
 import { ensureNotifyTask, notifyOwners } from "./notify";
 import { loadSettings, UPGRADE_KEY } from "./settings";
@@ -127,7 +127,7 @@ const plugin: SandboxedPlugin = {
 					ok: true,
 					plugin: ctx.plugin.id,
 					version: ctx.plugin.version,
-					collection: Boolean(here?.has(ROADMAP)),
+					collection: Boolean(here?.has(settings.collection)),
 					changelog: Boolean(here?.has(CHANGELOG)),
 					allowIdeas: settings.allowIdeas,
 					who: settings.who,
@@ -162,9 +162,13 @@ const plugin: SandboxedPlugin = {
 			handler: handleSuggestGuest,
 		},
 		admin: {
+			permission: "plugins:manage",
 			handler: async (routeCtx, ctx) => handleAdmin(routeCtx.input, ctx),
 		},
 		editor_stage: {
+			// Authors and up. The host also checks the caller may edit this entry (their own, or any for
+			// Editors), and the panel's one action moves that entry's stage.
+			permission: "content:edit_own",
 			handler: async (routeCtx, ctx) => handleEditorPanel(routeCtx, ctx),
 		},
 	},

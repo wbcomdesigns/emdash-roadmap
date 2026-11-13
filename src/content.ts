@@ -1,6 +1,6 @@
 import type { PluginContext } from "emdash/plugin";
 
-import { FAILED, ROADMAP, roadmapReady } from "./core";
+import { FAILED, roadmapReady } from "./core";
 import { findStage, loadSettings, type Settings, type Stage } from "./settings";
 import { readTally } from "./tally";
 import { asRecord, asString } from "./util";
@@ -240,13 +240,15 @@ export async function keepPanelStage(
 ): Promise<Record<string, unknown> | { __emdashSandboxHookResult: true; version: 1; error: { code: "SAVE_REJECTED"; reason: string } } | void> {
 	// This hook also runs inside the plugin's own content.update (a Stage panel move). The usual
 	// save costs one call (the move record); the plugin's own save then stops there, because it
-	// carries the stage the record was just set to. At most four calls.
+	// carries the stage the record was just set to. At most five calls.
 	if (event.isNew || !event.id || !("stage" in event.content)) return;
-	if (event.collection !== ROADMAP) return;
 	const move = readMove(await ctx.kv.get(stageKey(event.id)));
 	if (!move) return;
 	const incoming = asString(event.content.stage);
 	if (incoming === move.to) return;
+	// The roadmap type is the one in settings, as in every other hook. Read only once a move record
+	// is found, so a save with no panel move costs no more than before.
+	if (event.collection !== (await loadSettings(ctx)).collection) return;
 	const item = await ctx.content?.get?.(event.collection, event.id).catch(() => null);
 	const now = item ? (await currentStage(ctx, event.collection, item)).stage : "";
 	if (move.left.includes(incoming) && now === move.to) {

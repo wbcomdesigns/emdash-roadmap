@@ -88,3 +88,22 @@ export async function allRows(collection: Pageable, where: Where = {}, maxPages 
 	}
 	return out;
 }
+
+/**
+ * A storage cursor sent back by a screen: the cursor when storage can read it, "" when none was
+ * sent, null when it is not one. Storage rejects an unreadable cursor inside the sandbox bridge, so
+ * it is checked here by the same rule EmDash applies (base64 of a JSON object with a string
+ * orderValue and id, sortValues an array if present, at most 4096 characters). Same rule as Listora.
+ */
+export function readCursor(value: unknown): string | null {
+	const cursor = asString(value);
+	if (!cursor) return "";
+	if (cursor.length > 4096) return null;
+	try {
+		const parsed = asRecord(JSON.parse(new TextDecoder().decode(Uint8Array.from(atob(cursor), (ch) => ch.charCodeAt(0)))));
+		if (parsed.sortValues !== undefined && !Array.isArray(parsed.sortValues)) return null;
+		return typeof parsed.orderValue === "string" && typeof parsed.id === "string" ? cursor : null;
+	} catch {
+		return null;
+	}
+}

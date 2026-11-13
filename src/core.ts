@@ -30,7 +30,6 @@ export const FAILED = { ok: false, error: { code: "FAILED", message: "Something 
 /** Another request from the same visitor landed at the same moment. Nothing was written. */
 export const BUSY = { ok: false, error: { code: "BUSY", message: "Busy. Try again in a moment." } };
 
-export const ROADMAP = "roadmap";
 export const CHANGELOG = "changelog";
 
 export const EMAIL_RE = /^[^\s@<>,;]+@[^\s@<>,;]+\.[^\s@<>,;]+$/;

@@ -21,7 +21,7 @@ Checked on EmDash 1.3.1 with the `blog` template, on Node and on Cloudflare Work
    ```bash
    kit="$(mktemp -d)" &&
      git clone --depth 1 \
-       --branch v0.4.1 \
+       --branch v0.4.2 \
        https://github.com/wbcomdesigns/emdash-roadmap \
        "$kit/emdash-roadmap" &&
      "$kit/emdash-roadmap/scripts/add-to-site.sh" .
@@ -31,4 +31,4 @@ Checked on EmDash 1.3.1 with the `blog` template, on Node and on Cloudflare Work
 4. Add the printed links in Admin, Menus.
 5. Open Admin, Roadmap, Ideas.
 
-After every update, run step 2 with the new tag. Full guide: https://github.com/wbcomdesigns/emdash-roadmap/blob/v0.4.1/docs/website/getting-started/install.md
+After every update, run step 2 with the new tag. Full guide: https://github.com/wbcomdesigns/emdash-roadmap/blob/v0.4.2/docs/website/getting-started/install.md

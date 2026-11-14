@@ -200,16 +200,15 @@ Base: `/_emdash/api/plugins/<id>/<name>`. Local installs use the slug `roadmap`.
 | --- | --- | --- | --- | --- |
 | `health` | public | GET | - | `ok`, version, whether the collection exists |
 | `board` | public | GET | `category` (optional), `sort` (`votes` or `newest`) | Published items grouped by status with vote counts. 100 items max |
-| `votes` | member | GET | - | Ids of the items the caller voted for, so the board can mark them |
+| `votes` | member | GET, DELETE | `ideas_after` (optional cursor) | GET: ids and names of the items the caller voted for, and their ideas 50 at a time (`ideasNext`). With `ideas_after`, only the next 50 ideas. DELETE: erase own votes |
 | `vote` | member | POST, DELETE | `id` | New vote count for the item |
 | `suggest` | member | POST | `title`, `description` | Creates a draft item and a pending idea. Rate limited |
-| `mine` | member | GET, DELETE | - | GET: own votes and ideas with status. DELETE: erase own votes |
 | `vote_guest` | public | POST, DELETE | `id`, honeypot field | New vote count. Refused when the setting is members |
-| `editor_stage` | admin | POST | saved roadmap item | Stage list for that item. Guests and members are refused |
+| `editor_stage` | author | POST | saved roadmap item | Stage list for that item. `content:edit_own`: the host lets Authors use it on their own items and Editors on any. Everyone else is refused |
 | `suggest_guest` | public | POST | `title`, `description`, `name`, honeypot field | Creates a draft item and a pending idea. Refused when the setting is members |
 | `admin` | admin | POST | Block Kit | Ideas queue and settings |
 
-`member` means a private route with `permission: MEMBER`. `admin` means a private route with no permission set. A `public` route never receives a user.
+`member` means a private route with `permission: MEMBER`. `author` means `permission: "content:edit_own"`. `admin` means a private route with `permission: "plugins:manage"`. A `public` route never receives a user.
 
 ## Hooks
 

@@ -16,7 +16,7 @@ import { admin as adminUser, ana, asV3Site, openSite } from "./site";
 const MEASURED: Record<string, number> = {
 	"hook plugin:install (fresh)": 5,
 	"hook plugin:activate (already set up)": 1,
-	"hook content:beforeSave (panel-moved, draft)": 4,
+	"hook content:beforeSave (panel-moved, draft)": 5,
 	"hook content:beforeSave (inside the plugin's own Stage move)": 1,
 	"hook content:afterPublish (no count row, waiting idea)": 4,
 	"hook content:afterUnpublish": 2,
@@ -45,8 +45,9 @@ const MEASURED: Record<string, number> = {
 	"route suggest_guest (0.3.0 site, salt kept by install)": 7,
 	"route suggest": 6,
 	"route votes GET (300 votes)": 8,
+	"route votes GET (next page of ideas)": 1,
 	"route votes DELETE (erase 200 votes), largest call": 9,
-	"admin page_load /ideas (200 items, 50 waiting)": 5,
+	"admin page_load /ideas (200 items, 50 waiting)": 6,
 	"admin page_load /ideas (0.3.0 upgrade running), largest call": 9,
 	"admin page_load /ideas (500 + 500 vote merge running), largest call": 9,
 	"admin page_load /settings (200 items)": 4,
@@ -57,14 +58,15 @@ const MEASURED: Record<string, number> = {
 	"admin form_submit save_stage:planned": 5,
 	"admin form_submit move_item (published)": 9,
 	"admin form_submit move_item (draft)": 8,
-	"admin form_submit ideas_find": 5,
-	"admin form_submit merge_review": 5,
+	"admin form_submit ideas_find": 6,
+	"admin form_submit merge_review": 6,
+	"admin form_submit merge_review (waiting idea)": 7,
 	"admin form_submit merge_items (500 + 500 votes)": 7,
-	"admin block_action kit_done": 6,
-	"admin block_action kit_again": 6,
-	"admin block_action ideas_page": 5,
+	"admin block_action kit_done": 7,
+	"admin block_action kit_again": 7,
+	"admin block_action ideas_page (page 2)": 6,
 	"admin block_action idea_mod approve": 9,
-	"admin block_action idea_mod reject": 5,
+	"admin block_action idea_mod reject": 6,
 	"admin block_action stage_up:planned": 5,
 	"admin block_action stage_down:planned": 5,
 	"admin block_action stage_remove:done (empty stage)": 5,
@@ -409,6 +411,15 @@ describe("member routes", () => {
 		await measure("route votes GET (300 votes)", () => s.call("votes", {}, memberReq("GET")));
 	});
 
+	it("votes GET, the next page of a member's ideas", async () => {
+		const { site: s } = await busySite();
+		for (let i = 0; i < 60; i += 1) {
+			await s.rt.fixtures.plugin.storage("ideas", `mine${i}`, { member_id: ana.id, title: `Mine ${i}`, status: "pending", createdAt: RECENT });
+		}
+		const first = (await s.call("votes", {}, memberReq("GET"))) as { ideasNext: string };
+		await measure("route votes GET (next page of ideas)", () => s.call("votes", { ideas_after: first.ideasNext }, memberReq("GET")));
+	});
+
 	it("votes DELETE, member who voted on 200 items: erased in calls of a few, every count right", async () => {
 		const { site: s, items } = await busySite({ items: 200, votesPer: 1, votedBy: ana.id });
 		let last: unknown;
@@ -526,6 +537,18 @@ describe("admin", () => {
 		);
 	});
 
+	it("form_submit merge_review of a waiting idea", async () => {
+		const { site: s, items, ideas } = await busySite(big);
+		await measure("admin form_submit merge_review (waiting idea)", () =>
+			adminCall(s, {
+				type: "form_submit",
+				action_id: "merge_review",
+				page: "/ideas",
+				values: { source: `idea|${ideas[49]}|r49`, keep: items[0] },
+			}),
+		);
+	});
+
 	it("merge_items with 500 votes on each side: started in one call, finished by page loads, one vote per person", async () => {
 		const { site: s, rt, items } = await busySite({ ...big, items: 200, votesPer: 0 });
 		// Source and kept item each with 500 votes, 250 of them from the same people.
@@ -569,14 +592,19 @@ describe("admin", () => {
 		expect(await tally(s, items[0]!)).toMatchObject({ votes: 150 });
 	}, 240_000);
 
-	for (const action of ["kit_done", "kit_again", "ideas_page"]) {
+	for (const action of ["kit_done", "kit_again"]) {
 		it(`block_action ${action}`, async () => {
 			const { site: s } = await busySite(big);
-			await measure(`admin block_action ${action}`, () =>
-				adminCall(s, { type: "block_action", action_id: action, page: "/ideas", value: action === "ideas_page" ? "25|" : undefined }),
-			);
+			await measure(`admin block_action ${action}`, () => adminCall(s, { type: "block_action", action_id: action, page: "/ideas" }));
 		});
 	}
+
+	it("block_action ideas_page, the second page of waiting ideas", async () => {
+		const { site: s } = await busySite(big);
+		const first = JSON.stringify(await adminCall(s, { type: "page_load", page: "/ideas" }));
+		const next = JSON.parse(first.match(/\{"type":"button","label":"Next","action_id":"ideas_page","value":(\{[^}]*\})\}/)![1]!);
+		await measure("admin block_action ideas_page (page 2)", () => adminCall(s, { type: "block_action", action_id: "ideas_page", page: "/ideas", value: next }));
+	});
 
 	it("block_action idea_mod approve", async () => {
 		const { site: s, ideas } = await busySite(big);

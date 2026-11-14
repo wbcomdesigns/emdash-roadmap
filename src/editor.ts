@@ -2,7 +2,6 @@ import type { PluginContext } from "emdash/plugin";
 
 import type { BlockResponse } from "./admin";
 import { currentStage, patchStage } from "./content";
-import { ROADMAP } from "./core";
 import { findStage, loadSettings, type Settings } from "./settings";
 import { asRecord, asString } from "./util";
 
@@ -32,7 +31,8 @@ async function renderPanel(
 	entry: { collection: string; id: string },
 	extra?: Pick<BlockResponse, "toast"> & { refresh?: boolean; settings?: Settings; shown?: Shown | null },
 ): Promise<BlockResponse> {
-	if (entry.collection !== ROADMAP) {
+	const settings = extra?.settings ?? (await loadSettings(ctx));
+	if (entry.collection !== settings.collection) {
 		return {
 			blocks: [
 				{ type: "header", text: "Stage" },
@@ -46,7 +46,6 @@ async function renderPanel(
 		};
 	}
 
-	const settings = extra?.settings ?? (await loadSettings(ctx));
 	let shown = extra?.shown ?? null;
 	if (!shown) {
 		const item = await ctx.content?.get(entry.collection, entry.id).catch(() => null);

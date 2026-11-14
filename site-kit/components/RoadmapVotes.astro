@@ -22,13 +22,13 @@ import { strings as S } from "../lib/roadmap-strings";
 
 	type Item = { id: string; title: string; slug: string; stage: string };
 	type Idea = { title: string; status: string };
-	type Payload = { ok?: boolean; items?: Item[]; ideas?: Idea[]; error?: { code?: string } };
+	type Payload = { ok?: boolean; items?: Item[]; ideas?: Idea[]; ideasNext?: string; error?: { code?: string } };
 
 	function emptyHtml() {
 		return `<div class="wb-empty"><p><strong>${esc(S.myVotesEmpty)}</strong></p><p class="wb-muted">${esc(S.myVotesEmptyHelp)}</p></div>`;
 	}
 
-	function listHtml(items: Item[], ideas: Idea[]) {
+	function listHtml(items: Item[], ideas: Idea[], more: boolean) {
 		const rows = items
 			.map(
 				(item) =>
@@ -38,7 +38,10 @@ import { strings as S } from "../lib/roadmap-strings";
 		const ideaRows = ideas
 			.map((idea) => `<li class="wb-item"><p>${esc(idea.title)}</p><p class="wb-muted">${esc(idea.status)}</p></li>`)
 			.join("");
-		const ideaBlock = ideas.length ? `<h3>${esc(S.yourIdeas)}</h3><ul class="wb-list">${ideaRows}</ul>` : "";
+		const moreButton = more
+			? `<div class="wb-actions"><button class="wb-btn wb-btn--quiet" type="button" data-roadmap-more-ideas>${esc(S.moreIdeas)}</button></div>`
+			: "";
+		const ideaBlock = ideas.length ? `<h3>${esc(S.yourIdeas)}</h3><ul class="wb-list">${ideaRows}</ul>${moreButton}` : "";
 		const erase = items.length
 			? `<div class="roadmap-erase"><p class="wb-muted">${esc(S.eraseHelp)}</p><div class="wb-actions"><button class="wb-btn wb-btn--quiet" type="button" data-roadmap-erase>${esc(S.erase)}</button></div></div>`
 			: "";
@@ -64,8 +67,8 @@ import { strings as S } from "../lib/roadmap-strings";
 		}
 		const items = data.items ?? [];
 		const ideas = data.ideas ?? [];
-		body.innerHTML = items.length || ideas.length ? listHtml(items, ideas) : emptyHtml();
-		bind(root, ideas);
+		body.innerHTML = items.length || ideas.length ? listHtml(items, ideas, Boolean(data.ideasNext)) : emptyHtml();
+		bind(root, data);
 	}
 
 	function isMore(result: Payload): boolean {
@@ -73,9 +76,26 @@ import { strings as S } from "../lib/roadmap-strings";
 		return !result.ok && error?.code === "BUSY" && error.reason === "MORE";
 	}
 
-	function bind(root: HTMLElement, ideas: Idea[]) {
+	function bind(root: HTMLElement, shown: Payload) {
+		const ideas = shown.ideas ?? [];
 		const button = root.querySelector<HTMLButtonElement>("[data-roadmap-erase]");
 		const status = root.querySelector<HTMLElement>("[data-roadmap-mine-status]");
+		const more = root.querySelector<HTMLButtonElement>("[data-roadmap-more-ideas]");
+		// The engine sends 50 ideas at a time: the next 50 come from the cursor it gave.
+		more?.addEventListener("click", async () => {
+			if (!status || more.getAttribute("aria-busy") === "true") return;
+			more.setAttribute("aria-busy", "true");
+			const result = (await api("roadmap", `votes?ideas_after=${encodeURIComponent(shown.ideasNext ?? "")}`)) as Payload;
+			more.removeAttribute("aria-busy");
+			if (!result.ok) {
+				status.hidden = false;
+				status.dataset.tone = "error";
+				status.textContent = phrase(result.error?.code);
+				return;
+			}
+			paint(root, { ...shown, ideas: [...ideas, ...(result.ideas ?? [])], ideasNext: result.ideasNext });
+			root.querySelector<HTMLButtonElement>("[data-roadmap-more-ideas]")?.focus();
+		});
 		button?.addEventListener("click", async () => {
 			if (!status) return;
 			if (button.dataset.armed !== "1") {
@@ -105,7 +125,7 @@ import { strings as S } from "../lib/roadmap-strings";
 			status.dataset.tone = "success";
 			status.textContent = S.erased;
 			// Only votes were taken back: the ideas the member sent stay listed.
-			paint(root, { ok: true, items: [], ideas });
+			paint(root, { ...shown, items: [] });
 		});
 	}
 

@@ -1,3 +1,16 @@
+## 0.4.2
+
+Authors and Editors can use the Stage panel, and the Ideas admin reaches every waiting idea. No new permission.
+
+- Improve: Editors move any item with the Stage panel, Authors their own.
+- Improve: Ideas pages through every waiting idea, 25 at a time; Find looks 100 at a time.
+- Improve: Roadmap votes shows a member's ideas 50 at a time, with Show more ideas.
+- Fix: no false changelog alert after Approve or Reject.
+- Fix: the Stage panel guard follows the content type set for the site.
+- Compat: needs EmDash 1.2.0 or later.
+
+Copy the kit with tag v0.4.2 after you update.
+
 ## 0.4.1
 
 Guests keep their 0.3.0 votes on sites that move to EmDash 1.5. No new permission.

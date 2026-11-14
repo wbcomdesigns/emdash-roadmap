@@ -36,9 +36,17 @@ export function ideaFrom(row: { id: string } & Record<string, unknown>): IdeaRow
 	};
 }
 
-/** Waiting ideas, newest first, up to 100 (one read). `more`: there are over 100. */
-export async function listPendingIdeas(ctx: PluginContext): Promise<{ ideas: IdeaRow[]; more: boolean }> {
-	const found = await ctx.storage.ideas.query({ where: { status: "pending" }, orderBy: { createdAt: "desc" }, limit: 100 });
+/**
+ * A page of waiting ideas, newest first, from `at` (a storage cursor, "" for the first page). One
+ * read of at most 100. `next` is the cursor of the page after, "" on the last one.
+ */
+export async function listPendingIdeas(ctx: PluginContext, at = "", limit = 25): Promise<{ ideas: IdeaRow[]; next: string }> {
+	const found = await ctx.storage.ideas.query({
+		where: { status: "pending" },
+		orderBy: { createdAt: "desc" },
+		limit: Math.min(limit, 100),
+		...(at ? { cursor: at } : {}),
+	});
 	const ideas: IdeaRow[] = [];
 	for (const item of found.items) {
 		try {
@@ -47,7 +55,7 @@ export async function listPendingIdeas(ctx: PluginContext): Promise<{ ideas: Ide
 			// One bad row must not stop the queue.
 		}
 	}
-	return { ideas, more: found.hasMore };
+	return { ideas, next: found.hasMore && found.cursor ? found.cursor : "" };
 }
 
 /**

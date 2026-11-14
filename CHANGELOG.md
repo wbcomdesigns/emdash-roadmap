@@ -2,6 +2,19 @@
 
 Versions match `package.json`, the git tag and the registry release. Newest first.
 
+## [0.4.2]
+
+Authors and Editors can use the Stage panel, and the Ideas admin reaches every waiting idea. No new permission. Copy the kit with the new tag: the Roadmap votes page lists a member's ideas 50 at a time.
+
+- Improve  - Editors can move any roadmap item with the Stage panel, and Authors the items they wrote. Before, only site admins could.
+- Improve  - Ideas lists every waiting idea 25 at a time with Previous and Next, and Ideas waiting counts all of them. Before, only the newest 100 were reachable.
+- Improve  - Find on Ideas looks through 100 waiting ideas at a time, and Next looks through older ones.
+- Improve  - The Roadmap votes page shows a member's ideas 50 at a time, with Show more ideas for the rest. Before, it stopped at 50.
+- Fix      - The Stage panel guard and the health check follow the roadmap content type set for the site.
+- Fix      - After Approve, Reject or a merge, Ideas no longer shows a false "Create the changelog content type" alert.
+- Fix      - A vote for an item id longer than 64 characters is turned away at once.
+- Compat   - Declares EmDash 1.2.0 or later in the registry.
+
 ## [0.4.1]
 
 Guests keep their 0.3.0 votes on sites that move to EmDash 1.5. No new permission. The site kit is unchanged; copy it with the new tag.

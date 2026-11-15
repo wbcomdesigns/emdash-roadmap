@@ -1,33 +1,21 @@
-# Handoff: Product Roadmap (2026-10-20, 0.3.0 live, 0.4.0 in review)
+# Handoff: Product Roadmap (2026-11-15)
 
-You are the one agent for this repo. Read this, then work.
+Live: **0.4.2** on the EmDash registry as `@vapvarun.bsky.social/roadmap`. Public page: https://plugins.emdashcms.com/plugins/@vapvarun.bsky.social/roadmap
 
-## Read first, in this order
+Test on a fresh `create-emdash` blog site (registry install, kit from the release tag) and on the Cloudflare test site. On Cloudflare, redeploy after a registry install or update before judging anything (emdash-cms/emdash#4865).
 
-1. Load the `emdash-plugin-development` skill.
-2. EmDash's own guides in the lab site: `../emdash-lab-roadmap/.agents/skills/building-emdash-site` and `creating-plugins`.
-3. `EMDASH-SUPPORT.md` in the starter repo `wbcomdesigns/emdash-plugin-starter`.
-4. `SCOPE.md` here. The corrections section wins over older lines.
-5. `PLAN.md` here.
+## Next: 0.4.3
 
-## Where it stands
+Milestone `0.4.3` on GitHub holds the work, in this order:
 
-`0.3.0` is live. Registry: `@vapvarun.bsky.social/roadmap`. Registry installs mount at `r_76xywti6l5cbxzos`.
+- #64 Fit every route, admin action and panel in Cloudflare's 10 requests per plugin call
+- #67 Composite storage indexes for filtered and sorted queries
+- #68 Move internal state from settings to kv
+- #70 Guest vote logs two 401 console errors before the guest route succeeds
+- #71 Ideas jumps back to page 1 after Approve or Reject
+- #74 Next release: registry install text and shared kit
 
-`0.4.0` (branch `0.4.0`, milestone 0.4.0, tracking issue #64) fits every entry point in Cloudflare's 10 requests per plugin call. `tests/bridge-budget.test.ts` pins every count (largest 9) and KNOWN_OVER is empty; `tests/review-0-4-0.test.ts` holds the races. Not merged, tagged or published.
-
-What 0.4.0 changed in the data (read before touching counts):
-
-- `tallies` rows are `{ v: 4, votes, live, seq }`, moved by `updateIf` deltas in the vote call. 0.3.0 rows (`{ votes }`) are rebuilt by `src/upgrade.ts`, whose state is the `upgrade_0_4` setting (salt, kit, rebuild, leftover, done). A fresh install marks it done.
-- The guest salt (`visitor_salt`), the setup answer (`kit_done`), the guest address note (`guest_seen`) and a running merge (`merge_job`) are settings, read in one `settings.list` call.
-- New hooks: `content:afterPublish/afterUnpublish/afterDelete/afterRestore` keep `live` and settle ideas (covered by content:read, no new capability).
-- Merge and member erase run in steps (`mergeStep`, BUSY with reason MORE).
-- Hourly-limit counters are in the `rates` storage collection; the upgrade's last phase (`rates`) deletes 0.3.0's kv `rate:*` keys. The 30-day guest cleanup waits while a merge or the rebuild/leftover recount runs.
-- `tests/site.ts` runs every admin and editor panel answer through EmDash's Block Kit validator.
-
-## Next
-
-- Sonnet walk of `docs/qa/QA_CHECKLIST.md`, Cloudflare section first, on the testbed and on a fresh blog-template site. Then the independent Opus review of `git diff v0.3.0..0.4.0`, then the release gate. Keep "Cloudflare: not supported yet" until the walk passes.
+Then the release gate (`gate.sh`, which also checks that no public file carries machine paths and that the README is the product landing page), an independent walk on Node and Cloudflare, and publish only with the owner's go-ahead.
 
 ## Do not do
 

@@ -6,7 +6,7 @@ You are the one agent for this repo. Read this, then work.
 
 1. Load the `emdash-plugin-development` skill.
 2. EmDash's own guides in the lab site: `../emdash-lab-roadmap/.agents/skills/building-emdash-site` and `creating-plugins`.
-3. `~/code/emdash-plugin-starter/EMDASH-SUPPORT.md`.
+3. `EMDASH-SUPPORT.md` in the starter repo `wbcomdesigns/emdash-plugin-starter`.
 4. `SCOPE.md` here. The corrections section wins over older lines.
 5. `PLAN.md` here.
 
@@ -27,7 +27,7 @@ What 0.4.0 changed in the data (read before touching counts):
 
 ## Next
 
-- Sonnet walk of `docs/qa/QA_CHECKLIST.md`, Cloudflare section first, on the testbed and on `~/code/emdash-lab-all`. Then the independent Opus review of `git diff v0.3.0..0.4.0`, then the release gate. Keep "Cloudflare: not supported yet" until the walk passes.
+- Sonnet walk of `docs/qa/QA_CHECKLIST.md`, Cloudflare section first, on the testbed and on a fresh blog-template site. Then the independent Opus review of `git diff v0.3.0..0.4.0`, then the release gate. Keep "Cloudflare: not supported yet" until the walk passes.
 
 ## Do not do
 

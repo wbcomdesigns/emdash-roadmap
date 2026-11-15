@@ -16,7 +16,7 @@ if [[ ! -f "$LAB/astro.config.mjs" && ! -f "$LAB/astro.config.ts" ]]; then
 fi
 
 if [[ -f "$LAB/src/layouts/Base.astro" ]] && ! grep -q 'theme.css' "$LAB/src/layouts/Base.astro"; then
-	echo "STOP: $LAB is a starter lab (Base.astro has no theme.css). Recreate it with --template blog, or judge on ~/code/emdash-lab-all:4340. Nothing tested here counts." >&2
+	echo "STOP: $LAB is a starter lab (Base.astro has no theme.css). Recreate it with --template blog, or judge on a fresh blog-template EmDash site with the plugin installed from the registry. Nothing tested here counts." >&2
 	exit 1
 fi
 

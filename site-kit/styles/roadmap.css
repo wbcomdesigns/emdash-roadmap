@@ -103,6 +103,9 @@
 	display: inline-flex;
 	align-items: center;
 	min-height: var(--wb-tap);
+	/* A long unbroken word in a title (a pasted address) wraps here. The inherited overflow-wrap
+	   does not narrow an inline-flex link in Chrome, so this card widened the page to 941px at 390 (#76). */
+	word-break: break-word;
 }
 
 .wb-vote {
@@ -110,9 +113,11 @@
 	gap: 0.4rem;
 }
 
-/* A guest who cannot vote on this host: the buttons read as off, the sign-in line above is the next step. */
+/* A guest who cannot vote on this host: the buttons read as off (dashed edge), the sign-in line
+   above is the next step. No fading: the count is information and must stay readable (4.5:1). */
 .wb-vote[aria-disabled="true"] {
-	opacity: 0.5;
+	border-style: dashed;
+	color: var(--wb-fg);
 	cursor: not-allowed;
 }
 

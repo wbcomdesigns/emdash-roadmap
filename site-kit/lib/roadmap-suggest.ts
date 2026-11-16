@@ -14,21 +14,31 @@ export function bindSuggestForm(): void {
 	});
 }
 
+/** Who the page load found: "member", "guest", or "" when the check could not answer. */
+let visitor: "member" | "guest" | "" = "";
+
 async function prepare(form: HTMLFormElement): Promise<void> {
-	const health = await api("roadmap", "health");
+	const [health, who] = await Promise.all([api("roadmap", "health"), whoIsHere()]);
+	visitor = who;
 	if (health.ok && health.allowIdeas === false) {
 		show(form, { ok: false, error: { code: "IDEAS_CLOSED" } }, true);
 		return;
 	}
 	// Guests can suggest only when the host gives the visitor's address (or the owner chose
 	// members only). Then a guest gets the sign-in path instead of a form that cannot send.
-	if (health.ok && health.guestWrites === false && !(await signedIn())) membersOnly(form);
+	if (health.ok && health.guestWrites === false && who === "guest") {
+		membersOnly(form);
+		return;
+	}
+	// A member's account name is used: they are not asked for one (#81).
+	if (who === "member") form.querySelector("input[name=name]")?.closest("label")?.remove();
 }
 
 /** The member list of votes answers a signed-in visitor and refuses a guest with a 401. */
-async function signedIn(): Promise<boolean> {
+async function whoIsHere(): Promise<"member" | "guest" | ""> {
 	const mine = await api("roadmap", "votes");
-	return mine.ok || mine.error?.code !== "SIGN_IN_REQUIRED";
+	if (mine.ok) return "member";
+	return mine.error?.code === "SIGN_IN_REQUIRED" ? "guest" : "";
 }
 
 function membersOnly(form: HTMLFormElement): void {
@@ -51,9 +61,17 @@ async function send(form: HTMLFormElement): Promise<void> {
 		// Ignored by the 0.3.0 engine; the 0.2.1 engine keys a guest by it (see visitorToken).
 		visitor: visitorToken(),
 	};
-	const member = await api("roadmap", "suggest", body);
+	// A blank title, or a guest's blank name (spaces only), is named here before anything is sent (#81).
+	const blank = !body.title.trim() ? "INVALID" : visitor === "guest" && !body.name.trim() ? "NAME_REQUIRED" : "";
+	if (blank) {
+		if (button) button.removeAttribute("aria-busy");
+		show(form, { ok: false, error: { code: blank } }, false);
+		return;
+	}
+	// A visitor the page load found signed out goes straight to the guest route (#70).
+	const member = visitor === "guest" ? null : await api("roadmap", "suggest", body);
 	const result =
-		member.ok || (member.error?.code && member.error.code !== "SIGN_IN_REQUIRED")
+		member && (member.ok || (member.error?.code && member.error.code !== "SIGN_IN_REQUIRED"))
 			? member
 			: await api("roadmap", "suggest_guest", body);
 	if (button) button.removeAttribute("aria-busy");
@@ -66,7 +84,7 @@ function show(form: HTMLFormElement, result: ApiResult, closed: boolean): void {
 	if (!box) return;
 	box.hidden = false;
 	if (result.ok) {
-		form.querySelector("input[name=name]")?.removeAttribute("aria-invalid");
+		form.querySelectorAll("[aria-invalid]").forEach((field) => field.removeAttribute("aria-invalid"));
 		box.dataset.tone = "ok";
 		box.textContent = strings.suggestThanks;
 		return;
@@ -85,16 +103,17 @@ function show(form: HTMLFormElement, result: ApiResult, closed: boolean): void {
 		return;
 	}
 	if (closed) return;
-	box.textContent = phrase(code);
-	// A guest without a name: point at the field that needs it.
-	const name = form.querySelector<HTMLInputElement>("input[name=name]");
-	if (name) {
-		if (code === "NAME_REQUIRED") {
-			name.setAttribute("aria-invalid", "true");
-			name.setAttribute("aria-describedby", "roadmap-status");
-			name.focus();
+	// The engine sends INVALID only for a missing title.
+	box.textContent = code === "INVALID" ? strings.suggestTitleNeeded : phrase(code);
+	// Point at the field that needs fixing: the title, or a guest's name.
+	const wrong = code === "INVALID" ? "title" : code === "NAME_REQUIRED" ? "name" : "";
+	for (const field of form.querySelectorAll<HTMLInputElement>("input[name=title], input[name=name]")) {
+		if (field.name === wrong) {
+			field.setAttribute("aria-invalid", "true");
+			field.setAttribute("aria-describedby", "roadmap-status");
+			field.focus();
 		} else {
-			name.removeAttribute("aria-invalid");
+			field.removeAttribute("aria-invalid");
 		}
 	}
 }

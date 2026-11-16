@@ -3,6 +3,8 @@ import { phrase, strings, voteCountLabel } from "./roadmap-strings";
 import { readVotes, rememberVote, visitorToken } from "./roadmap-visitor";
 
 let bound = false;
+/** Set once the page load found a signed-out visitor: their votes go straight to the guest route (#70). */
+let knownGuest = false;
 
 /** Refusals that mean "sign in to do this", from this engine release and the one before (0.2.1 sent NO_VISITOR). */
 export const SIGN_IN_CODES = new Set(["SIGN_IN_REQUIRED", "MEMBERS_ONLY", "GUEST_UNAVAILABLE", "NO_VISITOR"]);
@@ -42,6 +44,7 @@ async function markMine(): Promise<void> {
 	// A guest on a host that gives no visitor address cannot vote: say so up front, with the
 	// sign-in link, instead of offering buttons that would only refuse. An older engine sends no
 	// guestWrites: then the buttons stay on and a refusal shows the same sign-in line.
+	knownGuest = mine.guest;
 	const guestBlocked = mine.guest && health.ok && health.guestWrites === false;
 	for (const button of buttons) {
 		button.removeAttribute("aria-busy");
@@ -126,10 +129,13 @@ async function onClick(event: Event): Promise<void> {
 }
 
 async function sendVote(id: string, voted: boolean): Promise<ApiResult> {
-	const member = voted
-		? await api("roadmap", `vote?id=${encodeURIComponent(id)}`, undefined, "DELETE")
-		: await api("roadmap", "vote", { id });
-	if (member.ok || (member.error?.code && member.error.code !== "SIGN_IN_REQUIRED")) return member;
+	// A visitor the page load found signed out skips the member route: it could only answer 401.
+	if (!knownGuest) {
+		const member = voted
+			? await api("roadmap", `vote?id=${encodeURIComponent(id)}`, undefined, "DELETE")
+			: await api("roadmap", "vote", { id });
+		if (member.ok || (member.error?.code && member.error.code !== "SIGN_IN_REQUIRED")) return member;
+	}
 	const visitor = visitorToken();
 	return voted
 		? api("roadmap", `vote_guest?id=${encodeURIComponent(id)}&visitor=${encodeURIComponent(visitor)}`, undefined, "DELETE")

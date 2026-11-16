@@ -17,7 +17,7 @@ Visitors can send ideas. Every idea waits for you in the **Ideas** queue until y
 | --- | --- | --- |
 | Title | 120 characters | Required |
 | Description | 4000 characters | Optional |
-| Your name | 60 characters | Required for guests. Signed-in members use their account name |
+| Your name | 60 characters | Required for guests. Signed-in members do not see it: their account name is used |
 
 3. Choose **Send idea**. They see "Thanks. Your idea is waiting for review."
 
@@ -41,8 +41,8 @@ In admin, open **Roadmap**, then **Ideas**.
 1. The top shows **Ideas waiting** (every waiting idea), a count for each stage on the board, and **Votes this week**.
 2. The list shows 25 ideas at a time, newest first. Use **Previous** and **Next** to reach every waiting idea.
 3. **Find** looks through the title and the description of 100 waiting ideas at a time, newest first. When there are more, **Next** looks through older ones.
-4. The table lists each waiting idea with its **Title**, **Description** in full, and **From**. A guest shows as their name followed by "(guest)". A member shows by name.
-5. In the **Decision** column, choose **Decide**, then **Approve** or **Reject**.
+4. The table lists each waiting idea with the **Decision** menu, its **Title**, the start of its **Description**, and **From**. A guest shows as their name followed by "(guest)". A member shows by name. Long text is cut short with "…" so the table fits the screen; choose the title to open the idea's draft and read all of it.
+5. In the **Decision** column, choose **Decide: (the idea's title)**, then **Approve** or **Reject**. The list stays on the page you were on.
 
 | Decision | What happens |
 | --- | --- |

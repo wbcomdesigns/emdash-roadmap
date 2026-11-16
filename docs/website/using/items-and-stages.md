@@ -42,14 +42,14 @@ Open **Roadmap**, then **Settings**, then the **Stages** tab. Each stage has its
 | Hide from the board | Turn off **Show on the board** and choose **Save stage** |
 | Reorder | Choose **Move up** or **Move down** |
 | Add | Fill in **New stage name**, set **Show on the board**, and choose **Add a stage** |
-| Remove | Choose **Remove** and confirm |
+| Remove | Choose **Remove** and confirm. Only a stage with no items has it |
 
 The rules:
 
 - A stage name can be up to 40 characters, and no two stages can share a name.
 - The board can have up to 20 stages.
 - You must keep at least one stage.
-- A stage that still has items cannot be removed. Move them first. Drafts count too.
+- A stage that still has items cannot be removed, so it shows no **Remove**. Its line says how many items to move first. Drafts count too.
 - The first stage in your list is where new and approved ideas land. Keep it shown on the board, or approved ideas will seem to vanish.
 
 ## Comments

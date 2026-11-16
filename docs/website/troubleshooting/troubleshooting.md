@@ -75,7 +75,7 @@ Someone else decided on or changed the idea. Reload **Ideas** and look again.
 
 ## A stage will not let me remove it
 
-"This stage still has N items." Move them to another stage first. Drafts count too.
+A stage with items has no **Remove**: its line says "N items are in this stage. Move them to another stage to remove this one." Move them first. Drafts count too.
 
 ## "That item has unpublished edits."
 

@@ -62,7 +62,7 @@ async function waitingIdeas(site: Site, count: number, title = (i: number) => `I
 
 const adminCall = (site: Site, input: Record<string, unknown>) => site.call("admin", input) as Promise<Page>;
 const titlesOn = (page: Page) =>
-	((page.blocks.find((block) => block.type === "table") as { rows?: Array<{ title: string }> } | undefined)?.rows ?? []).map((row) => row.title);
+	((page.blocks.find((block) => block.type === "table") as { rows?: Array<{ title: { label: string } }> } | undefined)?.rows ?? []).map((row) => row.title.label);
 const pagerButton = (page: Page, label: "Next" | "Previous") =>
 	page.blocks
 		.filter((block) => block.type === "actions")

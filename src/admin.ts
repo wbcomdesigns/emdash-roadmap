@@ -63,13 +63,39 @@ function whoLabel(idea: { name: string; visitor: string; guest: boolean }): stri
 	return idea.name || "Member";
 }
 
-function stamped(action: string, id: string, rev: string): string {
-	return `${action}|${rev}|${id}`;
+/** Where the Ideas list is: the page cursor, the pages before it and the search, carried in every paging and decision value. */
+type IdeasAt = { at: string; back: string[]; q: string };
+
+/**
+ * A decision value: the idea, the revision the owner saw, and the page it was on, so the screen
+ * drawn after Approve or Reject stays on that page (#71). Only the last 5 pages back ride along
+ * (25 rows carry this twice); further back, Previous starts again at the first page.
+ */
+function stamped(action: string, id: string, rev: string, where: IdeasAt): string {
+	return JSON.stringify({ action, rev, id, at: where.at, back: where.back.slice(-5), q: where.q });
 }
 
-function parseStamped(value: unknown): { action: string; rev: string; id: string } {
-	const [action = "", rev = "", ...rest] = asString(value).split("|");
-	return { action, rev, id: rest.join("|") };
+function parseStamped(value: unknown): { action: string; rev: string; id: string } & IdeasAt {
+	let raw: Record<string, unknown>;
+	try {
+		raw = asRecord(JSON.parse(asString(value)));
+	} catch {
+		// A screen drawn before 0.4.3 sends action|rev|id: decided, then the first page is shown.
+		const [action = "", rev = "", ...rest] = asString(value).split("|");
+		raw = { action, rev, id: rest.join("|") };
+	}
+	const back = (Array.isArray(raw.back) ? raw.back : []).map(readCursor).filter((cursor): cursor is string => cursor !== null);
+	return { action: asString(raw.action), rev: asString(raw.rev), id: asString(raw.id), at: readCursor(raw.at) ?? "", back, q: asString(raw.q) };
+}
+
+/**
+ * Text for an admin table cell: words over 30 characters are cut and the whole is cut to `max`,
+ * each with an ellipsis. One pasted address in an idea made the Ideas table as wide as that word,
+ * pushing Decide off screen on every row (#76). The full text is on the item's editor page.
+ */
+export function cellText(text: string, max: number): string {
+	const short = text.replace(/\S{31,}/g, (word) => `${word.slice(0, 29)}…`);
+	return short.length > max ? `${short.slice(0, max - 1).trimEnd()}…` : short;
 }
 
 const REPO_URL = "https://github.com/wbcomdesigns/emdash-roadmap";
@@ -83,8 +109,8 @@ const REPO_URL = "https://github.com/wbcomdesigns/emdash-roadmap";
 export function kitCommand(tag: string): string {
 	return [
 		'kit="$(mktemp -d)" &&',
-		"  git clone --depth 1 \\",
-		`    --branch ${tag} \\`,
+		"  git -c advice.detachedHead=false clone \\",
+		`    --depth 1 --branch ${tag} \\`,
 		"    https://github.com/wbcomdesigns/emdash-roadmap \\",
 		'    "$kit/emdash-roadmap" &&',
 		'  "$kit/emdash-roadmap/scripts/add-to-site.sh" .',
@@ -238,17 +264,20 @@ export async function renderIdeas(a: Admin, extra?: IdeasExtra): Promise<BlockRe
 		})),
 		...items.map((item) => ({ label: item.title, value: mergeSourceValue({ kind: "item", id: item.id, stamp: item.stamp }) })),
 	]);
+	const where: IdeasAt = { at, back, q };
 	const rows = pageRows.map((idea) => ({
-		title: idea.title,
-		description: idea.description,
-		from: whoLabel(idea),
+		// The title opens the idea's draft in the editor, where the full text is.
+		title: { type: "link", label: cellText(idea.title, 60), target: { kind: "content", collection: settings.collection, id: idea.id } },
+		description: cellText(idea.description, 100),
+		from: cellText(whoLabel(idea), 40),
+		// Each menu names its idea: twenty rows of "Decide" could not be told apart by a screen reader (#80).
 		action: {
 			type: "menu",
 			action_id: "idea_mod",
-			label: "Decide",
+			label: `Decide: ${cellText(idea.title, 24)}`,
 			items: [
-				{ label: "Approve", value: stamped("approve", idea.id, idea.rev) },
-				{ label: "Reject", value: stamped("reject", idea.id, idea.rev) },
+				{ label: "Approve", value: stamped("approve", idea.id, idea.rev, where) },
+				{ label: "Reject", value: stamped("reject", idea.id, idea.rev, where) },
 			],
 		},
 	}));
@@ -282,19 +311,17 @@ export async function renderIdeas(a: Admin, extra?: IdeasExtra): Promise<BlockRe
 		});
 	}
 	const progress: BlockMap[] = [];
+	// A Continue that ended the merge says so: the merge panel closes again.
+	const finished = Boolean(extra?.background && !job && readJob(settings.mergeJob));
 	if (job) {
-		progress.push(
-			{
-				type: "banner",
-				variant: "default",
-				title: `Merging ${job.fromTitle} into ${job.keepTitle}`,
-				description:
-					job.phase === "count" || job.phase === "close"
-						? "The votes have moved. The kept item's count is being checked. Continue, or the hourly task finishes it."
-						: "Votes are still moving to the kept item, 100 at a time. Each Continue moves more, and the hourly task finishes it. Its count is right when the merge ends.",
-			},
-			{ type: "actions", elements: [{ type: "button", action_id: "bg_continue", label: "Continue" }] },
-		);
+		// At the top only a pointer: the step and its Continue sit in the merge panel, next to the
+		// button that started the merge, which is where the page is scrolled to (#78).
+		progress.push({
+			type: "banner",
+			variant: "default",
+			title: `Merging ${job.fromTitle} into ${job.keepTitle}`,
+			description: "Continue it under Merge a duplicate, or leave it: the hourly task finishes it.",
+		});
 	} else if (!upgradeDone(settings)) {
 		progress.push(
 			{
@@ -307,7 +334,15 @@ export async function renderIdeas(a: Admin, extra?: IdeasExtra): Promise<BlockRe
 		);
 	}
 	const mergeBlocks: BlockMap[] = job
-		? [{ type: "context", text: "A merge is still moving votes. You can merge again when it ends." }]
+		? [
+				{
+					type: "banner",
+					variant: "default",
+					title: `Merging ${job.fromTitle} into ${job.keepTitle}`,
+					description: `${mergeStepLabel(job)} Each Continue runs the next step, and the hourly task finishes it if you leave. You can merge again when it ends.`,
+				},
+				{ type: "actions", elements: [{ type: "button", action_id: "bg_continue", label: "Continue" }] },
+			]
 		: [
 		{
 			type: "context",
@@ -415,7 +450,7 @@ export async function renderIdeas(a: Admin, extra?: IdeasExtra): Promise<BlockRe
 			pageRows.length === 0
 				? {
 						type: "empty",
-						title: q ? "No ideas match that search" : "No ideas waiting",
+						title: q ? "No ideas match that search" : at ? "No ideas left on this page" : "No ideas waiting",
 						description: q
 							? waiting.next
 								? "None in these 100 waiting ideas. Next looks through older ones."
@@ -426,10 +461,11 @@ export async function renderIdeas(a: Admin, extra?: IdeasExtra): Promise<BlockRe
 						type: "table",
 						page_action_id: "ideas_page",
 						columns: [
-							{ key: "title", label: "Title" },
+							// Decision first, so it is in view on a phone without a sideways scroll.
+							{ key: "action", label: "Decision", format: "element" },
+							{ key: "title", label: "Title", format: "element" },
 							{ key: "description", label: "Description" },
 							{ key: "from", label: "From" },
-							{ key: "action", label: "Decision", format: "element" },
 						],
 						rows,
 					},
@@ -437,7 +473,7 @@ export async function renderIdeas(a: Admin, extra?: IdeasExtra): Promise<BlockRe
 			{
 				type: "accordion",
 				label: "Merge a duplicate",
-				default_open: Boolean(extra?.mergeConfirm),
+				default_open: Boolean(extra?.mergeConfirm || job),
 				blocks: mergeBlocks,
 			},
 			{
@@ -445,8 +481,15 @@ export async function renderIdeas(a: Admin, extra?: IdeasExtra): Promise<BlockRe
 				elements: [{ type: "link", label: "Settings", target: { kind: "plugin-page", path: "/settings" } }],
 			},
 		],
-		toast: extra?.toast,
+		toast: extra?.toast ?? (finished ? { message: "Merge finished. The kept item has the votes.", type: "success" } : undefined),
 	};
+}
+
+/** What the merge in progress does next, in the owner's words. */
+function mergeStepLabel(job: NonNullable<ReturnType<typeof readJob>>): string {
+	if (job.phase === "unpublish") return `Next: ${job.fromTitle} is unpublished and its address points to ${job.keepTitle}.`;
+	if (job.phase === "votes") return "Votes are moving to the kept item, 100 at a time.";
+	return "The votes have moved. The kept item's count is being checked.";
 }
 
 export async function renderWaiting(ctx: PluginContext): Promise<BlockResponse> {
@@ -469,11 +512,39 @@ export async function renderWaiting(ctx: PluginContext): Promise<BlockResponse> 
 
 function stageRow(stage: Stage, count: number, first: boolean, last: boolean): BlockMap[] {
 	const shown = stage.shown !== false;
+	const buttons = [
+		...(!first
+			? [{ type: "button", label: "Move up", action_id: `stage_up:${stage.id}` }]
+			: []),
+		...(!last
+			? [{ type: "button", label: "Move down", action_id: `stage_down:${stage.id}` }]
+			: []),
+		// A stage with items cannot be removed, so it gets no Remove button that could only fail (#77).
+		...(count === 0
+			? [
+					{
+						type: "button",
+						label: "Remove",
+						action_id: `stage_remove:${stage.id}`,
+						style: "danger",
+						confirm: {
+							title: "Remove this stage?",
+							text: "Items can no longer use this stage.",
+							confirm: "Remove",
+							deny: "Keep",
+							style: "danger",
+						},
+					},
+				]
+			: []),
+	];
 	return [
 		{ type: "header", text: stage.name },
 		...lines([
 			shown ? "Shown on the board." : "Hidden from the board. Items in this stage stay off the public board.",
-			count === 1 ? "1 item is in this stage." : `${count} items are in this stage.`,
+			count === 0
+				? "No items are in this stage."
+				: `${count === 1 ? "1 item is" : `${count} items are`} in this stage. Move ${count === 1 ? "it" : "them"} to another stage to remove this one.`,
 		]),
 		{
 			type: "form",
@@ -494,32 +565,7 @@ function stageRow(stage: Stage, count: number, first: boolean, last: boolean): B
 			],
 			submit: { label: "Save stage", action_id: `save_stage:${stage.id}` },
 		},
-		{
-			type: "actions",
-			elements: [
-				...(!first
-					? [{ type: "button", label: "Move up", action_id: `stage_up:${stage.id}` }]
-					: []),
-				...(!last
-					? [{ type: "button", label: "Move down", action_id: `stage_down:${stage.id}` }]
-					: []),
-				{
-					type: "button",
-					label: "Remove",
-					action_id: `stage_remove:${stage.id}`,
-					style: "danger",
-					confirm: {
-						title: "Remove this stage?",
-						text:
-							count > 0
-								? `This stage still has ${count} ${count === 1 ? "item" : "items"}. Move them first.`
-								: "Items can no longer use this stage.",
-						confirm: "Remove",
-						deny: "Keep",
-					},
-				},
-			],
-		},
+		...(buttons.length ? [{ type: "actions", elements: buttons }] : []),
 		{ type: "divider" },
 	];
 }
@@ -806,23 +852,25 @@ async function handleMoveItem(a: Admin, values: Record<string, unknown>): Promis
 const known = (a: Admin) => ({ here: new Set([a.settings.collection]), partial: true as const });
 
 async function handleIdeaMod(a: Admin, value: unknown): Promise<BlockResponse> {
-	const { action, rev, id } = parseStamped(value);
+	const { action, rev, id, ...where } = parseStamped(value);
+	// The screen after a decision stays on the page the owner decided on (#71).
+	const page = { ...known(a), ...where };
 	if (action === "approve") {
 		// The draft read, the claim, the update, the revision and the publish (one more on a failure).
 		spend(a.b, 5);
 		const result = await approveIdea(a.ctx, a.settings, id, rev);
 		if (!result.ok) {
 			spend(a.b);
-			return renderIdeas(a, { toast: { message: result.error, type: "error" }, ...known(a) });
+			return renderIdeas(a, { toast: { message: result.error, type: "error" }, ...page });
 		}
 		const message = result.settled ? "That idea was already published. It left the list." : "Idea published to the board.";
-		return renderIdeas(a, { toast: { message, type: "success" }, ...known(a) });
+		return renderIdeas(a, { toast: { message, type: "success" }, ...page });
 	}
 	if (action === "reject") {
 		spend(a.b);
 		const result = await rejectIdea(a.ctx, id, rev);
-		if (!result.ok) return renderIdeas(a, { toast: { message: result.error, type: "error" }, ...known(a) });
-		return renderIdeas(a, { toast: { message: "Idea rejected. It stays a draft.", type: "info" }, ...known(a) });
+		if (!result.ok) return renderIdeas(a, { toast: { message: result.error, type: "error" }, ...page });
+		return renderIdeas(a, { toast: { message: "Idea rejected. It stays a draft.", type: "info" }, ...page });
 	}
 	return renderIdeas(a, { toast: { message: "Unknown decision.", type: "error" } });
 }

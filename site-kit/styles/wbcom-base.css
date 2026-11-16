@@ -1,4 +1,4 @@
-/* wbcom-shared: 4 */
+/* wbcom-shared: 5 */
 /*
  * Wbcom EmDash kit base. Shared by every Wbcom plugin kit: keep this file identical across
  * plugins and change it in emdash-plugin-starter first.
@@ -56,6 +56,10 @@
 	display: grid;
 	gap: calc(var(--wb-gap) * 1.5);
 	color: var(--wb-fg);
+	/* Long unbroken words and links wrap instead of widening the page (version 5). A pasted URL in a
+	   review or listing made the whole page scroll sideways in Listora, Reviews and Roadmap. */
+	overflow-wrap: anywhere;
+	min-width: 0;
 }
 
 .wb *,

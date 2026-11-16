@@ -100,7 +100,7 @@ describe("scripts/add-to-site.sh", () => {
 		writeFileSync(join(site, "src/styles/wbcom-base.css"), "/* wbcom-shared: 3 */\n");
 		const out = run(site);
 		assert.equal(readdirSync(join(site, "src/lib")).filter((name) => name.includes(".bak-")).length, 0);
-		assert.match(out, /Upgraded src\/styles\/wbcom-base\.css from wbcom-shared 3 to 4/);
+		assert.match(out, /Upgraded src\/styles\/wbcom-base\.css from wbcom-shared 3 to 5/);
 	});
 
 	it("lists the current strings file last in roadmap-strings.sums", () => {

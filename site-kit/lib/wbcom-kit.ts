@@ -1,4 +1,4 @@
-/* wbcom-shared: 5 */
+/* wbcom-shared: 6 */
 /* Browser helpers shared by every Wbcom EmDash plugin kit. Keep this file identical across plugins.
    Same rules as styles/wbcom-base.css: only ever add, and raise the number on the first line. */
 
@@ -43,6 +43,15 @@ export async function registryPluginId(slug: string, did = PUBLISHER_DID): Promi
 		}
 	}
 	return `r_${out.slice(0, 16)}`;
+}
+
+/**
+ * The addresses to try, registry id first (version 6). Browsers give crypto.subtle only to HTTPS
+ * pages and localhost, so on a plain-HTTP address (a LAN or lab host) the registry id cannot be
+ * worked out: there only the name is tried, which reaches a plugin installed from local files.
+ */
+async function candidates(plugin: string): Promise<string[]> {
+	return globalThis.crypto?.subtle ? [await registryPluginId(plugin), plugin] : [plugin];
 }
 
 const chosen = new Map<string, string>();
@@ -94,7 +103,7 @@ export async function pluginFetch(plugin: string, path: string, init: RequestIni
 		remember(plugin, null);
 	}
 	let response: Response | null = null;
-	for (const id of [await registryPluginId(plugin), plugin]) {
+	for (const id of await candidates(plugin)) {
 		response = await fetch(`/_emdash/api/plugins/${id}/${path}`, init);
 		if (await routeMissing(response)) continue;
 		remember(plugin, id);
@@ -118,7 +127,7 @@ export async function callPluginRoute(
 	if (!handler) return { ok: false, error: { code: "UNAVAILABLE", message: "Plugin routes are not available here." } };
 	const method = body === undefined ? "GET" : "POST";
 	const [route, query] = path.split("?");
-	for (const id of [await registryPluginId(plugin), plugin]) {
+	for (const id of await candidates(plugin)) {
 		const request = new Request(`http://localhost/_emdash/api/plugins/${id}/${route}${query ? `?${query}` : ""}`, {
 			method,
 			headers: { "Content-Type": "application/json" },

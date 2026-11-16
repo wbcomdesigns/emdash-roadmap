@@ -49,6 +49,7 @@ export const strings = {
 	suggestClosed: "Suggestions are closed right now.",
 	suggestBusy: "Sending.",
 	suggestSignInNeeded: "Sign in to suggest an idea on this site.",
+	suggestTitleNeeded: "Give a title.",
 	honeypot: "Leave this blank",
 	changelogTitle: "Changelog",
 	changelogIntro: "What shipped, newest first.",

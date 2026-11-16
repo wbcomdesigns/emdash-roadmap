@@ -3,8 +3,8 @@
 # tag that matches the plugin version you installed:
 #
 #   kit="$(mktemp -d)" &&
-#     git clone --depth 1 \
-#       --branch v0.4.0 \
+#     git -c advice.detachedHead=false clone \
+#       --depth 1 --branch v0.4.3 \
 #       https://github.com/wbcomdesigns/emdash-roadmap \
 #       "$kit/emdash-roadmap" &&
 #     "$kit/emdash-roadmap/scripts/add-to-site.sh" .
@@ -179,8 +179,8 @@ $(if (( local_db == 1 )); then printf '%s\n' "  1. Content types. If the seed ab
 
 After every plugin update, run this again from the site root, with the new tag:
   kit="\$(mktemp -d)" &&
-    git clone --depth 1 \\
-      --branch v<new version> \\
+    git -c advice.detachedHead=false clone \\
+      --depth 1 --branch v<new version> \\
       https://github.com/wbcomdesigns/emdash-roadmap \\
       "\$kit/emdash-roadmap" &&
     "\$kit/emdash-roadmap/scripts/add-to-site.sh" .

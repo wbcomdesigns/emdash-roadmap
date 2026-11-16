@@ -293,7 +293,8 @@ export async function mergeStep(ctx: PluginContext, b: Budget, settings: Setting
 			}
 			spend(b);
 			await ctx.storage.votes.deleteMany(moving.map((row) => row.id));
-			return job;
+			// The last batch goes straight on to the count: no Continue spent on an empty read (#78).
+			return found.hasMore ? job : await next("count");
 		}
 		if (job.phase === "count") {
 			// The kept item's count, from its vote rows, stored only if no vote moved it meanwhile.
@@ -309,7 +310,8 @@ export async function mergeStep(ctx: PluginContext, b: Budget, settings: Setting
 				// ponytail: no 0.4.0 row yet (the upgrade has not reached it); a vote in this one call is missed.
 				await ctx.storage.tallies.put(job.keep, freshTally(votes));
 			}
-			return await next("close");
+			// The close below in the same step when its calls are free (the hourly task has them).
+			if (left(b) < 3) return await next("close");
 		}
 		// close: the dropped item's count goes, and a waiting idea for it is marked merged.
 		spend(b);

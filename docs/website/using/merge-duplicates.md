@@ -13,7 +13,7 @@ When two items or ideas ask for the same thing, merge them. Votes move to the it
 5. A warning names both items: "Merge (first) into (second)?" It says the first item is unpublished and its votes move to the second.
 6. Choose **Merge these two**, then **Merge** in the confirmation box.
 
-You see "Merged. Votes moved to the item you kept."
+You see "Merge started." The merge runs in steps. **Merge a duplicate** stays open and shows what happens next, with a **Continue** button that runs the next step: the dropped item is unpublished, then its votes move, 100 at a time, then the kept item's count is checked. A small merge takes a few presses. You can also leave the page: the hourly task finishes it. When it ends you see "Merge finished."
 
 ## What the merge does
 

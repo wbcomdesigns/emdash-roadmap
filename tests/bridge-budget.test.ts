@@ -23,7 +23,7 @@ const MEASURED: Record<string, number> = {
 	"hook content:afterDelete": 2,
 	"hook content:afterRestore": 2,
 	"hook cron notify (sends, 150 old guest votes, 120 old guest ideas, 520 rate rows), largest run": 9,
-	"hook cron notify (merge running), largest run": 8,
+	"hook cron notify (merge running), largest run": 9,
 	"hook cron notify (0.3.0 upgrade), largest run": 8,
 	"route board (200 items, votes sort)": 4,
 	"route board (200 items, category=core)": 4,

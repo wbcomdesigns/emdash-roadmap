@@ -2,6 +2,21 @@
 
 Versions match `package.json`, the git tag and the registry release. Newest first.
 
+## [0.4.3]
+
+The Ideas table fits the screen with long text, a decision keeps your page, and the merge shows its progress where you started it. No new permission. Copy the kit with the new tag: the board, the Suggest page and the shared styles changed.
+
+- Fix      - One long unbroken word in an idea no longer widens the Ideas table: long words and long text are cut with an ellipsis, and the title opens the full idea in the editor.
+- Fix      - Each Decide menu in Ideas names its idea, and the Decision column comes first, so it is in view on a phone.
+- Fix      - After Approve or Reject, Ideas stays on the page you decided on instead of going back to the first page.
+- Fix      - A stage that still has items shows no Remove button; its line says how many items to move first.
+- Fix      - A merge in progress shows its next step and Continue inside Merge a duplicate, needs fewer Continue presses, and says when it finished.
+- Fix      - Vote counts stay readable when voting is off for a visitor (no faded buttons).
+- Fix      - The Suggest form names the field to fix for a blank title or a guest's blank name, and signed-in members are no longer asked for a name.
+- Fix      - A signed-out visitor's vote or suggestion goes straight to the guest route, without failed member requests in the browser console.
+- Dev      - Shared site kit files updated to the current Wbcom version: long words wrap inside kit markup, and plain-HTTP addresses reach a plugin installed from local files.
+- Compat   - On Cloudflare, redeploy after installing or updating a registry plugin (emdash-cms/emdash#4865).
+
 ## [0.4.2]
 
 Authors and Editors can use the Stage panel, and the Ideas admin reaches every waiting idea. No new permission. Copy the kit with the new tag: the Roadmap votes page lists a member's ideas 50 at a time.
